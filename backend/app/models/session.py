@@ -51,9 +51,5 @@ class Session(Base):
         """Get the total number of events for this session."""
         return len(self.behavior_data) if self.behavior_data else 0
     
-    @property
-    def latest_detection(self):
-        """Get the most recent detection result."""
-        if not self.detection_results:
-            return None
-        return max(self.detection_results, key=lambda x: x.created_at) 
+    # Remove the latest_detection property as it causes async issues
+    # The controller will handle getting the latest detection result 

@@ -7,7 +7,7 @@ event ingestion, and detection result retrieval.
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List, Dict, Any
 import logging
 
@@ -150,6 +150,51 @@ class DetectionController:
                 await db.rollback()
                 raise HTTPException(status_code=500, detail="Failed to ingest events")
         
+        @self.router.get("/sessions/{session_id}/ready-for-analysis")
+        async def check_session_ready(
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Check if a session is ready for bot detection analysis."""
+            try:
+                # Validate session exists
+                session_query = select(Session).where(Session.id == session_id)
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(status_code=404, detail="Session not found")
+                
+                # Get behavior data count
+                behavior_count_query = select(func.count(BehaviorData.id)).where(BehaviorData.session_id == session_id)
+                behavior_count_result = await db.execute(behavior_count_query)
+                behavior_count = behavior_count_result.scalar()
+                
+                # Get latest detection result
+                detection_query = (
+                    select(DetectionResult)
+                    .where(DetectionResult.session_id == session_id)
+                    .order_by(DetectionResult.created_at.desc())
+                    .limit(1)
+                )
+                detection_result = await db.execute(detection_query)
+                latest_detection = detection_result.scalar_one_or_none()
+                
+                return {
+                    "session_id": session_id,
+                    "is_ready": behavior_count > 0,
+                    "event_count": behavior_count,
+                    "has_previous_analysis": latest_detection is not None,
+                    "last_analysis": latest_detection.analyzed_at.isoformat() if latest_detection else None,
+                    "message": "Session is ready for analysis" if behavior_count > 0 else "No behavior data found. Add events first."
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error checking session readiness: {e}")
+                raise HTTPException(status_code=500, detail="Failed to check session readiness")
+        
         @self.router.post("/sessions/{session_id}/analyze")
         async def analyze_session(
             session_id: str,
@@ -170,11 +215,19 @@ class DetectionController:
                 behavior_result = await db.execute(behavior_query)
                 behavior_data = behavior_result.scalars().all()
                 
+                logger.info(f"Found {len(behavior_data)} behavior events for session {session_id}")
+                
                 if not behavior_data:
-                    raise HTTPException(status_code=400, detail="No behavior data found for session")
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Session {session_id} has no behavior data to analyze. Please add events first using POST /api/v1/detection/sessions/{session_id}/events"
+                    )
                 
                 # Perform bot detection analysis
                 detection_result = await self.detection_engine.analyze_session(behavior_data)
+                
+                # Set the session_id explicitly
+                detection_result.session_id = session_id
                 
                 # Save detection result
                 db.add(detection_result)
@@ -201,6 +254,9 @@ class DetectionController:
                 raise
             except Exception as e:
                 logger.error(f"Error analyzing session: {e}")
+                logger.error(f"Error type: {type(e)}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 await db.rollback()
                 raise HTTPException(status_code=500, detail="Failed to analyze session")
         

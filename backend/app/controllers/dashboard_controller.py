@@ -80,8 +80,17 @@ class DashboardController:
         ):
             """Get paginated list of sessions with filters."""
             try:
-                # Build query
-                query = select(Session).options(selectinload(Session.detection_results))
+                # Test basic import and model access
+                logger.info(f"Session model: {Session}")
+                logger.info(f"Session table name: {Session.__tablename__}")
+                
+                # Simple count query first
+                count_result = await db.execute(select(func.count(Session.id)))
+                total_count = count_result.scalar()
+                logger.info(f"Total sessions in database: {total_count}")
+                
+                # Simple query with eager loading of behavior_data
+                query = select(Session).options(selectinload(Session.behavior_data))
                 
                 # Apply filters
                 if platform:
@@ -94,20 +103,11 @@ class DashboardController:
                 # Execute query
                 result = await db.execute(query)
                 sessions = result.scalars().all()
+                logger.info(f"Retrieved {len(sessions)} sessions")
                 
-                # Get total count for pagination
-                count_query = select(func.count(Session.id))
-                if platform:
-                    count_query = count_query.where(Session.platform == platform)
-                
-                count_result = await db.execute(count_query)
-                total_count = count_result.scalar()
-                
-                # Format response
+                # Format response with minimal data
                 sessions_data = []
                 for session in sessions:
-                    latest_detection = session.latest_detection
-                    
                     session_data = {
                         "id": session.id,
                         "created_at": session.created_at.isoformat(),
@@ -116,17 +116,8 @@ class DashboardController:
                         "platform": session.platform,
                         "survey_id": session.survey_id,
                         "respondent_id": session.respondent_id,
-                        "event_count": session.event_count
+                        "event_count": len(session.behavior_data) if session.behavior_data else 0
                     }
-                    
-                    if latest_detection:
-                        session_data["detection"] = {
-                            "is_bot": latest_detection.is_bot,
-                            "confidence_score": latest_detection.confidence_score,
-                            "risk_level": latest_detection.risk_level,
-                            "analyzed_at": latest_detection.analyzed_at.isoformat()
-                        }
-                    
                     sessions_data.append(session_data)
                 
                 return {
@@ -141,6 +132,10 @@ class DashboardController:
                 
             except Exception as e:
                 logger.error(f"Error getting sessions list: {e}")
+                logger.error(f"Error type: {type(e)}")
+                logger.error(f"Error details: {str(e)}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 raise HTTPException(status_code=500, detail="Failed to get sessions list")
         
         @self.router.get("/sessions/{session_id}/details")
@@ -254,6 +249,18 @@ class DashboardController:
             except Exception as e:
                 logger.error(f"Error getting analytics trends: {e}")
                 raise HTTPException(status_code=500, detail="Failed to get analytics trends")
+        
+        @self.router.get("/test")
+        async def test_endpoint(db: AsyncSession = Depends(get_db)):
+            """Test endpoint to check database connectivity."""
+            try:
+                # Simple count query
+                result = await db.execute(select(func.count(Session.id)))
+                count = result.scalar()
+                return {"message": "Database connection works", "session_count": count}
+            except Exception as e:
+                logger.error(f"Test endpoint error: {e}")
+                return {"error": str(e)}
     
     async def _get_session_stats(self, db: AsyncSession, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get session statistics for the given period."""
