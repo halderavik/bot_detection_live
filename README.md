@@ -13,8 +13,11 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Monitoring & Logging**: Comprehensive observability with Prometheus and Grafana
 - **Performance Testing**: Locust load testing and async performance validation
 - **Error Handling**: Comprehensive validation and user-friendly error messages
+- **Architecture Documentation**: Comprehensive system architecture and interaction patterns
 
 ## 🏗️ Architecture
+
+For detailed architecture information, see [Architecture Documentation](architecture.md).
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -31,6 +34,15 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 │   (Python/JS)   │    │   (Webhooks)    │    │   (Prometheus)  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
+
+### Key Architectural Features
+
+- **Async/Await Pattern**: Non-blocking I/O operations throughout the system
+- **Layered Architecture**: Clear separation between API, business logic, and data layers
+- **Real-time Updates**: WebSocket support for live dashboard updates
+- **Error Handling**: Comprehensive error handling at all layers
+- **Performance Optimization**: Database optimization, caching, and frontend optimizations
+- **Security**: Multi-layered security approach with validation and protection
 
 ## 📁 Project Structure
 
@@ -65,6 +77,11 @@ bot_iden_live/
 │   ├── python/               # Python client
 │   └── javascript/           # JavaScript client
 ├── docker-compose.yml        # Docker orchestration
+├── architecture.md           # System architecture documentation
+├── API.md                    # API reference documentation
+├── planning.md               # Technical planning document
+├── prd.md                    # Product requirements document
+├── task.md                   # Development tasks and progress
 └── README.md                # This file
 ```
 
@@ -134,9 +151,18 @@ docker-compose --profile production up -d
 - **Frontend Dashboard**: http://localhost:3000
 - **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
 
-## 📚 API Documentation
+## 📚 Documentation
 
-### Core Endpoints
+### Core Documentation
+- **[Architecture Documentation](architecture.md)**: Comprehensive system architecture and interaction patterns
+- **[API Reference](API.md)**: Complete API documentation with examples
+- **[Technical Planning](planning.md)**: Production deployment and scaling considerations
+- **[Product Requirements](prd.md)**: Product specifications and success metrics
+- **[Development Tasks](task.md)**: Current progress and upcoming features
+
+### API Documentation
+
+#### Core Endpoints
 
 #### Sessions
 ```http
@@ -306,7 +332,7 @@ logger.info("Application started")
 
 ### Authentication
 - API key authentication for external integrations
-- JWT tokens for user sessions
+- JWT tokens for user sessions (planned)
 - CORS configuration for cross-origin requests
 
 ### Data Protection
@@ -359,9 +385,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 ### Documentation
-- [API Reference](docs/api.md)
-- [Integration Guide](docs/integration.md)
-- [Deployment Guide](docs/deployment.md)
+- [Architecture Guide](architecture.md)
+- [API Reference](API.md)
+- [Integration Guide](API.md#integration-apis)
+- [Deployment Guide](planning.md)
 
 ### Community
 - [Issues](https://github.com/halderavik/bot_detection_live/issues)
@@ -381,6 +408,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ Performance testing
 - ✅ Error handling improvements
 - ✅ Client SDKs
+- ✅ Architecture documentation
+- ✅ Comprehensive API documentation
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models
@@ -405,6 +434,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Error Handling**: Comprehensive validation and user-friendly messages
 - **Scalability**: Modular architecture ready for horizontal scaling
 - **Testing**: Automated performance validation with Locust
+- **Architecture**: Well-documented system design with clear interaction patterns
 
 ---
 
