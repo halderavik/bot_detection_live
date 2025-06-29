@@ -11,6 +11,7 @@
 8. [Integration Guides](#integration-guides)
 9. [Client SDKs](#client-sdks)
 10. [Rate Limits & Best Practices](#rate-limits--best-practices)
+11. [Frontend Integration](#frontend-integration)
 
 ---
 
@@ -25,6 +26,8 @@ The Bot Detection API provides comprehensive bot detection capabilities through 
 - **Survey Integration**: Seamless integration with Qualtrics and Decipher
 - **Dashboard Analytics**: Comprehensive monitoring and reporting
 - **Client SDKs**: Python and JavaScript libraries for easy integration
+- **Frontend Dashboard**: Complete React-based monitoring interface
+- **Integration Management**: Webhook testing and status monitoring
 
 ---
 
@@ -743,6 +746,38 @@ console.log(`Confidence: ${result.confidence_score}`);
 
 ---
 
+## Frontend Integration
+
+### React Dashboard
+
+The system includes a comprehensive React-based dashboard for monitoring and management:
+
+#### Key Features
+- **Real-time Updates**: Live session monitoring and analysis results
+- **Integration Management**: Webhook testing and status monitoring
+- **API Playground**: Interactive API testing interface
+- **Quick Start Guide**: Step-by-step integration instructions
+- **Settings Interface**: System configuration management
+- **Toast Notifications**: User feedback and alerts
+
+#### Dashboard Components
+- **Dashboard.jsx**: Main dashboard with charts and statistics
+- **Integrations.jsx**: Integration management and webhook testing
+- **Settings.jsx**: System configuration and settings
+- **ApiPlayground.jsx**: Interactive API testing interface
+- **QuickStartGuide.jsx**: Getting started guide
+- **SessionDetails.jsx**: Detailed session analysis view
+
+#### Usage
+```javascript
+// Access the dashboard at http://localhost:3000
+// Navigate between different sections using the navigation menu
+// Use the API playground to test endpoints interactively
+// Monitor integrations and test webhooks in real-time
+```
+
+---
+
 ## Rate Limits & Best Practices
 
 ### Rate Limits
@@ -797,6 +832,7 @@ console.log(`Confidence: ${result.confidence_score}`);
 - [API Reference](https://docs.botdetection.com/api)
 - [Integration Guides](https://docs.botdetection.com/integrations)
 - [SDK Documentation](https://docs.botdetection.com/sdks)
+- [Frontend Dashboard Guide](https://docs.botdetection.com/dashboard)
 
 ### Community
 - [GitHub Issues](https://github.com/halderavik/bot_detection_live/issues)

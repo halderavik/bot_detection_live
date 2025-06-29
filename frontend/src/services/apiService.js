@@ -101,7 +101,8 @@ export const integrationService = {
 // Health check
 export const healthService = {
   checkHealth: async () => {
-    return api.get('/health');
+    // Call the root /health endpoint directly
+    return axios.get('http://localhost:8000/health');
   },
 };
 
