@@ -12,20 +12,27 @@ graph TB
         E --> F[Network Transmission]
     end
     
-    subgraph "Server Side (API)"
-        F --> G[Event Ingestion]
-        G --> H[Data Validation]
-        H --> I[Session Management]
-        I --> J[Analysis Triggering]
-        J --> K[Detection Engine]
-        K --> L[Result Generation]
-        L --> M[Response to Client]
-    end
-    
-    subgraph "Data Storage"
-        N[(PostgreSQL Database)]
+    subgraph "Server Side (GCP)"
+        subgraph "Cloud Run: FastAPI Backend"
+            F --> G[Event Ingestion]
+            G --> H[Data Validation]
+            H --> I[Session Management]
+            I --> J[Analysis Triggering]
+            J --> K[Detection Engine]
+            K --> L[Result Generation]
+            L --> M[Response to Client]
+        end
+        subgraph "Cloud SQL: PostgreSQL"
+            N[(Database)]
+        end
         I --> N
         K --> N
+    end
+    
+    subgraph "Static Hosting"
+        R[Cloud Storage Bucket]
+        S[Cloud CDN]
+        R --> S
     end
     
     subgraph "Integration Layer"
@@ -40,6 +47,8 @@ graph TB
     style A fill:#e1f5fe
     style M fill:#c8e6c9
     style N fill:#fff3e0
+    style R fill:#e8f5e9
+    style S fill:#e8f5e9
 ```
 
 ## 2. Data Collection Flow

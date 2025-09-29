@@ -8,6 +8,7 @@ and application configuration with validation and type safety.
 from pydantic_settings import BaseSettings
 from typing import List, Optional
 import os
+import json
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
@@ -24,7 +25,15 @@ class Settings(BaseSettings):
     # Security settings
     SECRET_KEY: str = "your-secret-key-here"
     ALLOWED_HOSTS: List[str] = ["*"]
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    ALLOWED_ORIGINS: str = '["http://localhost:3000", "http://localhost:5173"]'
+    
+    def get_allowed_origins(self) -> List[str]:
+        """Parse ALLOWED_ORIGINS from JSON string."""
+        try:
+            return json.loads(self.ALLOWED_ORIGINS)
+        except (json.JSONDecodeError, TypeError):
+            # Fallback to default if parsing fails
+            return ["http://localhost:3000", "http://localhost:5173"]
     
     # API settings
     API_V1_STR: str = "/api/v1"

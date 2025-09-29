@@ -26,11 +26,15 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Bot Detection API...")
     
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Create database tables (with error handling)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        logger.warning("Application will start without database tables")
     
-    logger.info("Database tables created successfully")
     yield
     
     # Shutdown
@@ -50,7 +54,7 @@ def create_app() -> FastAPI:
     # Add middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=settings.get_allowed_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

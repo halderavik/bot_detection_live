@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -102,7 +102,9 @@ export const integrationService = {
 export const healthService = {
   checkHealth: async () => {
     // Call the root /health endpoint directly
-    return axios.get('http://localhost:8000/health');
+    const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+    const healthURL = baseURL.replace('/api/v1', '') + '/health';
+    return axios.get(healthURL);
   },
 };
 

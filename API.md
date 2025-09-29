@@ -34,9 +34,17 @@ The Bot Detection API provides comprehensive bot detection capabilities through 
 ## Base URL & Authentication
 
 ### Base URL
+Local (development)
 ```
 http://localhost:8000/api/v1
 ```
+
+Production (GCP)
+```
+https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+```
+
+Note: Interactive API docs are disabled in production for security. Use local `/docs` during development or the curl examples below for production testing.
 
 ### Authentication
 Currently, the API uses basic authentication. In production, this should be replaced with JWT tokens or API keys.
@@ -73,7 +81,12 @@ POST /detection/sessions
 
 **Example:**
 ```bash
+# Local
 curl -X POST "http://localhost:8000/api/v1/detection/sessions" \
+  -H "Content-Type: application/json"
+
+# Production
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 ```
 
@@ -356,12 +369,12 @@ GET /integrations/status
   "qualtrics": {
     "status": "connected",
     "api_token_configured": true,
-    "webhook_url": "http://localhost:8000/api/v1/integrations/webhooks/qualtrics"
+  "webhook_url": "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/webhooks/qualtrics"
   },
   "decipher": {
     "status": "connected",
     "api_key_configured": true,
-    "webhook_url": "http://localhost:8000/api/v1/integrations/webhooks/decipher"
+  "webhook_url": "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/webhooks/decipher"
   }
 }
 ```
@@ -571,7 +584,7 @@ Add this JavaScript to your Qualtrics survey:
 ```javascript
 // Initialize bot detection
 const sessionId = '{{e://Field/sessionId}}'; // Qualtrics embedded data
-const apiBaseUrl = 'http://localhost:8000/api/v1';
+const apiBaseUrl = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
 // Send events to bot detection API
 function sendEvent(eventData) {
@@ -629,7 +642,7 @@ Add this JavaScript to your Decipher survey:
 ```javascript
 // Initialize bot detection
 const sessionId = '${sessionId}'; // Decipher system variable
-const apiBaseUrl = 'http://localhost:8000/api/v1';
+const apiBaseUrl = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
 // Send events to bot detection API
 function sendEvent(eventData) {
@@ -684,7 +697,7 @@ pip install bot-detection-client
 from bot_detection_client import BotDetectionClient
 
 # Initialize client
-client = BotDetectionClient(base_url="http://localhost:8000/api/v1")
+client = BotDetectionClient(base_url="https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1")
 
 # Create session
 session = await client.create_session()
@@ -720,7 +733,7 @@ import { BotDetectionClient } from 'bot-detection-client';
 
 // Initialize client
 const client = new BotDetectionClient({
-  baseUrl: 'http://localhost:8000/api/v1'
+  baseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1'
 });
 
 // Create session

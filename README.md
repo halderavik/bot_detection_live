@@ -159,9 +159,19 @@ docker-compose --profile production up -d
 ```
 
 ### 4. Access Services
+
+#### Local Development
 - **API Documentation**: http://localhost:8000/docs
 - **Frontend Dashboard**: http://localhost:3000
 - **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
+
+#### Production (GCP)
+- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **API Documentation**: Disabled in production (security)
+- **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20250929/
+- **Frontend Dashboard (Direct)**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+- **Load Balancer IP**: http://34.95.104.61 (HTTP only, for testing)
+- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
 
 ## 📚 Documentation
 
@@ -217,13 +227,31 @@ GET /metrics
 
 #### 1. Create a Session
 ```bash
+# Local
 curl -X POST "http://localhost:8000/api/v1/detection/sessions" \
+  -H "Content-Type: application/json"
+
+# Production
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 ```
 
 #### 2. Send Events
 ```bash
+# Local
 curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/events" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "event_type": "keystroke",
+      "timestamp": "2024-01-01T12:00:00Z",
+      "key": "a",
+      "element_id": "input-1"
+    }
+  ]'
+
+# Production
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/events" \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -237,12 +265,20 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/event
 
 #### 3. Check if Session is Ready for Analysis
 ```bash
+# Local
 curl -X GET "http://localhost:8000/api/v1/detection/sessions/{session_id}/ready-for-analysis"
+
+# Production
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 ```
 
 #### 4. Analyze Session
 ```bash
+# Local
 curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analyze"
+
+# Production
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
 ```
 
 ## 🔧 Configuration
@@ -272,7 +308,12 @@ DEBUG=true
 
 #### Frontend (.env)
 ```env
+# Local Development
 VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_APP_NAME=Bot Detection Dashboard
+
+# Production (.env.production)
+VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
 VITE_APP_NAME=Bot Detection Dashboard
 ```
 
@@ -361,7 +402,7 @@ logger.info("Application started")
 
 ## 🚀 Deployment
 
-### Production Deployment
+### Local Development
 ```bash
 # Build and deploy
 docker-compose --profile production up -d
@@ -370,10 +411,30 @@ docker-compose --profile production up -d
 docker-compose --profile production --profile monitoring up -d
 ```
 
+### Production Deployment (GCP)
+The application is currently deployed on Google Cloud Platform:
+
+#### Backend (Cloud Run)
+- **URL**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **Database**: Cloud SQL PostgreSQL
+- **Secrets**: Secret Manager
+- **Networking**: VPC Connector
+
+#### Frontend (Cloud Storage)
+- **URL**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+- **CDN**: Cloud CDN enabled
+- **Caching**: Optimized for static assets
+
+#### Deployment Scripts
+- `provision-cloudsql.ps1` - Database and networking setup
+- `deploy-backend.ps1` - Backend deployment to Cloud Run
+- `deploy-frontend.ps1` - Frontend deployment to Cloud Storage
+- `cloudbuild.yaml` - CI/CD pipeline configuration
+
 ### Environment-Specific Configs
 - **Development**: `docker-compose.yml`
 - **Staging**: `docker-compose.staging.yml`
-- **Production**: `docker-compose.prod.yml`
+- **Production**: GCP Cloud Run + Cloud Storage
 
 ## 🤝 Contributing
 
@@ -425,6 +486,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ Frontend integration fixes and enhancements
 - ✅ Integration management interface
 - ✅ API playground and quick start guide
+- ✅ **Production deployment on GCP**
+- ✅ **Cloud Run backend with Cloud SQL**
+- ✅ **Cloud Storage frontend with CDN**
+- ✅ **Automated deployment scripts**
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models
@@ -452,6 +517,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Architecture**: Well-documented system design with clear interaction patterns
 - **Frontend**: Fast, responsive React dashboard with real-time updates
 - **Integration**: Seamless survey platform integration with webhook testing
+- **Production**: Successfully deployed on GCP with Cloud Run and Cloud Storage
+- **Infrastructure**: Automated deployment with PowerShell scripts and Cloud Build
+- **Monitoring**: Health checks and metrics exposed for production monitoring
 
 ---
 

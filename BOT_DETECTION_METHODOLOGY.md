@@ -131,7 +131,7 @@ Our JavaScript tracking client automatically captures user behavior events:
 ```javascript
 // Initialize the tracker
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://your-api.com/api/v1',
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     batchSize: 10,
     flushInterval: 5000,
     debug: false
@@ -418,7 +418,7 @@ def determine_risk_level(confidence_score, is_bot):
 // Qualtrics embedded data
 Qualtrics.SurveyEngine.addOnload(function() {
     const tracker = new BotDetection.Tracker({
-        apiBaseUrl: 'https://your-api.com/api/v1',
+        apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
         sessionId: '${e://Field/session_id}'
     });
     
@@ -444,7 +444,7 @@ const webhookData = {
     bot_detection_result: analysisResult
 };
 
-fetch('https://your-api.com/api/v1/integrations/decipher/webhook', {
+fetch('https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/decipher/webhook', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(webhookData)
@@ -457,7 +457,7 @@ fetch('https://your-api.com/api/v1/integrations/decipher/webhook', {
 ```javascript
 // Initialize tracking
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://your-api.com/api/v1'
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1'
 });
 
 // Start tracking
@@ -472,7 +472,7 @@ console.log('Bot detection result:', result);
 ```javascript
 // Custom configuration
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://your-api.com/api/v1',
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     batchSize: 5,
     flushInterval: 3000,
     debug: true,
@@ -582,7 +582,7 @@ Enable debug mode for detailed logging:
 ```javascript
 const tracker = new BotDetection.Tracker({
     debug: true,
-    apiBaseUrl: 'https://your-api.com/api/v1'
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1'
 });
 ```
 
