@@ -2,6 +2,25 @@
 
 This guide shows you exactly how to add bot detection to your Decipher survey in 3 simple steps. No complex options - just copy, paste, and you're done.
 
+## 🚀 How to Use This Guide
+
+### For Beginners (Never used Decipher before):
+1. **Start with the Quick Start section** below to get familiar
+2. **Follow each step exactly** - don't skip any steps
+3. **Test with a simple survey first** before using on important surveys
+4. **Read the troubleshooting section** if you run into issues
+
+### For Experienced Decipher Users:
+1. **Jump to Step 1** to copy the JavaScript code
+2. **Create the hidden fields** from Step 2
+3. **Add the analysis code** from Step 3
+4. **Test and deploy**
+
+### What You'll Need:
+- Access to your Decipher survey editor
+- Basic knowledge of where to add JavaScript in Decipher
+- 15-30 minutes to complete the setup
+
 ## Quick Start for Testing (TL;DR)
 
 1. **Create a test survey** with 2-3 questions
@@ -17,9 +36,22 @@ Our system watches how people interact with your survey (typing, mouse movements
 
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 
-**Where to put this:** Add this to your survey's header or first page as custom JavaScript.
+### 📍 Where to put this code:
+**In Decipher:** Go to your survey editor → Survey Options → JavaScript → Header section
+**Alternative:** Add to your first question as custom JavaScript
 
-**What it does:** Creates a session and starts collecting data about user behavior.
+### 🎯 What it does:
+- Creates a unique session ID for each user
+- Starts collecting data about user behavior (typing, mouse movements, scrolling)
+- Sends data to our analysis server automatically
+
+### 📋 Step-by-step instructions:
+1. **Open your Decipher survey** in the survey editor
+2. **Click "Survey Options"** in the left sidebar
+3. **Click "JavaScript"** in the options menu
+4. **Click the "Header" tab** (or "Footer" if you prefer)
+5. **Copy and paste the code below** into the text area
+6. **Click "Save"** to save your survey
 
 ```javascript
 // Bot Detection Setup - Add this once at the start of your survey
@@ -107,18 +139,71 @@ setupBotDetection();
 
 ## Step 2: Add Hidden Fields (Once in Decipher)
 
-Create these hidden fields in your Decipher survey to store the results:
+### 📍 What are hidden fields?
+Hidden fields store data that users can't see but gets saved with their survey responses. We need these to store the bot detection results.
 
-1. **Field ID:** `bot_session_id` (Text field, hidden)
-2. **Field ID:** `bot_result` (Text field, hidden) 
-3. **Field ID:** `bot_is_bot` (Text field, hidden)
-4. **Field ID:** `bot_confidence` (Text field, hidden)
+### 📋 Step-by-step instructions:
+1. **In your Decipher survey editor**, click "Add Question" or the "+" button
+2. **Select "Text Entry"** question type
+3. **For each field below**, follow these steps:
+
+#### Field 1: Session ID
+- **Question Text:** `bot_session_id` (or leave blank)
+- **Variable Name:** `bot_session_id` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Field 2: Bot Result
+- **Question Text:** `bot_result` (or leave blank)
+- **Variable Name:** `bot_result` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Field 3: Is Bot
+- **Question Text:** `bot_is_bot` (or leave blank)
+- **Variable Name:** `bot_is_bot` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Field 4: Confidence Score
+- **Question Text:** `bot_confidence` (or leave blank)
+- **Variable Name:** `bot_confidence` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+### ⚠️ Important Notes:
+- **Variable names must be EXACTLY** as shown above (case-sensitive)
+- **All fields must be marked as "Hidden"** so users don't see them
+- **You can put these fields anywhere** in your survey - beginning, middle, or end
+- **The fields will be empty** until someone takes your survey
 
 ## Step 3: Analyze on Survey Completion (Once at the End)
 
-**Where to put this:** Add this to your final page or thank you page as custom JavaScript.
+### 📍 Where to put this code:
+**Option 1 (Recommended):** Add to your final page or thank you page as custom JavaScript
+**Option 2:** Add to Survey Options → JavaScript → Footer section
 
-**What it does:** Analyzes all the collected data and saves the bot detection result.
+### 🎯 What it does:
+- Sends any remaining behavior data to our server
+- Analyzes all the collected data using AI
+- Determines if the user is a bot or human
+- Saves the results in your hidden fields
+
+### 📋 Step-by-step instructions:
+1. **Go to your final survey page** (thank you page or last question)
+2. **Click "Add JavaScript"** or "Custom JavaScript" on that page
+3. **Copy and paste the code below** into the JavaScript area
+4. **Click "Save"** to save your survey
+
+### 🔄 Alternative method (if you prefer):
+1. **Go to Survey Options** → **JavaScript**
+2. **Click the "Footer" tab**
+3. **Paste the code below** into the footer section
+4. **Click "Save"**
 
 ```javascript
 // Bot Detection Analysis - Add this at the end of your survey
@@ -181,6 +266,43 @@ analyzeBotDetection();
    - `bot_confidence`: A number from 0-1 showing how confident we are
    - `bot_result`: Full analysis details
 
+## 📚 Complete Setup Checklist
+
+Use this checklist to make sure you've done everything correctly:
+
+### Before You Start:
+- [ ] I have access to my Decipher survey editor
+- [ ] I have a test survey ready (or I'll create one)
+- [ ] I have 15-30 minutes to complete the setup
+
+### Step 1: JavaScript Setup:
+- [ ] I opened my survey in the Decipher editor
+- [ ] I went to Survey Options → JavaScript → Header
+- [ ] I copied and pasted the tracking code from Step 1
+- [ ] I saved my survey
+
+### Step 2: Hidden Fields:
+- [ ] I created a hidden field with variable name `bot_session_id`
+- [ ] I created a hidden field with variable name `bot_result`
+- [ ] I created a hidden field with variable name `bot_is_bot`
+- [ ] I created a hidden field with variable name `bot_confidence`
+- [ ] All fields are marked as "Hidden"
+- [ ] Variable names are exactly as shown (case-sensitive)
+
+### Step 3: Analysis Code:
+- [ ] I added the analysis code to my final page OR footer section
+- [ ] I saved my survey
+
+### Testing:
+- [ ] I tested my survey by taking it myself
+- [ ] I checked the browser console for errors (F12 → Console)
+- [ ] I downloaded my data export to check for bot detection results
+- [ ] The bot detection columns appear in my data export
+
+### Going Live:
+- [ ] I tested with a real survey (not just test data)
+- [ ] I'm ready to deploy to my main survey
+
 ## What You Get in Your Data Export
 
 After the survey, you'll see these new columns in your Decipher data:
@@ -188,18 +310,61 @@ After the survey, you'll see these new columns in your Decipher data:
 - `bot_confidence`: 0.0 to 1.0 (higher = more confident)
 - `bot_result`: Complete analysis details in JSON format
 
+## ⚠️ Common Mistakes to Avoid
+
+### ❌ Don't Do This:
+- **Wrong variable names:** `bot_session_ID` instead of `bot_session_id` (case matters!)
+- **Forgetting to mark fields as hidden:** Users will see empty fields
+- **Copying code incorrectly:** Missing brackets, quotes, or semicolons
+- **Not testing first:** Always test with a simple survey before going live
+- **Putting code in wrong place:** Header code goes in header, analysis code goes at the end
+
+### ✅ Do This Instead:
+- **Copy variable names exactly** as shown (case-sensitive)
+- **Always mark fields as "Hidden"** so users don't see them
+- **Copy the entire code blocks** without modification
+- **Test with a 2-3 question survey first**
+- **Follow the step-by-step instructions exactly**
+
 ## Troubleshooting
 
-**Nothing shows up in my data?**
-- Make sure you created the hidden fields with the exact field IDs shown above
-- Check that the JavaScript is running (look for errors in browser console)
+### 🔍 Nothing shows up in my data?
+**Possible causes:**
+- Hidden fields not created with exact variable names
+- JavaScript code not added correctly
+- Survey not published/activated
 
-**Getting errors?**
-- The system will still work even if some requests fail
-- Check that your survey can access the internet (no firewall blocks)
+**Solutions:**
+- Double-check variable names are exactly: `bot_session_id`, `bot_result`, `bot_is_bot`, `bot_confidence`
+- Verify JavaScript is in the right places (header and footer/final page)
+- Make sure your survey is published and active
 
-**Need help?**
-- Contact your technical team with any integration questions
+### 🔍 Getting errors in browser console?
+**Possible causes:**
+- JavaScript syntax errors
+- Network connectivity issues
+- Survey platform blocking external requests
+
+**Solutions:**
+- Check that you copied the code exactly (no missing brackets or quotes)
+- Test your survey on a different network
+- Contact your IT team if your organization blocks external URLs
+
+### 🔍 All results show "unknown"?
+**Possible causes:**
+- Internet connection issues during survey
+- API server temporarily unavailable
+- JavaScript code not running properly
+
+**Solutions:**
+- Check your internet connection
+- Try testing the survey again
+- Verify the JavaScript code is running (check browser console)
+
+### 🔍 Need more help?
+- **Check our API Playground:** Test the system directly at the Integration tab
+- **Contact your technical team** with specific error messages
+- **Test with our demo:** Use the API Playground to understand how the system works
 
 ## How to Test Your Integration
 
