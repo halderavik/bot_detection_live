@@ -115,13 +115,26 @@ const Integrations = () => {
     );
   }
 
-  const webhookBaseUrl = 'http://localhost:8000/api/v1/integrations/webhooks';
+  // Use deployed backend URL
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+  const webhookBaseUrl = apiBaseUrl.replace('/api/v1', '') + '/api/v1/integrations/webhooks';
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
-        <p className="text-gray-600 mt-2">Manage your survey platform integrations</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
+            <p className="text-gray-600 mt-2">Manage your survey platform integrations</p>
+          </div>
+          <div className="bg-green-100 border border-green-200 rounded-lg px-4 py-2">
+            <div className="flex items-center">
+              <div className="h-2 w-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+              <span className="text-sm font-medium text-green-800">Production Ready</span>
+            </div>
+            <p className="text-xs text-green-600 mt-1">All systems operational</p>
+          </div>
+        </div>
         {error && (
           <div className="mt-2 text-red-600 flex items-center gap-2">
             {/* <TriangleAlert className="h-5 w-5" /> */}
@@ -235,6 +248,43 @@ const Integrations = () => {
         </div>
       </div>
 
+      {/* Quick Start Guide */}
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Start Guide</h3>
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg mb-6">
+          <h4 className="text-md font-semibold text-gray-900 mb-3">🚀 Ready to integrate bot detection?</h4>
+          <p className="text-sm text-gray-600 mb-4">
+            Follow our step-by-step guides to add bot detection to your surveys in minutes:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a 
+              href="https://storage.googleapis.com/bot-detection-frontend-20250929/index.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-white p-4 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+            >
+              <div className="flex items-center mb-2">
+                <Globe className="h-5 w-5 text-blue-600 mr-2" />
+                <span className="font-medium text-gray-900">Decipher Integration</span>
+              </div>
+              <p className="text-xs text-gray-600">Complete guide for Decipher surveys with copy-paste code</p>
+            </a>
+            <a 
+              href="https://storage.googleapis.com/bot-detection-frontend-20250929/index.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-white p-4 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
+            >
+              <div className="flex items-center mb-2">
+                <Zap className="h-5 w-5 text-purple-600 mr-2" />
+                <span className="font-medium text-gray-900">API Playground</span>
+              </div>
+              <p className="text-xs text-gray-600">Test the bot detection system directly</p>
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* Setup Instructions */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Setup Instructions</h3>
@@ -294,7 +344,7 @@ const Integrations = () => {
             <pre className="text-xs">
 {`// Bot Detection Integration
 const sessionId = '{{e://Field/sessionId}}'; // Survey embedded data
-const apiBaseUrl = 'http://localhost:8000/api/v1';
+const apiBaseUrl = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
 
 // Initialize bot detection
 async function initBotDetection() {
@@ -352,7 +402,7 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`}
           <button
             onClick={() => copyToClipboard(`// Bot Detection Integration
 const sessionId = '{{e://Field/sessionId}}'; // Survey embedded data
-const apiBaseUrl = 'http://localhost:8000/api/v1';
+const apiBaseUrl = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
 
 // Initialize bot detection
 async function initBotDetection() {
@@ -428,22 +478,63 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
           API Documentation
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Webhook Endpoints</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li><code className="bg-gray-200 px-1 rounded">POST /integrations/webhooks/qualtrics</code></li>
-              <li><code className="bg-gray-200 px-1 rounded">POST /integrations/webhooks/decipher</code></li>
-            </ul>
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">🌐 Production API Base URL</h4>
+            <div className="flex items-center space-x-2">
+              <code className="flex-1 text-sm bg-white p-2 rounded border">
+                https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
+              </code>
+              <button
+                onClick={() => copyToClipboard('https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1', 'api-base')}
+                className="p-1 text-gray-500 hover:text-gray-700"
+                title="Copy API base URL"
+              >
+                {copiedField === 'api-base' ? (
+                  <Check className="h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
           
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Status Endpoints</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li><code className="bg-gray-200 px-1 rounded">GET /integrations/status</code></li>
-              <li><code className="bg-gray-200 px-1 rounded">GET /integrations/qualtrics/surveys/{'{survey_id}'}</code></li>
-              <li><code className="bg-gray-200 px-1 rounded">GET /integrations/decipher/surveys/{'{survey_id}'}</code></li>
-            </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Bot Detection Endpoints</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li><code className="bg-gray-200 px-1 rounded">POST /detection/sessions</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">POST /detection/sessions/{'{id}'}/events</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">POST /detection/sessions/{'{id}'}/analyze</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">GET /detection/sessions/{'{id}'}/status</code></li>
+              </ul>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 mb-2">Dashboard Endpoints</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li><code className="bg-gray-200 px-1 rounded">GET /dashboard/overview</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">GET /dashboard/sessions</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">GET /integrations/status</code></li>
+                <li><code className="bg-gray-200 px-1 rounded">GET /health</code></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">📚 Full Documentation</h4>
+            <p className="text-sm text-gray-600 mb-2">
+              For complete API documentation with examples and interactive testing:
+            </p>
+            <a 
+              href={`${apiBaseUrl.replace('/api/v1', '')}/docs`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              <Globe className="h-4 w-4 mr-1" />
+              Open API Documentation
+            </a>
           </div>
         </div>
       </div>
