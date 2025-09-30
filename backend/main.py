@@ -11,6 +11,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from app.config import settings
 from app.database import engine, Base
@@ -72,6 +73,18 @@ def create_app() -> FastAPI:
     async def health_check():
         """Health check endpoint for monitoring."""
         return {"status": "healthy", "service": "bot-detection-api"}
+    
+    @app.get("/metrics")
+    async def metrics():
+        """Prometheus metrics endpoint."""
+        if not settings.ENABLE_METRICS:
+            raise HTTPException(status_code=404, detail="Metrics endpoint disabled")
+        
+        from fastapi import Response
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST
+        )
     
     @app.get("/")
     async def root():
