@@ -47,15 +47,15 @@ def create_app() -> FastAPI:
         title="Bot Detection API",
         description="Advanced bot detection service with behavioral analysis",
         version="1.0.0",
-        docs_url="/docs" if settings.DEBUG else None,
-        redoc_url="/redoc" if settings.DEBUG else None,
+        docs_url="/docs",
+        redoc_url="/redoc",
         lifespan=lifespan
     )
     
     # Add middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.get_allowed_origins(),
+        allow_origins=["*"],  # Allow all origins for now
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -92,7 +92,8 @@ def create_app() -> FastAPI:
         return {
             "message": "Bot Detection API",
             "version": "1.0.0",
-            "docs": "/docs" if settings.DEBUG else "Documentation disabled in production"
+            "docs": "/docs",
+            "redoc": "/redoc"
         }
     
     return app

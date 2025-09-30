@@ -484,6 +484,13 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] **Updated All Components** - Settings, ApiPlayground, Integrations, SessionList, SessionDetails, QuickStartGuide
 - [x] **Production Deployment** - Frontend rebuilt and deployed with new config system
 
+### API Documentation Fix ✅
+- [x] **Fixed API Documentation Link** - Enabled API documentation in production by removing DEBUG-only restriction
+- [x] **Updated FastAPI Configuration** - Modified main.py to always serve /docs and /redoc endpoints
+- [x] **Redeployed Backend** - Successfully deployed updated backend with API documentation enabled
+- [x] **Verified Functionality** - Confirmed API documentation is accessible at https://bot-backend-i56xopdg6q-pd.a.run.app/docs
+- [x] **Updated Root Endpoint** - Root endpoint now correctly shows documentation URLs
+
 ### Dashboard Enhancement: Session Logs & Respondent Activity Table (Planned)
 - [ ] Add a session table to the dashboard:
     - Columns: Session ID, Respondent ID, Created At, Event Count, Status, Bot/Human, Confidence, Risk Level, Last Analysis, Reason/Flagged Patterns

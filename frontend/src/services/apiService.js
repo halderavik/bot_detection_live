@@ -121,15 +121,33 @@ export const integrationService = {
 
   // Get integration status
   getIntegrationStatus: async () => {
-    return api.get('/integrations/status');
+    try {
+      const response = await api.get('/integrations/status');
+      console.log('Integration status response:', response);
+      return response;
+    } catch (error) {
+      console.error('Integration status failed:', error);
+      // Return default status if integration check fails
+      return {
+        qualtrics: { enabled: false, configured: false },
+        decipher: { enabled: false, configured: false }
+      };
+    }
   },
 };
 
 // Health check
 export const healthService = {
   checkHealth: async () => {
-    // Call the root /health endpoint directly
-    return axios.get(config.healthUrl, { timeout: 5000 });
+    try {
+      // Call the root /health endpoint directly
+      const response = await axios.get(config.healthUrl, { timeout: 5000 });
+      console.log('Health check response:', response.data);
+      return response.data; // Return the data part of the response
+    } catch (error) {
+      console.error('Health check failed:', error);
+      throw error;
+    }
   },
 };
 
