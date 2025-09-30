@@ -7,6 +7,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Advanced Bot Detection**: Rule-based analysis of user behavior patterns with 5 detection methods
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
+- **Report Builder**: Comprehensive reporting system with survey selection, summary/detailed reports, and CSV exports
 - **Scalable Architecture**: FastAPI backend with PostgreSQL and Redis
 - **Client SDKs**: Python and JavaScript client libraries for easy integration
 - **Webhook Support**: Automated survey response processing
@@ -219,6 +220,16 @@ POST /api/v1/integrations/webhooks/decipher
 GET /api/v1/integrations/status
 ```
 
+#### Report Builder
+```http
+GET /api/v1/reports/surveys
+GET /api/v1/reports/summary/{survey_id}
+GET /api/v1/reports/detailed/{survey_id}
+GET /api/v1/reports/detailed/{survey_id}/csv
+GET /api/v1/reports/summary/{survey_id}/pdf
+POST /api/v1/reports/generate
+```
+
 #### Health & Monitoring
 ```http
 GET /health
@@ -228,6 +239,7 @@ GET /metrics
 **Production Status**: ✅ All endpoints operational
 - **Health**: 200 OK - `{"status":"healthy","service":"bot-detection-api"}`
 - **Metrics**: 200 OK - Prometheus-compatible metrics exposed
+- **Reports**: 200 OK - Report builder fully functional with CSV exports
 
 ### Example Usage
 
@@ -285,6 +297,22 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analy
 
 # Production
 curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
+```
+
+#### 5. Generate Reports
+```bash
+# Get available surveys
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
+
+# Generate summary report
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/summary/SURVEY_001"
+
+# Generate detailed report
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001"
+
+# Download CSV report
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
+  -o survey_report.csv
 ```
 
 ## 🔧 Configuration
