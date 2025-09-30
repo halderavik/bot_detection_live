@@ -219,6 +219,9 @@
 - [x] Add session details and analysis views
 - [x] Create responsive navigation and routing
 - [x] Implement proper error boundaries and loading states
+- [x] **Centralized Configuration System** - Created config.ts with environment variables for zero-code environment switching
+- [x] **Updated All Components** - Replaced hardcoded URLs with centralized config across all frontend components
+- [x] **Environment-Agnostic Frontend** - All URLs now dynamically derived from environment variables
 
 ### Next Steps
 - [ ] Add comprehensive unit tests for all components
@@ -476,6 +479,10 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] Added session details and analysis views
 - [x] Created responsive navigation and routing
 - [x] Implemented proper error boundaries and loading states
+- [x] **Centralized Configuration System** - Created `frontend/src/config/config.ts` with environment variables
+- [x] **Zero-Code Environment Switching** - All URLs now use `VITE_API_BASE_URL` and `VITE_FRONTEND_BASE_URL`
+- [x] **Updated All Components** - Settings, ApiPlayground, Integrations, SessionList, SessionDetails, QuickStartGuide
+- [x] **Production Deployment** - Frontend rebuilt and deployed with new config system
 
 ### Dashboard Enhancement: Session Logs & Respondent Activity Table (Planned)
 - [ ] Add a session table to the dashboard:

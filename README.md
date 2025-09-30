@@ -112,6 +112,7 @@ bot_iden_live/
 - **React Router**: Client-side routing
 - **React Toastify**: Toast notifications
 - **Lucide React**: Icon library
+- **Centralized Configuration**: Environment-based config system for zero-code environment switching
 
 ### Infrastructure
 - **Docker**: Containerization for consistent environments
@@ -315,12 +316,24 @@ DEBUG=true
 ```env
 # Local Development
 VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_FRONTEND_BASE_URL=http://localhost:3000
 VITE_APP_NAME=Bot Detection Dashboard
 
 # Production (.env.production)
 VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20250929
 VITE_APP_NAME=Bot Detection Dashboard
 ```
+
+#### Centralized Configuration
+The frontend uses a centralized configuration system (`frontend/src/config/config.ts`) that automatically derives all URLs from environment variables:
+
+- **API URLs**: Automatically constructed from `VITE_API_BASE_URL`
+- **Webhook URLs**: Dynamically generated for integrations
+- **Documentation URLs**: Auto-linked to API docs
+- **Frontend URLs**: Used for integration guides and links
+
+This enables zero-code environment switching by simply changing environment variables.
 
 ## 🧪 Testing
 
@@ -498,6 +511,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **Automated deployment scripts**
 - ✅ **Metrics endpoint deployed and operational**
 - ✅ **Full system health verification completed**
+- ✅ **Centralized Configuration System** - Environment-based config for zero-code switching
+- ✅ **Environment-Agnostic Frontend** - All URLs dynamically derived from environment variables
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models
@@ -529,6 +544,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Infrastructure**: Automated deployment with PowerShell scripts and Cloud Build
 - **Monitoring**: Health checks and metrics exposed for production monitoring ✅ **VERIFIED**
 - **System Health**: All endpoints operational, database connected, full analysis pipeline tested
+- **Configuration**: Centralized config system enables zero-code environment switching
+- **Environment Management**: All URLs dynamically derived from environment variables
 
 ---
 

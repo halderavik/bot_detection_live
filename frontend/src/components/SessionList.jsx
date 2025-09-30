@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { dashboardService } from '../services/apiService';
 import SessionDetails from './SessionDetails';
+import { config } from '../config/config';
 
 function SessionComparisonModal({ sessionIds, onClose }) {
   // For demo, just show the IDs and a placeholder timeline
@@ -123,7 +124,7 @@ function SessionList() {
   const exportSessions = async () => {
     try {
       // This would call an export API endpoint
-      const response = await fetch(`http://localhost:8000/api/v1/dashboard/sessions/export`, {
+      const response = await fetch(config.dashboard.sessionsExport, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -10,6 +10,7 @@ import {
 import { integrationService } from '../services/apiService';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { config } from '../config/config';
 
 console.log({
   Check,
@@ -115,9 +116,8 @@ const Integrations = () => {
     );
   }
 
-  // Use deployed backend URL
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
-  const webhookBaseUrl = apiBaseUrl.replace('/api/v1', '') + '/api/v1/integrations/webhooks';
+  // Use deployed backend URL from config
+  const webhookBaseUrl = config.webhooks.base;
 
   return (
     <div className="space-y-6">
@@ -258,7 +258,7 @@ const Integrations = () => {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <a 
-              href="https://storage.googleapis.com/bot-detection-frontend-20250929/index.html" 
+              href={config.frontendBaseUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="bg-white p-4 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
@@ -270,7 +270,7 @@ const Integrations = () => {
               <p className="text-xs text-gray-600">Complete guide for Decipher surveys with copy-paste code</p>
             </a>
             <a 
-              href="https://storage.googleapis.com/bot-detection-frontend-20250929/index.html" 
+              href={config.frontendBaseUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="bg-white p-4 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
@@ -445,7 +445,7 @@ const Integrations = () => {
             <pre className="text-xs">
 {`// Bot Detection Integration
 const sessionId = '{{e://Field/sessionId}}'; // Survey embedded data
-const apiBaseUrl = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const apiBaseUrl = config.apiBaseUrl;
 
 // Initialize bot detection
 async function initBotDetection() {
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`}
           <button
             onClick={() => copyToClipboard(`// Bot Detection Integration
 const sessionId = '{{e://Field/sessionId}}'; // Survey embedded data
-const apiBaseUrl = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const apiBaseUrl = config.apiBaseUrl;
 
 // Initialize bot detection
 async function initBotDetection() {
@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
               For complete API documentation with examples and interactive testing:
             </p>
             <a 
-              href={`${apiBaseUrl.replace('/api/v1', '')}/docs`}
+              href={config.apiDocsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"

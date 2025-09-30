@@ -44,7 +44,12 @@ Production (GCP)
 https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
 ```
 
-Note: Interactive API docs are disabled in production for security. Use local `/docs` during development or the curl examples below for production testing.
+Frontend Dashboard (Production)
+```
+https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+```
+
+Note: Interactive API docs are available at `/docs` in both development and production. Use the curl examples below for production testing.
 
 ### Authentication
 Currently, the API uses basic authentication. In production, this should be replaced with JWT tokens or API keys.

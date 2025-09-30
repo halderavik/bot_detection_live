@@ -13,18 +13,19 @@ import {
   CheckCircle,
   RefreshCw
 } from 'lucide-react';
+import { config } from '../config/config';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
     // Integration Settings
     qualtrics: {
       api_token: '',
-      webhook_url: 'http://localhost:8000/api/v1/integrations/webhooks/qualtrics',
+      webhook_url: config.webhooks.qualtrics,
       enabled: false
     },
     decipher: {
       api_key: '',
-      webhook_url: 'http://localhost:8000/api/v1/integrations/webhooks/decipher',
+      webhook_url: config.webhooks.decipher,
       enabled: false
     },
     

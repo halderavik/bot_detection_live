@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { config } from '../config/config';
 
 const ApiPlayground = () => {
   const [selectedEndpoint, setSelectedEndpoint] = useState('');
@@ -107,11 +108,10 @@ const ApiPlayground = () => {
         finalUrl = finalUrl.replace('{sessionId}', 'test-session-123');
       }
 
-      // Use the deployed backend URL from environment
-      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-      const apiBase = baseURL.replace('/api/v1', '');
+      // Use the deployed backend URL from config
+      const apiBase = config.apiBase;
       
-      const config = {
+      const requestConfig = {
         method: requestMethod.toLowerCase(),
         url: `${apiBase}${finalUrl}`,
         headers: {
@@ -121,7 +121,7 @@ const ApiPlayground = () => {
 
       if (requestBody && requestMethod !== 'GET') {
         try {
-          config.data = JSON.parse(requestBody);
+          requestConfig.data = JSON.parse(requestBody);
         } catch (e) {
           toast.error('Invalid JSON in request body');
           setIsLoading(false);
@@ -129,10 +129,10 @@ const ApiPlayground = () => {
         }
       }
 
-      const response = await fetch(config.url, {
-        method: config.method,
-        headers: config.headers,
-        body: config.method !== 'GET' ? JSON.stringify(config.data) : undefined,
+      const response = await fetch(requestConfig.url, {
+        method: requestConfig.method,
+        headers: requestConfig.headers,
+        body: requestConfig.method !== 'GET' ? JSON.stringify(requestConfig.data) : undefined,
       });
 
       const endTime = Date.now();
@@ -322,7 +322,7 @@ const ApiPlayground = () => {
             For detailed API documentation, examples, and SDK usage, visit the full API docs.
           </p>
           <a
-            href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:8000'}/docs`}
+            href={config.apiDocsUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

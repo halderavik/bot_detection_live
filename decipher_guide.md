@@ -5,8 +5,10 @@ This guide shows step-by-step how to integrate Bot Detection into a Decipher (Fo
 ## Production System Status
 ✅ **FULLY OPERATIONAL** - All endpoints verified and working
 - **API Base URL**: `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+- **Frontend Dashboard**: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
 - **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
 - **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **API Documentation**: https://bot-backend-i56xopdg6q-pd.a.run.app/docs
 - **Database**: Connected and processing requests
 - **Analysis Pipeline**: End-to-end testing completed successfully
 
@@ -210,7 +212,7 @@ Hidden field for storing results:
 
 If you prefer server-to-server delivery, configure a webhook to your integration endpoint.
 
-- Endpoint (example): `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/decipher/webhook`
+- Endpoint (example): `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/webhooks/decipher`
 - Payload contains `session_id`, survey identifiers, and the analysis result.
 
 Example server-to-server POST (what our API expects):

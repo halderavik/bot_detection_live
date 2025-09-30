@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import { config } from '../config/config';
 
 // Move CodeBlock definition to the top
 const CodeBlock = ({ code, language, onCopy, isCopied }) => (
@@ -79,9 +80,9 @@ const QuickStartGuide = () => {
               Your system should now be running at:
             </p>
             <ul className="text-sm text-blue-700 mt-2 space-y-1">
-              <li>• Frontend: <code className="bg-blue-100 px-1 rounded">http://localhost:3001</code></li>
-              <li>• Backend API: <code className="bg-blue-100 px-1 rounded">http://localhost:8000</code></li>
-              <li>• API Docs: <code className="bg-blue-100 px-1 rounded">http://localhost:8000/docs</code></li>
+              <li>• Frontend: <code className="bg-blue-100 px-1 rounded">{config.frontendBaseUrl}</code></li>
+              <li>• Backend API: <code className="bg-blue-100 px-1 rounded">{config.apiBaseUrl}</code></li>
+              <li>• API Docs: <code className="bg-blue-100 px-1 rounded">{config.apiDocsUrl}</code></li>
             </ul>
           </div>
         </div>
@@ -103,7 +104,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">1. Include the Tracking Script</h4>
             <CodeBlock
-              code={`<script src="http://localhost:8000/static/tracking-client.js"></script>\n<script>\n  // Initialize bot detection\n  BotDetection.init({\n    apiUrl: 'http://localhost:8000/api/v1',\n    sessionId: 'your-session-id', // Optional: auto-generated if not provided\n    autoStart: true\n  });\n</script>`}
+              code={`<script src="${config.trackingClientUrl}"></script>\n<script>\n  // Initialize bot detection\n  BotDetection.init({\n    apiUrl: '${config.apiBaseUrl}',\n    sessionId: 'your-session-id', // Optional: auto-generated if not provided\n    autoStart: true\n  });\n</script>`}
               language="html"
               onCopy={() => setCopiedCode('js-init')}
               isCopied={copiedCode === 'js-init'}
@@ -158,7 +159,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">2. Basic Usage</h4>
             <CodeBlock
-              code={`from bot_detection_client import BotDetectionClient\n\n# Initialize client\nclient = BotDetectionClient(\n    api_url="http://localhost:8000/api/v1",\n    api_key="your-api-key"  # Optional for development\n)\n\n# Create a session\nsession = await client.create_session()\nprint(f"Session ID: {session['id']}")\n\n# Send events\nevents = [\n    {\n        "type": "keystroke",\n        "timestamp": "2024-01-15T10:30:00Z",\n        "data": {\n            "key": "a",\n            "keyCode": 65,\n            "timeSinceLastKey": 150\n        }\n    }\n]\n\nawait client.ingest_events(session['id'], events)\n\n# Analyze session\nresult = await client.analyze_session(session['id'])\nprint(f"Bot detected: {result['is_bot']}")\nprint(f"Confidence: {result['confidence_score']}")`}
+              code={`from bot_detection_client import BotDetectionClient\n\n# Initialize client\nclient = BotDetectionClient(\n    api_url="${config.apiBaseUrl}",\n    api_key="your-api-key"  # Optional for development\n)\n\n# Create a session\nsession = await client.create_session()\nprint(f"Session ID: {session['id']}")\n\n# Send events\nevents = [\n    {\n        "type": "keystroke",\n        "timestamp": "2024-01-15T10:30:00Z",\n        "data": {\n            "key": "a",\n            "keyCode": 65,\n            "timeSinceLastKey": 150\n        }\n    }\n]\n\nawait client.ingest_events(session['id'], events)\n\n# Analyze session\nresult = await client.analyze_session(session['id'])\nprint(f"Bot detected: {result['is_bot']}")\nprint(f"Confidence: {result['confidence_score']}")`}
               language="python"
               onCopy={() => setCopiedCode('py-basic')}
               isCopied={copiedCode === 'py-basic'}
@@ -168,7 +169,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">3. Flask/FastAPI Integration</h4>
             <CodeBlock
-              code={`from flask import Flask, request\nfrom bot_detection_client import BotDetectionClient\n\napp = Flask(__name__)\nclient = BotDetectionClient(api_url="http://localhost:8000/api/v1")\n\n@app.route('/submit-form', methods=['POST'])\nasync def submit_form():\n    # Create session for form submission\n    session = await client.create_session()\n    \n    # Get events from request\n    events = request.json.get('events', [])\n    \n    # Send events to bot detection\n    await client.ingest_events(session['id'], events)\n    \n    # Analyze for bot activity\n    result = await client.analyze_session(session['id'])\n    \n    if result['is_bot']:\n        return {"error": "Bot activity detected"}, 403\n    \n    # Process legitimate form submission\n    return {"success": True, "session_id": session['id']}`}
+              code={`from flask import Flask, request\nfrom bot_detection_client import BotDetectionClient\n\napp = Flask(__name__)\nclient = BotDetectionClient(api_url="${config.apiBaseUrl}")\n\n@app.route('/submit-form', methods=['POST'])\nasync def submit_form():\n    # Create session for form submission\n    session = await client.create_session()\n    \n    # Get events from request\n    events = request.json.get('events', [])\n    \n    # Send events to bot detection\n    await client.ingest_events(session['id'], events)\n    \n    # Analyze for bot activity\n    result = await client.analyze_session(session['id'])\n    \n    if result['is_bot']:\n        return {"error": "Bot activity detected"}, 403\n    \n    # Process legitimate form submission\n    return {"success": True, "session_id": session['id']}`}
               language="python"
               onCopy={() => setCopiedCode('py-flask')}
               isCopied={copiedCode === 'py-flask'}
@@ -193,7 +194,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">1. Qualtrics Integration</h4>
             <CodeBlock
-              code={`# Configure webhook URL in Qualtrics\nWebhook URL: http://localhost:8000/api/v1/integrations/qualtrics/webhook\nMethod: POST\n\n# Add to survey flow\nSurvey Flow > Add a Web Service > \n- URL: {{webhook_url}}\n- Method: POST\n- Body: {{ResponseID}}, {{SurveyID}}, {{ResponseData}}`}
+              code={`# Configure webhook URL in Qualtrics\nWebhook URL: ${config.webhooks.qualtrics}\nMethod: POST\n\n# Add to survey flow\nSurvey Flow > Add a Web Service > \n- URL: {{webhook_url}}\n- Method: POST\n- Body: {{ResponseID}}, {{SurveyID}}, {{ResponseData}}`}
               language="text"
               onCopy={() => setCopiedCode('qualtrics')}
               isCopied={copiedCode === 'qualtrics'}
@@ -203,7 +204,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">2. Decipher Integration</h4>
             <CodeBlock
-              code={`# Configure webhook in Decipher\nWebhook URL: http://localhost:8000/api/v1/integrations/decipher/webhook\nAuthentication: Bearer token (optional)\n\n# Add to survey logic\nsurvey.onComplete = function() {\n    fetch('{{webhook_url}}', {\n        method: 'POST',\n        headers: {\n            'Content-Type': 'application/json',\n            'Authorization': 'Bearer {{your_token}}'\n        },\n        body: JSON.stringify({\n            surveyId: survey.id,\n            responseId: survey.responseId,\n            data: survey.data\n        })\n    });\n};`}
+              code={`# Configure webhook in Decipher\nWebhook URL: ${config.webhooks.decipher}\nAuthentication: Bearer token (optional)\n\n# Add to survey logic\nsurvey.onComplete = function() {\n    fetch('{{webhook_url}}', {\n        method: 'POST',\n        headers: {\n            'Content-Type': 'application/json',\n            'Authorization': 'Bearer {{your_token}}'\n        },\n        body: JSON.stringify({\n            surveyId: survey.id,\n            responseId: survey.responseId,\n            data: survey.data\n        })\n    });\n};`}
               language="javascript"
               onCopy={() => setCopiedCode('decipher')}
               isCopied={copiedCode === 'decipher'}
@@ -213,7 +214,7 @@ const QuickStartGuide = () => {
           <div>
             <h4 className="font-semibold text-gray-800 mb-2">3. Test Integration</h4>
             <CodeBlock
-              code={`# Test webhook endpoint\ncurl -X POST http://localhost:8000/api/v1/integrations/qualtrics/webhook \\n  -H "Content-Type: application/json" \\\n  -d '{\n    "surveyId": "SV_123456",\n    "responseId": "R_789012",\n    "events": [\n      {\n        "type": "keystroke",\n        "timestamp": "2024-01-15T10:30:00Z",\n        "data": {"key": "a", "keyCode": 65}\n      }\n    ]\n  }'`}
+              code={`# Test webhook endpoint\ncurl -X POST ${config.webhooks.qualtrics} \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "surveyId": "SV_123456",\n    "responseId": "R_789012",\n    "events": [\n      {\n        "type": "keystroke",\n        "timestamp": "2024-01-15T10:30:00Z",\n        "data": {"key": "a", "keyCode": 65}\n      }\n    ]\n  }'`}
               language="bash"
               onCopy={() => setCopiedCode('test-webhook')}
               isCopied={copiedCode === 'test-webhook'}
@@ -367,7 +368,7 @@ const QuickStartGuide = () => {
               <p className="text-sm text-gray-600">Test API endpoints interactively</p>
             </a>
             <a
-              href="http://localhost:8000/docs"
+              href={config.apiDocsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="p-3 bg-white rounded-lg border hover:border-blue-300 transition-colors"

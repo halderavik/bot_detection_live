@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { config } from '../config/config';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -23,7 +24,7 @@ function SessionDetails({ sessionId }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`http://localhost:8000/api/v1/dashboard/sessions/${sessionId}/details`)
+    fetch(config.dashboard.sessionDetails(sessionId))
       .then(res => res.json())
       .then(data => {
         setDetails(data);
