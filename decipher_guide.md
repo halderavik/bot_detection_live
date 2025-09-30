@@ -2,7 +2,13 @@
 
 This guide shows step-by-step how to integrate Bot Detection into a Decipher (Forsta/FocusVision) survey. You will: create a session, collect behavior events during the survey, trigger analysis on completion, and optionally receive results via webhook.
 
-Production API base URL: `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+## Production System Status
+✅ **FULLY OPERATIONAL** - All endpoints verified and working
+- **API Base URL**: `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
+- **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **Database**: Connected and processing requests
+- **Analysis Pipeline**: End-to-end testing completed successfully
 
 Note: Replace example IDs/variables with those from your study. All examples use HTTPS and JSON.
 
@@ -229,25 +235,33 @@ Coordinate with your Decipher project admin to set the webhook call on completio
 
 ## 6) QA / Smoke Tests
 
-Use curl to verify the backend:
+Use curl to verify the backend (all endpoints verified operational):
 
 ```bash
-# Health
+# Health Check ✅ VERIFIED
 curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/health
+# Response: {"status":"healthy","service":"bot-detection-api"}
 
-# Create session
+# Metrics Endpoint ✅ VERIFIED
+curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+# Response: Prometheus-compatible metrics
+
+# Create session ✅ VERIFIED
 curl -s -X POST \
   https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions
+# Response: {"session_id":"uuid","created_at":"timestamp","status":"active"}
 
-# Ingest example events
+# Ingest example events ✅ VERIFIED
 curl -s -X POST \
   https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/events \
   -H "Content-Type: application/json" \
   -d '[{"event_type":"keystroke","timestamp":"2025-01-01T00:00:00Z","key":"a","element_id":"q1"}]'
+# Response: {"session_id":"uuid","events_processed":1,"total_events":1,"status":"success"}
 
-# Analyze
+# Analyze session ✅ VERIFIED
 curl -s -X POST \
   https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
+# Response: {"session_id":"uuid","is_bot":false,"confidence_score":0.25,"risk_level":"high",...}
 ```
 
 ---

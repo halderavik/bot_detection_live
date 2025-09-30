@@ -1,4 +1,11 @@
-# Bot Detection Methodology - Mermaid Diagrams
+# Bot Detection Flow - Mermaid Diagrams
+
+## Production Status
+✅ **System Operational** - All endpoints verified and working
+- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
+- **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **Frontend**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
 
 ## 1. Overall System Architecture
 

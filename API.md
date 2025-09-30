@@ -496,13 +496,20 @@ GET /health
 
 **Description:** Basic health check endpoint.
 
+**Status:** ✅ **OPERATIONAL** - Production endpoint active
+
 **Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-06-29T00:15:30.000Z",
-  "version": "1.0.0"
+  "service": "bot-detection-api"
 }
+```
+
+**Example Usage:**
+```bash
+# Production
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/health"
 ```
 
 ### 2. Metrics
@@ -512,21 +519,37 @@ GET /metrics
 
 **Description:** Prometheus-compatible metrics endpoint.
 
+**Status:** ✅ **OPERATIONAL** - Production endpoint active
+
 **Response:**
 ```
-# HELP bot_detection_sessions_total Total number of sessions
-# TYPE bot_detection_sessions_total counter
-bot_detection_sessions_total 1250
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 5802.0
+python_gc_objects_collected_total{generation="1"} 10668.0
+python_gc_objects_collected_total{generation="2"} 1600.0
 
-# HELP bot_detection_events_total Total number of events
-# TYPE bot_detection_events_total counter
-bot_detection_events_total 125000
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="11",patchlevel="13",version="3.11.13"} 1.0
 
-# HELP bot_detection_analysis_duration_seconds Analysis duration in seconds
-# TYPE bot_detection_analysis_duration_seconds histogram
-bot_detection_analysis_duration_seconds_bucket{le="0.1"} 850
-bot_detection_analysis_duration_seconds_bucket{le="0.5"} 1200
-bot_detection_analysis_duration_seconds_bucket{le="1.0"} 1250
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 2.08560128e+08
+
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 9.762816e+07
+
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 2.95
+```
+
+**Example Usage:**
+```bash
+# Production
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/metrics"
 ```
 
 ---
