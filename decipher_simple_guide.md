@@ -2,6 +2,16 @@
 
 This guide shows you exactly how to add bot detection to your Decipher survey in 3 simple steps. No complex options - just copy, paste, and you're done.
 
+## Quick Start for Testing (TL;DR)
+
+1. **Create a test survey** with 2-3 questions
+2. **Copy the code** from Step 1 into your survey header
+3. **Create hidden fields** with IDs: `bot_session_id`, `bot_result`, `bot_is_bot`, `bot_confidence`
+4. **Copy the code** from Step 3 into your final page
+5. **Test your survey** - check the data export for bot detection results
+
+That's it! The full guide below explains everything in detail.
+
 ## What This Does
 Our system watches how people interact with your survey (typing, mouse movements, scrolling) and determines if they're real humans or automated bots.
 
@@ -191,6 +201,101 @@ After the survey, you'll see these new columns in your Decipher data:
 **Need help?**
 - Contact your technical team with any integration questions
 
+## How to Test Your Integration
+
+### Quick Test (5 minutes)
+
+1. **Create a test survey** in Decipher with just 2-3 questions
+2. **Add the code** from Steps 1 and 3 above
+3. **Create the hidden fields** from Step 2
+4. **Test the survey** by taking it yourself
+5. **Check your data export** - you should see the bot detection columns
+
+### What to Look For When Testing
+
+**In the browser console (F12 → Console tab):**
+- Look for messages like "Bot detection setup successful"
+- No red error messages
+- Events being logged as you type and move your mouse
+
+**In your data export:**
+- `bot_session_id`: Should have a long ID like "abc123-def456-..."
+- `bot_is_bot`: Should show "false" (since you're a real human testing it)
+- `bot_confidence`: Should show a number like 0.15 or 0.85
+- `bot_result`: Should show detailed analysis data
+
+### Testing Checklist
+
+**Before Going Live:**
+- [ ] Hidden fields created with correct IDs
+- [ ] JavaScript code added to start and end of survey
+- [ ] Test survey completed successfully
+- [ ] Data export shows bot detection columns
+- [ ] No console errors during survey
+
+**Test Scenarios:**
+1. **Normal Human Test:** Take the survey naturally (should show `bot_is_bot: false`)
+2. **Quick Bot Test:** Rush through the survey very fast (might show higher bot probability)
+3. **Mobile Test:** Test on mobile device to ensure it works on phones
+
+### Common Test Results
+
+**What you'll see when testing as a human:**
+```
+bot_is_bot: "false"
+bot_confidence: 0.23
+bot_result: {"is_bot": false, "confidence_score": 0.23, "risk_level": "low"}
+```
+
+**What you might see if testing very quickly:**
+```
+bot_is_bot: "true" 
+bot_confidence: 0.78
+bot_result: {"is_bot": true, "confidence_score": 0.78, "risk_level": "high"}
+```
+
+### Using the API Playground for Testing
+
+You can also test the bot detection system directly using our API Playground:
+
+1. **Go to:** https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+2. **Click:** "API Playground" in the navigation
+3. **Test endpoints:**
+   - Click "Create Session" to create a test session
+   - Click "Ingest Events" to simulate user behavior
+   - Click "Analyze Session" to see the bot detection result
+
+This helps you understand how the system works before integrating it into your survey.
+
+### Troubleshooting Your Test
+
+**"No data in my export"**
+- Double-check the hidden field IDs are exactly: `bot_session_id`, `bot_result`, `bot_is_bot`, `bot_confidence`
+- Make sure the JavaScript is in the right places (start and end of survey)
+
+**"Getting errors in console"**
+- Check that your survey can access the internet
+- Make sure you copied the code exactly as shown
+- The system will still work even if some requests fail
+
+**"bot_is_bot shows 'unknown'"**
+- This means the analysis failed - check your internet connection
+- The survey will still work, but bot detection won't be available
+
+### Real-World Testing Tips
+
+**Test with different users:**
+- Have colleagues take your test survey
+- Try different browsers (Chrome, Firefox, Safari)
+- Test on both desktop and mobile
+
+**Monitor the results:**
+- Check your data exports regularly
+- Look for patterns in the bot detection results
+- Most real users should show `bot_is_bot: false`
+
 ## That's It!
 
 Copy the code from Step 1 to your survey start, create the hidden fields from Step 2, and add the code from Step 3 to your survey end. The system will automatically handle everything else.
+
+**Remember:** Always test with a small survey first before adding bot detection to your main surveys!
