@@ -34,6 +34,9 @@ class DetectionController:
         @self.router.post("/sessions")
         async def create_session(
             request: Request,
+            survey_id: str = None,
+            platform: str = None,
+            respondent_id: str = None,
             db: AsyncSession = Depends(get_db)
         ):
             """Create a new session for bot detection."""
@@ -52,7 +55,10 @@ class DetectionController:
                 session = Session(
                     user_agent=user_agent,
                     ip_address=ip_address,
-                    referrer=referrer
+                    referrer=referrer,
+                    survey_id=survey_id,
+                    platform=platform,
+                    respondent_id=respondent_id
                 )
                 
                 db.add(session)

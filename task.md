@@ -491,6 +491,16 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] **Verified Functionality** - Confirmed API documentation is accessible at https://bot-backend-i56xopdg6q-pd.a.run.app/docs
 - [x] **Updated Root Endpoint** - Root endpoint now correctly shows documentation URLs
 
+### Report Builder System ✅
+- [x] **Backend Report Service** - Created comprehensive report generation service with survey summary and detailed reports
+- [x] **Report Models** - Implemented Pydantic models for report requests, responses, and data structures
+- [x] **Report Controller** - Built API endpoints for report generation with CSV export functionality
+- [x] **Frontend Report Builder** - Created React component with survey dropdown, filters, and report display
+- [x] **API Integration** - Integrated frontend with backend report endpoints using centralized API service
+- [x] **Download Functionality** - Implemented CSV download for detailed reports and PDF placeholder for summary reports
+- [x] **Navigation Integration** - Added Reports link to main navigation menu
+- [x] **Unit Tests** - Created comprehensive test suite for report service functionality
+
 ### Dashboard Enhancement: Session Logs & Respondent Activity Table (Planned)
 - [ ] Add a session table to the dashboard:
     - Columns: Session ID, Respondent ID, Created At, Event Count, Status, Bot/Human, Confidence, Risk Level, Last Analysis, Reason/Flagged Patterns

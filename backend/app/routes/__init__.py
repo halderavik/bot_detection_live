@@ -8,6 +8,7 @@ from fastapi import APIRouter
 from app.controllers.detection_controller import DetectionController
 from app.controllers.dashboard_controller import DashboardController
 from app.controllers.integration_controller import IntegrationController
+from app.controllers.report_controller import ReportController
 
 # Create main API router
 api_router = APIRouter()
@@ -16,7 +17,9 @@ api_router = APIRouter()
 detection_controller = DetectionController()
 dashboard_controller = DashboardController()
 integration_controller = IntegrationController()
+report_controller = ReportController()
 
 api_router.include_router(detection_controller.get_router())
 api_router.include_router(dashboard_controller.get_router())
-api_router.include_router(integration_controller.get_router()) 
+api_router.include_router(integration_controller.get_router())
+api_router.include_router(report_controller.get_router()) 

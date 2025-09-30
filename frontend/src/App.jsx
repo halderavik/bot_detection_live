@@ -8,6 +8,7 @@ import Integrations from './components/Integrations'
 import Settings from './components/Settings'
 import ApiPlayground from './components/ApiPlayground'
 import QuickStartGuide from './components/QuickStartGuide'
+import ReportBuilder from './components/ReportBuilder'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/App.css'
@@ -27,6 +28,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/api-playground" element={<ApiPlayground />} />
             <Route path="/quick-start" element={<QuickStartGuide />} />
+            <Route path="/reports" element={<ReportBuilder />} />
           </Routes>
           <ToastContainer position="bottom-right" autoClose={3000} />
         </main>

@@ -136,6 +136,61 @@ export const integrationService = {
   },
 };
 
+// Report Services
+export const reportService = {
+  // Get available surveys for report generation
+  getAvailableSurveys: async () => {
+    return api.get('/reports/surveys');
+  },
+
+  // Generate summary report
+  getSummaryReport: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.includeInactive) params.append('include_inactive', 'true');
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    return api.get(`/reports/summary/${surveyId}?${params}`);
+  },
+
+  // Generate detailed report
+  getDetailedReport: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.includeInactive) params.append('include_inactive', 'true');
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    return api.get(`/reports/detailed/${surveyId}?${params}`);
+  },
+
+  // Download detailed report as CSV
+  downloadDetailedReportCSV: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.includeInactive) params.append('include_inactive', 'true');
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    return api.get(`/reports/detailed/${surveyId}/csv?${params}`, {
+      responseType: 'blob'
+    });
+  },
+
+  // Download summary report as PDF
+  downloadSummaryReportPDF: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.includeInactive) params.append('include_inactive', 'true');
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    return api.get(`/reports/summary/${surveyId}/pdf?${params}`);
+  },
+
+  // Generate report with custom request
+  generateReport: async (request) => {
+    return api.post('/reports/generate', request);
+  },
+};
+
 // Health check
 export const healthService = {
   checkHealth: async () => {
