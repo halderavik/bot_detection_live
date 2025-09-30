@@ -27,19 +27,18 @@ const ApiPlayground = () => {
     'Ingest Events': {
       method: 'POST',
       url: '/api/v1/detection/sessions/{sessionId}/events',
-      body: JSON.stringify({
-        events: [
-          {
-            type: 'keystroke',
-            timestamp: new Date().toISOString(),
-            data: {
-              key: 'a',
-              keyCode: 65,
-              timeSinceLastKey: 150
-            }
-          }
-        ]
-      }, null, 2),
+      body: JSON.stringify([
+        {
+          event_type: 'keystroke',
+          timestamp: new Date().toISOString(),
+          key: 'a',
+          element_id: 'input-1',
+          element_type: 'input',
+          page_url: 'https://example.com',
+          screen_width: 1920,
+          screen_height: 1080
+        }
+      ], null, 2),
       description: 'Send events to a session for analysis'
     },
     'Analyze Session': {
@@ -74,7 +73,7 @@ const ApiPlayground = () => {
     },
     'Health Check': {
       method: 'GET',
-      url: '/api/v1/health',
+      url: '/health',
       body: '',
       description: 'Check API health status'
     },
@@ -108,9 +107,13 @@ const ApiPlayground = () => {
         finalUrl = finalUrl.replace('{sessionId}', 'test-session-123');
       }
 
+      // Use the deployed backend URL from environment
+      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+      const apiBase = baseURL.replace('/api/v1', '');
+      
       const config = {
         method: requestMethod.toLowerCase(),
-        url: `http://localhost:8000${finalUrl}`,
+        url: `${apiBase}${finalUrl}`,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -319,7 +322,7 @@ const ApiPlayground = () => {
             For detailed API documentation, examples, and SDK usage, visit the full API docs.
           </p>
           <a
-            href="http://localhost:8000/docs"
+            href={`${import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:8000'}/docs`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
