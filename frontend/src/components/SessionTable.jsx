@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { dashboardService } from '../services/apiService';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -10,18 +11,19 @@ function SessionTable({ onSelectSession }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchSessions = useCallback(() => {
+  const fetchSessions = useCallback(async () => {
     setLoading(true);
-    fetch('http://localhost:8000/api/v1/dashboard/sessions')
-      .then(res => res.json())
-      .then(data => {
-        setSessions(data.sessions || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError('Failed to load sessions');
-        setLoading(false);
-      });
+    try {
+      const data = await dashboardService.getSessionsList(1, 100);
+      setSessions(data.sessions || []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+      setError('Failed to load sessions');
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

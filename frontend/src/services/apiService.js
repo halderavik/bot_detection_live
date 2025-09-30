@@ -54,12 +54,12 @@ export const sessionService = {
 
 // Dashboard Analytics
 export const dashboardService = {
-  // Get overview statistics
+  // Get overview statistics - using the actual backend endpoint
   getOverviewStats: async (days = 7) => {
     return api.get(`/dashboard/overview?days=${days}`);
   },
 
-  // Get sessions list
+  // Get sessions list - using the actual backend endpoint
   getSessionsList: async (page = 1, limit = 50, filters = {}) => {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -69,14 +69,40 @@ export const dashboardService = {
     return api.get(`/dashboard/sessions?${params}`);
   },
 
-  // Get session details
+  // Get session details - using the actual backend endpoint
   getSessionDetails: async (sessionId) => {
     return api.get(`/dashboard/sessions/${sessionId}/details`);
   },
 
-  // Get analytics trends
+  // Get analytics trends - using the actual backend endpoint
   getAnalyticsTrends: async (days = 30, interval = 'day') => {
     return api.get(`/dashboard/analytics/trends?days=${days}&interval=${interval}`);
+  },
+
+  // Get metrics summary - using the new backend endpoint
+  getMetricsSummary: async (startDate = null, endDate = null) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    return api.get(`/dashboard/metrics/summary?${params}`);
+  },
+
+  // Get time series data - using the new backend endpoint
+  getTimeseriesData: async (interval = 'hour', days = 7) => {
+    return api.get(`/dashboard/metrics/timeseries?interval=${interval}&days=${days}`);
+  },
+
+  // Get event breakdown - using the new backend endpoint
+  getEventBreakdown: async (startDate = null, endDate = null) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    return api.get(`/dashboard/metrics/event-breakdown?${params}`);
+  },
+
+  // Get recent sessions - using the new backend endpoint
+  getRecentSessions: async (limit = 10) => {
+    return api.get(`/dashboard/sessions/recent?limit=${limit}`);
   },
 };
 
@@ -104,7 +130,7 @@ export const healthService = {
     // Call the root /health endpoint directly
     const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
     const healthURL = baseURL.replace('/api/v1', '') + '/health';
-    return axios.get(healthURL);
+    return axios.get(healthURL, { timeout: 5000 });
   },
 };
 
