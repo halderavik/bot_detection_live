@@ -287,42 +287,120 @@ const Integrations = () => {
 
       {/* Setup Instructions */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Setup Instructions</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">How Bot Detection Integration Works</h3>
         
         <div className="space-y-6">
-          {/* Qualtrics Setup */}
-          <div>
-            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-              <Globe className="h-5 w-5 text-blue-600 mr-2" />
-              Qualtrics Integration
+          {/* How It Works Overview */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border border-green-200">
+            <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+              <Zap className="h-6 w-6 text-green-600 mr-2" />
+              How Bot Detection Works
             </h4>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <ol className="list-decimal list-inside space-y-2 text-sm">
-                <li>Log into your Qualtrics account</li>
-                <li>Navigate to your survey settings</li>
-                <li>Go to the "Survey Flow" section</li>
-                <li>Add a webhook element with the URL: <code className="bg-blue-100 px-1 rounded">{webhookBaseUrl}/qualtrics</code></li>
-                <li>Set the webhook to trigger on survey completion</li>
-                <li>Save and test your survey</li>
-              </ol>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="bg-white p-4 rounded-lg border border-green-100">
+                <div className="text-center">
+                  <div className="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">1</span>
+                  </div>
+                  <h5 className="font-medium text-gray-900 mb-1">Data Collection</h5>
+                  <p className="text-xs text-gray-600">JavaScript tracks user behavior: keystrokes, mouse movements, scrolling patterns</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-green-100">
+                <div className="text-center">
+                  <div className="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">2</span>
+                  </div>
+                  <h5 className="font-medium text-gray-900 mb-1">Analysis</h5>
+                  <p className="text-xs text-gray-600">AI analyzes behavior patterns to detect bot-like vs human-like interactions</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-green-100">
+                <div className="text-center">
+                  <div className="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">3</span>
+                  </div>
+                  <h5 className="font-medium text-gray-900 mb-1">Results</h5>
+                  <p className="text-xs text-gray-600">Get bot probability score and detailed analysis in your survey data</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-lg border border-blue-200">
+              <h5 className="font-medium text-gray-900 mb-2">What We Track:</h5>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                  <span>Keystroke timing</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span>Mouse movements</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+                  <span>Scroll patterns</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full mr-2"></div>
+                  <span>Page interactions</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Decipher Setup */}
+          {/* Integration Setup */}
           <div>
-            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-              <Zap className="h-5 w-5 text-purple-600 mr-2" />
-              Decipher Integration
-            </h4>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <ol className="list-decimal list-inside space-y-2 text-sm">
-                <li>Log into your Decipher account</li>
-                <li>Open your survey in the survey editor</li>
-                <li>Go to "Survey Options" → "Webhooks"</li>
-                <li>Add a new webhook with URL: <code className="bg-purple-100 px-1 rounded">{webhookBaseUrl}/decipher</code></li>
-                <li>Set the trigger to "Survey Complete"</li>
-                <li>Save and publish your survey</li>
-              </ol>
+            <h4 className="text-lg font-semibold text-gray-900 mb-4">Integration Setup Instructions</h4>
+            
+            {/* Decipher Setup */}
+            <div className="mb-6">
+              <h5 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                <Zap className="h-5 w-5 text-purple-600 mr-2" />
+                Decipher Integration (Recommended)
+              </h5>
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <p className="text-sm text-gray-700 mb-3">
+                  <strong>Why Decipher?</strong> Our system is optimized for Decipher surveys with built-in support for their JavaScript environment.
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <li>Add the JavaScript code below to your survey's header section</li>
+                  <li>Create hidden fields: <code className="bg-purple-100 px-1 rounded">bot_session_id</code>, <code className="bg-purple-100 px-1 rounded">bot_result</code>, <code className="bg-purple-100 px-1 rounded">bot_is_bot</code>, <code className="bg-purple-100 px-1 rounded">bot_confidence</code></li>
+                  <li>Test your survey - the system will automatically track user behavior</li>
+                  <li>Check your data export for bot detection results</li>
+                </ol>
+                <div className="mt-3 p-3 bg-white rounded border border-purple-100">
+                  <p className="text-xs text-gray-600 mb-1"><strong>Result in your data:</strong></p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li><code>bot_is_bot</code>: "false" (human) or "true" (bot)</li>
+                    <li><code>bot_confidence</code>: 0.0 to 1.0 (higher = more confident)</li>
+                    <li><code>bot_result</code>: Complete analysis details in JSON format</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Qualtrics Setup */}
+            <div>
+              <h5 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                <Globe className="h-5 w-5 text-blue-600 mr-2" />
+                Qualtrics Integration
+              </h5>
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <p className="text-sm text-gray-700 mb-3">
+                  <strong>For Qualtrics:</strong> Use webhooks to send survey completion data to our system for analysis.
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-sm">
+                  <li>Log into your Qualtrics account</li>
+                  <li>Navigate to your survey settings</li>
+                  <li>Go to the "Survey Flow" section</li>
+                  <li>Add a webhook element with the URL: <code className="bg-blue-100 px-1 rounded">{webhookBaseUrl}/qualtrics</code></li>
+                  <li>Set the webhook to trigger on survey completion</li>
+                  <li>Add the JavaScript tracking code below to enable behavior analysis</li>
+                </ol>
+                <div className="mt-3 p-3 bg-white rounded border border-blue-100">
+                  <p className="text-xs text-gray-600"><strong>Note:</strong> For full bot detection, you'll need both the webhook AND the JavaScript tracking code.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -332,12 +410,35 @@ const Integrations = () => {
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
           <Zap className="h-5 w-5 text-gray-600 mr-2" />
-          JavaScript Integration
+          JavaScript Integration Code
         </h3>
         
         <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">📋 How to Use This Code</h4>
+            <ol className="text-sm text-gray-700 space-y-1">
+              <li><strong>Copy the code below</strong> and paste it into your survey's JavaScript section</li>
+              <li><strong>For Decipher:</strong> Add to "Survey Options" → "JavaScript" → "Header"</li>
+              <li><strong>For Qualtrics:</strong> Add to "Look & Feel" → "Advanced" → "Header"</li>
+              <li><strong>Create hidden fields</strong> in your survey to store the results</li>
+              <li><strong>Test your survey</strong> - the code will automatically track user behavior</li>
+            </ol>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">🔍 What This Code Does</h4>
+            <ul className="text-sm text-gray-700 space-y-1">
+              <li><strong>Creates a session:</strong> Generates a unique ID to track each user's behavior</li>
+              <li><strong>Tracks keystrokes:</strong> Records typing speed, patterns, and timing</li>
+              <li><strong>Monitors mouse movements:</strong> Captures cursor movement and click patterns</li>
+              <li><strong>Records scrolling:</strong> Tracks how users navigate through the survey</li>
+              <li><strong>Sends data:</strong> Automatically transmits behavior data to our analysis server</li>
+              <li><strong>Analyzes patterns:</strong> Uses AI to determine if behavior looks human or bot-like</li>
+            </ul>
+          </div>
+          
           <p className="text-sm text-gray-600">
-            Add this JavaScript code to your survey to enable bot detection:
+            <strong>Ready to integrate?</strong> Copy the code below and add it to your survey:
           </p>
           
           <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto">
@@ -397,6 +498,31 @@ document.addEventListener('mousemove', (e) => {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initBotDetection);`}
             </pre>
+          </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">📊 Required Hidden Fields</h4>
+            <p className="text-sm text-gray-700 mb-3">
+              Create these hidden fields in your survey to store the bot detection results:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white p-3 rounded border border-yellow-100">
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Field ID: <code className="bg-yellow-100 px-1 rounded">bot_session_id</code></h5>
+                <p className="text-xs text-gray-600">Stores the unique session identifier</p>
+              </div>
+              <div className="bg-white p-3 rounded border border-yellow-100">
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Field ID: <code className="bg-yellow-100 px-1 rounded">bot_is_bot</code></h5>
+                <p className="text-xs text-gray-600">"true" if bot detected, "false" if human</p>
+              </div>
+              <div className="bg-white p-3 rounded border border-yellow-100">
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Field ID: <code className="bg-yellow-100 px-1 rounded">bot_confidence</code></h5>
+                <p className="text-xs text-gray-600">Confidence score from 0.0 to 1.0</p>
+              </div>
+              <div className="bg-white p-3 rounded border border-yellow-100">
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Field ID: <code className="bg-yellow-100 px-1 rounded">bot_result</code></h5>
+                <p className="text-xs text-gray-600">Complete analysis details in JSON format</p>
+              </div>
+            </div>
           </div>
           
           <button
@@ -535,6 +661,65 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
               <Globe className="h-4 w-4 mr-1" />
               Open API Documentation
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Troubleshooting */}
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <TriangleAlert className="h-5 w-5 text-orange-600 mr-2" />
+          Troubleshooting & FAQ
+        </h3>
+        
+        <div className="space-y-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">❓ Common Questions</h4>
+            <div className="space-y-3">
+              <div>
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Q: Why do I need hidden fields?</h5>
+                <p className="text-xs text-gray-600">Hidden fields store the bot detection results in your survey data export. Without them, you won't see the analysis results.</p>
+              </div>
+              <div>
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Q: Will this slow down my survey?</h5>
+                <p className="text-xs text-gray-600">No, the tracking is lightweight and runs in the background. Users won't notice any performance impact.</p>
+              </div>
+              <div>
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Q: How accurate is the bot detection?</h5>
+                <p className="text-xs text-gray-600">Our AI analyzes multiple behavior patterns and typically achieves 90%+ accuracy in distinguishing bots from humans.</p>
+              </div>
+              <div>
+                <h5 className="font-medium text-gray-900 text-sm mb-1">Q: What if the analysis fails?</h5>
+                <p className="text-xs text-gray-600">If the system can't analyze the data, it will set <code>bot_is_bot</code> to "unknown" and <code>bot_confidence</code> to "0".</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">⚠️ Troubleshooting</h4>
+            <div className="space-y-2">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">No data in export</p>
+                  <p className="text-xs text-gray-600">Check that hidden fields are created with exact field IDs and JavaScript is added correctly</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">JavaScript errors</p>
+                  <p className="text-xs text-gray-600">Ensure your survey allows JavaScript and can access external URLs (no firewall blocks)</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">All results show "unknown"</p>
+                  <p className="text-xs text-gray-600">Check internet connectivity and verify the API URL is accessible from your survey</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
