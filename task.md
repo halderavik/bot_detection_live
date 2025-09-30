@@ -84,6 +84,13 @@
 - [ ] Create onboarding tutorials, FAQs, knowledge base
 - [ ] Finalize legal & compliance: TOS, privacy policy, GDPR/CCPA
 
+### Deployment Fixes (Completed 2025-09-30)
+- [x] Corrected GCP Project ID usage (`survey-bot-detection`)
+- [x] Fixed Cloud Run env var formatting to satisfy Pydantic
+- [x] Updated `deploy-backend.ps1` to support Cloud Build and local Docker
+- [x] Granted Artifact Registry and Cloud Run IAM roles to required principals
+- [x] Successfully redeployed backend and verified `/metrics` 200 OK
+
 ## Discovered During Work
 
 ### Backend Infrastructure ✅
@@ -172,6 +179,7 @@
 - [x] Add health check endpoints
 - [x] Create performance metrics collection
 - [x] Setup Prometheus metrics
+- [x] Expose `/metrics` in production (Cloud Run) and verify 200 OK
 - [x] Add request/response logging
 - [x] Implement error tracking
 
@@ -353,6 +361,7 @@ Added: 2025-09-29 — End-to-end steps to deploy on Google Cloud Platform
 - [x] Frontend Production URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/`
 - [x] Frontend Direct URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
 - [x] Load Balancer IP: `http://34.95.104.61` (HTTP only, for testing)
+- [x] Metrics Endpoint: `https://bot-backend-i56xopdg6q-pd.a.run.app/metrics` ✅ Operational
 - [x] Set frontend `.env`:
   - [x] `VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
 - [x] Set backend CORS/allowed origins (Secret/Env):
@@ -361,12 +370,12 @@ Added: 2025-09-29 — End-to-end steps to deploy on Google Cloud Platform
 ### Post-Deploy Smoke Tests (targeting Cloud Run URL) ✅
 - [x] Health
   - [x] `curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/health"` ✅ Working
-- [ ] Create session
-  - [ ] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions" -H "Content-Type: application/json"`
-- [ ] Ingest events (replace {session_id})
-  - [ ] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/events" -H "Content-Type: application/json" -d "[{\"event_type\":\"keystroke\",\"timestamp\":\"2025-01-01T00:00:00Z\",\"key\":\"a\",\"element_id\":\"input-1\"}]"`
-- [ ] Analyze session
-  - [ ] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/analyze"`
+- [x] Create session
+  - [x] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions" -H "Content-Type: application/json"` ✅ Working
+- [x] Ingest events (replace {session_id})
+  - [x] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/events" -H "Content-Type: application/json" -d "[{\"event_type\":\"keystroke\",\"timestamp\":\"2025-01-01T00:00:00Z\",\"key\":\"a\",\"element_id\":\"input-1\"}]"` ✅ Working
+- [x] Analyze session
+  - [x] `curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/analyze"` ✅ Working
 
 ## Frontend Deployment: Cloud Storage + Cloud CDN
 Added: 2025-09-29 — Static hosting for Vite React build on GCS with global CDN
