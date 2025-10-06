@@ -57,6 +57,12 @@ Our system watches how people interact with your survey (typing, mouse movements
 // Bot Detection Setup - Add this once at the start of your survey
 const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
+// Read identifiers (create these hidden fields in Step 2)
+function getIdentifierValue(id) {
+  const el = document.getElementById(id);
+  return el && typeof el.value === 'string' ? el.value : '';
+}
+
 // Step 1a: Create a session when survey starts
 async function setupBotDetection() {
   try {
@@ -70,25 +76,70 @@ async function setupBotDetection() {
     if (sessionField) {
       sessionField.value = data.session_id;
     }
+
+    // Capture device/page metadata once at start for convenience
+    const pageUrl = window.location.href;
+    const userAgent = navigator.userAgent;
+    const screenWidth = window.screen.width;
+    const screenHeight = window.screen.height;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Optionally store for export visibility (requires fields created in Step 2)
+    const pageUrlField = document.getElementById('page_url');
+    if (pageUrlField) pageUrlField.value = pageUrl;
+    const userAgentField = document.getElementById('user_agent');
+    if (userAgentField) userAgentField.value = userAgent;
+
+    // Prime first metadata event so backend has device context immediately
+    window.eventBuffer.push({
+      event_type: 'session_start',
+      timestamp: new Date().toISOString(),
+      page_url: pageUrl,
+      user_agent: userAgent,
+      screen_width: screenWidth,
+      screen_height: screenHeight,
+      viewport_width: viewportWidth,
+      viewport_height: viewportHeight,
+      survey_id: getIdentifierValue('survey_id'),
+      respondent_id: getIdentifierValue('respondent_id'),
+      platform_id: getIdentifierValue('platform_id')
+    });
   } catch (error) {
     console.log('Bot detection setup failed:', error);
   }
 }
 
 // Step 1b: Collect and send user behavior data
-let eventBuffer = [];
+window.eventBuffer = window.eventBuffer || [];
 const BATCH_SIZE = 10;
+
+function baseContext(e) {
+  return {
+    page_url: window.location.href,
+    user_agent: navigator.userAgent,
+    screen_width: window.screen.width,
+    screen_height: window.screen.height,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    survey_id: getIdentifierValue('survey_id'),
+    respondent_id: getIdentifierValue('respondent_id'),
+    platform_id: getIdentifierValue('platform_id'),
+    element_id: e && e.target && e.target.id ? e.target.id : undefined,
+    element_type: e && e.target && e.target.tagName ? e.target.tagName.toLowerCase() : undefined
+  };
+}
 
 function sendEvents() {
   const sessionId = document.getElementById('bot_session_id')?.value;
-  if (!sessionId || eventBuffer.length === 0) return;
+  if (!sessionId || window.eventBuffer.length === 0) return;
   
   fetch(`${API_BASE}/detection/sessions/${sessionId}/events`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(eventBuffer)
+    body: JSON.stringify(window.eventBuffer)
   }).then(() => {
-    eventBuffer = []; // Clear buffer after sending
+    window.eventBuffer = []; // Clear buffer after sending
   }).catch(() => {
     // If sending fails, keep events for next attempt
   });
@@ -96,32 +147,75 @@ function sendEvents() {
 
 // Step 1c: Track user interactions
 document.addEventListener('keydown', (e) => {
-  eventBuffer.push({
+  window.eventBuffer.push({
     event_type: 'keystroke',
     timestamp: new Date().toISOString(),
     key: e.key,
-    element_id: e.target?.id || 'unknown'
+    ...baseContext(e)
   });
   
-  if (eventBuffer.length >= BATCH_SIZE) {
+  if (window.eventBuffer.length >= BATCH_SIZE) {
     sendEvents();
   }
 });
 
+document.addEventListener('click', (e) => {
+  window.eventBuffer.push({
+    event_type: 'click',
+    timestamp: new Date().toISOString(),
+    button: e.button,
+    ...baseContext(e)
+  });
+});
+
+let lastMouseEventAt = 0;
 document.addEventListener('mousemove', (e) => {
-  eventBuffer.push({
+  const now = Date.now();
+  if (now - lastMouseEventAt < 50) return; // simple throttle ~20fps
+  lastMouseEventAt = now;
+  window.eventBuffer.push({
     event_type: 'mouse_move',
     timestamp: new Date().toISOString(),
     x: e.clientX,
-    y: e.clientY
+    y: e.clientY,
+    ...baseContext(e)
   });
 });
 
 document.addEventListener('scroll', () => {
-  eventBuffer.push({
+  window.eventBuffer.push({
     event_type: 'scroll',
     timestamp: new Date().toISOString(),
-    delta_y: window.scrollY
+    scroll_y: window.scrollY,
+    scroll_x: window.scrollX,
+    page_height: document.documentElement.scrollHeight,
+    page_width: document.documentElement.scrollWidth,
+    ...baseContext()
+  });
+});
+
+document.addEventListener('focusin', (e) => {
+  window.eventBuffer.push({
+    event_type: 'focus',
+    timestamp: new Date().toISOString(),
+    ...baseContext(e)
+  });
+});
+
+document.addEventListener('focusout', (e) => {
+  window.eventBuffer.push({
+    event_type: 'blur',
+    timestamp: new Date().toISOString(),
+    ...baseContext(e)
+  });
+});
+
+document.addEventListener('visibilitychange', () => {
+  window.eventBuffer.push({
+    event_type: 'visibility_change',
+    timestamp: new Date().toISOString(),
+    visibility_state: document.visibilityState,
+    ...baseContext()
   });
 });
 
@@ -175,11 +269,41 @@ Hidden fields store data that users can't see but gets saved with their survey r
 - **Make it Hidden:** ✅ Check "Hidden" box
 - **Click "Save"**
 
+#### Field 5: Respondent ID
+- **Question Text:** `respondent_id` (or leave blank)
+- **Variable Name:** `respondent_id` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Field 6: Survey ID
+- **Question Text:** `survey_id` (or leave blank)
+- **Variable Name:** `survey_id` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Field 7: Platform ID
+- **Question Text:** `platform_id` (or leave blank)
+- **Variable Name:** `platform_id` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Optional Field 8: Page URL
+- **Variable Name:** `page_url`
+- Purpose: stores the page URL captured at start for convenience
+
+#### Optional Field 9: User Agent
+- **Variable Name:** `user_agent`
+- Purpose: stores browser user agent for reference
+
 ### ⚠️ Important Notes:
 - **Variable names must be EXACTLY** as shown above (case-sensitive)
 - **All fields must be marked as "Hidden"** so users don't see them
 - **You can put these fields anywhere** in your survey - beginning, middle, or end
 - **The fields will be empty** until someone takes your survey
+ - If your platform exposes built-in variables for respondent/survey IDs, you can populate `respondent_id`/`survey_id` automatically using that platform's piping features.
 
 ## Step 3: Analyze on Survey Completion (Once at the End)
 
@@ -213,14 +337,14 @@ async function analyzeBotDetection() {
   
   try {
     // Send any remaining events before analysis
-    const remainingEvents = eventBuffer.length;
+    const remainingEvents = (window.eventBuffer || []).length;
     if (remainingEvents > 0) {
       await fetch(`${API_BASE}/detection/sessions/${sessionId}/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventBuffer)
+        body: JSON.stringify(window.eventBuffer)
       });
-      eventBuffer = [];
+      window.eventBuffer = [];
     }
     
     // Analyze the session
@@ -230,16 +354,22 @@ async function analyzeBotDetection() {
     const result = await response.json();
     
     // Save results to hidden fields
-    document.getElementById('bot_result').value = JSON.stringify(result);
-    document.getElementById('bot_is_bot').value = result.is_bot ? 'true' : 'false';
-    document.getElementById('bot_confidence').value = result.confidence_score;
+    const resultField = document.getElementById('bot_result');
+    if (resultField) resultField.value = JSON.stringify(result);
+    const isBotField = document.getElementById('bot_is_bot');
+    if (isBotField) isBotField.value = result.is_bot ? 'true' : 'false';
+    const confidenceField = document.getElementById('bot_confidence');
+    if (confidenceField) confidenceField.value = String(result.confidence_score ?? '0');
     
   } catch (error) {
     console.log('Bot analysis failed:', error);
     // Set default values if analysis fails
-    document.getElementById('bot_result').value = '{"error": "analysis_failed"}';
-    document.getElementById('bot_is_bot').value = 'unknown';
-    document.getElementById('bot_confidence').value = '0';
+    const resultField = document.getElementById('bot_result');
+    if (resultField) resultField.value = '{"error": "analysis_failed"}';
+    const isBotField = document.getElementById('bot_is_bot');
+    if (isBotField) isBotField.value = 'unknown';
+    const confidenceField = document.getElementById('bot_confidence');
+    if (confidenceField) confidenceField.value = '0';
   }
 }
 
@@ -286,6 +416,10 @@ Use this checklist to make sure you've done everything correctly:
 - [ ] I created a hidden field with variable name `bot_result`
 - [ ] I created a hidden field with variable name `bot_is_bot`
 - [ ] I created a hidden field with variable name `bot_confidence`
+- [ ] I created a hidden field with variable name `respondent_id`
+- [ ] I created a hidden field with variable name `survey_id`
+- [ ] I created a hidden field with variable name `platform_id`
+- [ ] (Optional) I created `page_url` and `user_agent` fields
 - [ ] All fields are marked as "Hidden"
 - [ ] Variable names are exactly as shown (case-sensitive)
 

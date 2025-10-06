@@ -100,6 +100,13 @@
 - [x] Add simple explanations of what each code section does and where to place it
 - [x] Include troubleshooting section for common integration issues
 
+### Decipher Integration Guide Expansion (2025-10-06)
+- [x] Expanded `decipher_simple_guide.md` to capture comprehensive event set and metadata
+  - Keystrokes, clicks, mouse move (throttled), scroll, focus/blur, visibility change
+  - Device and page context: screen size, viewport, user agent, page URL
+  - Identifiers: `respondent_id`, `survey_id`, `platform_id`
+  - Added hidden fields guidance and updated analysis step to flush remaining events
+
 ### Backend Infrastructure ✅
 - [x] Create comprehensive folder structure with modular architecture
 - [x] Implement Pydantic settings with environment validation
