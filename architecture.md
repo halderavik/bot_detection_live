@@ -19,12 +19,13 @@
 
 ## System Overview
 
-The Bot Detection System is a comprehensive platform that combines behavioral analysis, survey platform integration, and real-time monitoring to detect and prevent bot activity. The system is built with a modern microservices architecture using FastAPI for the backend, React for the frontend, and PostgreSQL for data persistence.
+The Bot Detection System is a comprehensive platform that combines behavioral analysis, OpenAI-powered text quality analysis, survey platform integration, and real-time monitoring to detect and prevent bot activity. The system is built with a modern microservices architecture using FastAPI for the backend, React for the frontend, and PostgreSQL for data persistence.
 
 ### Core Components
 - **Backend API**: FastAPI-based REST API with async support
 - **Frontend Dashboard**: React-based real-time monitoring interface with comprehensive features
-- **Bot Detection Engine**: Rule-based analysis with machine learning capabilities
+- **Bot Detection Engine**: Rule-based analysis with composite scoring (behavioral + text quality)
+- **Text Quality Engine**: OpenAI GPT-4o-mini powered analysis for response authenticity
 - **Integration Layer**: Webhook handlers for Qualtrics and Decipher with testing interface
 - **Database Layer**: PostgreSQL with async SQLAlchemy ORM
 - **Client SDKs**: Python and JavaScript libraries for easy integration
@@ -51,21 +52,22 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Backend Services                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Detection API  │  Dashboard API  │  Integration API  │  Health │
+│  Detection API  │  Text Analysis API  │  Dashboard API  │  Health │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Business Logic Layer                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  Bot Detection  │  Session Mgmt  │  Event Processing  │  Analytics │
+│  Bot Detection  │  Text Quality  │  Session Mgmt  │  Analytics │
+│  Engine         │  Engine (AI)   │               │             │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Data Layer                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  PostgreSQL  │  Redis Cache  │  File Storage  │  External APIs  │
+│  PostgreSQL  │  Redis Cache  │  OpenAI API  │  External APIs  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,6 +81,7 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 - **Caching**: Redis for session and result caching
 - **ORM**: SQLAlchemy with async support
 - **Validation**: Pydantic for data validation
+- **AI Integration**: OpenAI GPT-4o-mini for text quality analysis
 - **Authentication**: JWT tokens (planned)
 - **Documentation**: OpenAPI/Swagger auto-generation
 
@@ -91,13 +94,18 @@ backend/
 │   ├── models/                # SQLAlchemy data models
 │   │   ├── session.py         # Session model
 │   │   ├── behavior_data.py   # Event data model
-│   │   └── detection_result.py # Analysis results model
+│   │   ├── detection_result.py # Analysis results model
+│   │   ├── survey_question.py # Survey question model
+│   │   └── survey_response.py # Survey response model
 │   ├── services/              # Business logic services
 │   │   ├── bot_detection_engine.py    # Core detection logic
-│   │   ├── qualtrics_integration.py   # Qualtrics integration
-│   │   └── decipher_integration.py    # Decipher integration
+│   │   ├── openai_service.py         # OpenAI API integration
+│   │   ├── text_analysis_service.py  # Text quality analysis
+│   │   ├── qualtrics_integration.py  # Qualtrics integration
+│   │   └── decipher_integration.py   # Decipher integration
 │   ├── controllers/           # API controllers
 │   │   ├── detection_controller.py    # Detection endpoints
+│   │   ├── text_analysis_controller.py # Text analysis endpoints
 │   │   ├── dashboard_controller.py    # Dashboard endpoints
 │   │   └── integration_controller.py  # Integration endpoints
 │   ├── routes/                # API route definitions
@@ -164,6 +172,7 @@ frontend/
 │   │   ├── QuickStartGuide.jsx # Getting started guide
 │   │   ├── SessionDetails.jsx # Session details component
 │   │   ├── SessionList.jsx    # Session list component
+│   │   ├── TextQualityWidget.jsx # Text quality analysis display
 │   │   └── Charts/            # Chart components
 │   ├── services/              # API service layer
 │   │   └── apiService.js      # API communication
@@ -257,10 +266,44 @@ CREATE TABLE detection_results (
 );
 ```
 
+#### 4. Survey Questions Table
+```sql
+CREATE TABLE survey_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+    question_text TEXT NOT NULL,
+    question_type VARCHAR(50) NOT NULL,
+    element_id VARCHAR(255),
+    page_url TEXT,
+    page_title TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+#### 5. Survey Responses Table
+```sql
+CREATE TABLE survey_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES survey_questions(id) ON DELETE CASCADE,
+    response_text TEXT NOT NULL,
+    response_time_ms DECIMAL(10,2),
+    quality_score DECIMAL(5,2),
+    is_flagged BOOLEAN DEFAULT FALSE,
+    flag_reasons JSONB,
+    analysis_details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    analyzed_at TIMESTAMP WITH TIME ZONE
+);
+```
+
 ### Database Relationships
 ```
 sessions (1) ──── (N) behavior_data
 sessions (1) ──── (N) detection_results
+sessions (1) ──── (N) survey_questions
+sessions (1) ──── (N) survey_responses
+survey_questions (1) ──── (N) survey_responses
 ```
 
 ### Database Optimization
@@ -283,7 +326,13 @@ sessions (1) ──── (N) detection_results
 │   ├── sessions/{id}/events        # Event ingestion
 │   ├── sessions/{id}/status        # Session status
 │   ├── sessions/{id}/analyze       # Bot detection analysis
+│   ├── sessions/{id}/composite-analyze # Composite analysis
 │   └── sessions/{id}/ready-for-analysis
+├── text-analysis/
+│   ├── questions                   # Question capture
+│   ├── responses                   # Response analysis
+│   ├── sessions/{id}/summary       # Text quality summary
+│   └── stats                       # OpenAI usage stats
 ├── dashboard/
 │   ├── overview                    # Dashboard overview
 │   ├── sessions                    # Session list
@@ -298,8 +347,10 @@ sessions (1) ──── (N) detection_results
 #### 2. Request/Response Flow
 ```
 Client Request → API Gateway → Controller → Service → Database
-                ↓
+                ↓                              ↓
 Client Response ← Serializer ← Service ← Database ← Query
+                ↓                              ↓
+Text Analysis Request → OpenAI API → GPT-4o-mini → Analysis Results
 ```
 
 #### 3. Error Handling

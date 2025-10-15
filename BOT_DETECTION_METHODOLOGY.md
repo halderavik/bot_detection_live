@@ -13,23 +13,25 @@
 3. [How We Capture Data](#how-we-capture-data)
 4. [Data Processing Pipeline](#data-processing-pipeline)
 5. [Detection Methods](#detection-methods)
-6. [Decision Making Process](#decision-making-process)
-7. [Confidence Scoring](#confidence-scoring)
-8. [Risk Assessment](#risk-assessment)
-9. [Integration Examples](#integration-examples)
-10. [Best Practices](#best-practices)
-11. [Troubleshooting](#troubleshooting)
+6. [Text Quality Analysis](#text-quality-analysis)
+7. [Decision Making Process](#decision-making-process)
+8. [Confidence Scoring](#confidence-scoring)
+9. [Risk Assessment](#risk-assessment)
+10. [Integration Examples](#integration-examples)
+11. [Best Practices](#best-practices)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-Our bot detection system uses advanced behavioral analysis to distinguish between human users and automated bots. The system operates in real-time, analyzing user interactions across multiple dimensions to provide accurate classification with confidence scoring.
+Our bot detection system uses advanced behavioral analysis combined with OpenAI-powered text quality analysis to distinguish between human users and automated bots. The system operates in real-time, analyzing user interactions and text responses across multiple dimensions to provide accurate classification with confidence scoring.
 
 ### Key Principles
 - **Non-intrusive**: Minimal impact on user experience
 - **Real-time**: Analysis performed as events occur
 - **Multi-dimensional**: Multiple detection methods for accuracy
+- **AI-Powered**: GPT-4o-mini integration for text quality analysis
 - **Configurable**: Adjustable thresholds and sensitivity
 - **Transparent**: Clear confidence scores and reasoning
 
@@ -127,6 +129,23 @@ Our bot detection system uses advanced behavioral analysis to distinguish betwee
 - Event frequency consistency
 - Natural timing variations
 
+### 7. Text Quality Data
+**Purpose**: Analyze quality and authenticity of open-ended survey responses using AI
+
+**Data Captured**:
+- Survey question text and context
+- User response text
+- Response timing and duration
+- Question type and element information
+- Page context (URL, title)
+
+**Analysis Focus**:
+- Gibberish detection (random characters, nonsensical text)
+- Copy-paste detection (generic responses, dictionary definitions)
+- Topic relevance analysis (on-topic vs off-topic responses)
+- Generic answer detection (low-effort, uninsightful responses)
+- Overall quality scoring (0-100 scale)
+
 ---
 
 ## How We Capture Data
@@ -141,7 +160,9 @@ const tracker = new BotDetection.Tracker({
     apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     batchSize: 10,
     flushInterval: 5000,
-    debug: false
+    debug: false,
+    trackTextQuality: true,  // Enable text quality analysis
+    minResponseLength: 10    // Minimum response length for analysis
 });
 
 // Start tracking
@@ -150,10 +171,14 @@ await tracker.init();
 
 **Event Collection Process**:
 1. **Automatic Setup**: Event listeners attached to DOM events
-2. **Throttling**: Mouse movements and scroll events are throttled to prevent overwhelming
-3. **Batching**: Events are collected in batches for efficient transmission
-4. **Real-time Transmission**: Events sent to API every 5 seconds or when batch size reached
-5. **Error Handling**: Failed transmissions are retried automatically
+2. **Text Field Detection**: Automatic detection of text input fields and textareas
+3. **Question Capture**: Automatic capture of survey questions and context
+4. **Response Monitoring**: Real-time monitoring of user text input
+5. **Throttling**: Mouse movements and scroll events are throttled to prevent overwhelming
+6. **Batching**: Events are collected in batches for efficient transmission
+7. **Real-time Transmission**: Events sent to API every 5 seconds or when batch size reached
+8. **Text Analysis**: Responses automatically analyzed with GPT-4o-mini
+9. **Error Handling**: Failed transmissions are retried automatically
 
 ### Data Transmission
 
@@ -296,6 +321,126 @@ Events are sent to the API in batches:
 
 ---
 
+## Text Quality Analysis
+
+Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended survey responses for authenticity and quality. This provides an additional layer of bot detection by examining the content of user responses.
+
+### 1. Gibberish Detection
+**Purpose**: Identify nonsensical or random text responses
+
+**What it detects**:
+- Random character sequences (e.g., "asdfghjkl")
+- Completely incoherent text
+- Mixed languages without meaning
+- Keyboard mashing patterns
+
+**Bot Indicators**:
+- High confidence gibberish detection (>70%)
+- Random character patterns
+- No coherent meaning
+
+**Human Indicators**:
+- Meaningful text with coherent structure
+- Proper grammar and spelling
+- Contextually relevant content
+
+### 2. Copy-Paste Detection
+**Purpose**: Identify responses that appear to be copied from external sources
+
+**What it detects**:
+- Dictionary definitions
+- Wikipedia-style content
+- Generic, formal language
+- Overly polished responses
+- Responses that don't match question context
+
+**Bot Indicators**:
+- High confidence copy-paste detection (>70%)
+- Generic, impersonal language
+- Dictionary-style definitions
+- Responses that are too formal for the context
+
+**Human Indicators**:
+- Personal, informal language
+- Original thoughts and opinions
+- Contextually appropriate responses
+
+### 3. Relevance Analysis
+**Purpose**: Determine if responses are relevant to the questions asked
+
+**What it detects**:
+- Off-topic responses
+- Completely unrelated answers
+- Responses that ignore the question
+- Tangential or irrelevant content
+
+**Bot Indicators**:
+- High confidence irrelevance detection (>70%)
+- Completely off-topic responses
+- Responses that ignore the question entirely
+
+**Human Indicators**:
+- Directly relevant answers
+- Contextually appropriate responses
+- Responses that address the question asked
+
+### 4. Generic Answer Detection
+**Purpose**: Identify low-effort, generic responses
+
+**What it detects**:
+- Very short, uninformative answers
+- Generic phrases like "I don't know" or "It's okay"
+- Responses with no specific details
+- Low-effort, template-style answers
+
+**Bot Indicators**:
+- High confidence generic detection (>70%)
+- Very short, uninformative responses
+- Template-style answers
+- Lack of specific details
+
+**Human Indicators**:
+- Detailed, specific responses
+- Personal insights and opinions
+- Thoughtful, considered answers
+
+### 5. Overall Quality Scoring
+**Purpose**: Provide a comprehensive quality score for each response
+
+**Scoring Scale (0-100)**:
+- **90-100**: Excellent quality, detailed, insightful
+- **70-89**: Good quality, relevant, informative
+- **50-69**: Average quality, acceptable but basic
+- **30-49**: Poor quality, minimal effort
+- **0-29**: Very poor quality, likely problematic
+
+**Quality Factors**:
+- Relevance to question
+- Depth and detail
+- Originality and authenticity
+- Grammar and coherence
+- Personal insight
+
+### Text Analysis Process
+
+1. **Response Submission**: User submits text response
+2. **Question Context**: System retrieves associated question
+3. **GPT-4o-mini Analysis**: Multiple parallel analyses performed
+4. **Scoring**: Individual scores calculated for each analysis type
+5. **Flagging**: Responses flagged if any analysis indicates problems
+6. **Quality Score**: Overall quality score calculated
+7. **Storage**: Results stored with response data
+
+### Integration with Behavioral Analysis
+
+Text quality analysis is combined with behavioral analysis using weighted scoring:
+- **Behavioral Analysis**: 60% weight
+- **Text Quality Analysis**: 40% weight
+
+This composite approach provides more accurate bot detection by considering both how users interact with the interface and the quality of their responses.
+
+---
+
 ## Decision Making Process
 
 ### 1. Individual Method Scoring
@@ -305,34 +450,57 @@ Each detection method returns a score from 0.0 to 1.0:
 - **0.3-0.7**: Mixed or unclear signals
 - **0.7-1.0**: Strong bot indicators
 
-### 2. Weighted Combination
+### 2. Composite Analysis
 
-Scores are combined using weighted averages:
+Scores are combined using a two-tier weighted approach:
 
+**Behavioral Analysis (60% total weight)**:
 ```python
-weights = {
-    'keystroke_analysis': 0.30,  # 30% weight
-    'mouse_analysis': 0.25,      # 25% weight
-    'timing_analysis': 0.20,     # 20% weight
-    'device_analysis': 0.15,     # 15% weight
-    'network_analysis': 0.10     # 10% weight
+behavioral_weights = {
+    'keystroke_analysis': 0.30,  # 30% of total
+    'mouse_analysis': 0.25,      # 25% of total
+    'timing_analysis': 0.20,     # 20% of total
+    'device_analysis': 0.15,     # 15% of total
+    'network_analysis': 0.10     # 10% of total
 }
+```
+
+**Text Quality Analysis (40% total weight)**:
+```python
+text_quality_weights = {
+    'gibberish_detection': 0.20,    # 20% of total
+    'copy_paste_detection': 0.15,   # 15% of total
+    'relevance_analysis': 0.15,     # 15% of total
+    'generic_detection': 0.10,      # 10% of total
+    'quality_score': 0.40           # 40% of total
+}
+```
+
+**Composite Score Calculation**:
+```python
+composite_score = (
+    0.6 * behavioral_score +      # 60% behavioral analysis
+    0.4 * text_quality_score      # 40% text quality analysis
+)
 ```
 
 ### 3. Confidence Calculation
 
-Overall confidence score calculated as weighted average of method scores.
+Overall confidence score calculated as weighted average of composite analysis scores.
 
 ### 4. Classification Decision
 
 **Bot Classification**:
-- Confidence score > 0.7 → Classified as bot
-- Confidence score ≤ 0.7 → Classified as human
+- Composite score > 0.7 → Classified as bot
+- Composite score ≤ 0.7 → Classified as human
 
 **Decision Logic**:
 ```python
-is_bot = confidence_score > 0.7
+is_bot = composite_score > 0.7
 ```
+
+**Enhanced Decision Making**:
+The composite analysis provides more accurate classification by considering both behavioral patterns and text quality, reducing false positives and false negatives.
 
 ---
 
@@ -426,15 +594,21 @@ def determine_risk_level(confidence_score, is_bot):
 Qualtrics.SurveyEngine.addOnload(function() {
     const tracker = new BotDetection.Tracker({
         apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
-        sessionId: '${e://Field/session_id}'
+        sessionId: '${e://Field/session_id}',
+        trackTextQuality: true  // Enable text quality analysis
     });
     
     tracker.init().then(() => {
         // Track survey completion
         Qualtrics.SurveyEngine.addOnPageSubmit(function() {
-            tracker.analyze().then(result => {
+            // Get composite analysis (behavioral + text quality)
+            tracker.compositeAnalyze().then(result => {
                 Qualtrics.SurveyEngine.setEmbeddedData('bot_detection_result', 
                     JSON.stringify(result));
+                Qualtrics.SurveyEngine.setEmbeddedData('text_quality_score', 
+                    result.text_quality_score || 0);
+                Qualtrics.SurveyEngine.setEmbeddedData('text_flagged', 
+                    result.text_flagged || false);
             });
         });
     });
@@ -448,7 +622,10 @@ const webhookData = {
     session_id: sessionId,
     survey_id: surveyId,
     respondent_id: respondentId,
-    bot_detection_result: analysisResult
+    bot_detection_result: analysisResult,
+    text_quality_score: textQualityScore,
+    text_flagged: textFlagged,
+    composite_score: compositeScore
 };
 
 fetch('https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/decipher/webhook', {
@@ -464,15 +641,19 @@ fetch('https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/decipher/
 ```javascript
 // Initialize tracking
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1'
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
+    trackTextQuality: true
 });
 
 // Start tracking
 await tracker.init();
 
-// Analyze when needed
-const result = await tracker.analyze();
-console.log('Bot detection result:', result);
+// Analyze when needed (behavioral only)
+const behavioralResult = await tracker.analyze();
+
+// Get composite analysis (behavioral + text quality)
+const compositeResult = await tracker.compositeAnalyze();
+console.log('Composite bot detection result:', compositeResult);
 ```
 
 **Advanced Integration**:
@@ -485,7 +666,9 @@ const tracker = new BotDetection.Tracker({
     debug: true,
     trackKeystrokes: true,
     trackMouse: true,
-    trackScroll: false  // Disable scroll tracking
+    trackScroll: false,  // Disable scroll tracking
+    trackTextQuality: true,  // Enable text quality analysis
+    minResponseLength: 15    // Minimum response length for analysis
 });
 
 // Custom event handling
@@ -494,6 +677,14 @@ tracker.on('analysis_complete', (result) => {
         showCaptcha();
     } else {
         proceedWithForm();
+    }
+});
+
+// Text quality event handling
+tracker.on('text_analysis_complete', (textResult) => {
+    console.log('Text quality score:', textResult.quality_score);
+    if (textResult.is_flagged) {
+        console.log('Response flagged:', textResult.flag_reasons);
     }
 });
 ```
@@ -617,10 +808,12 @@ const tracker = new BotDetection.Tracker({
 
 ## Conclusion
 
-Our bot detection methodology provides comprehensive, real-time analysis of user behavior to accurately distinguish between human users and automated bots. The multi-dimensional approach ensures high accuracy while maintaining a non-intrusive user experience.
+Our bot detection methodology provides comprehensive, real-time analysis of user behavior combined with AI-powered text quality analysis to accurately distinguish between human users and automated bots. The multi-dimensional approach ensures high accuracy while maintaining a non-intrusive user experience.
 
 **Key Benefits**:
 - **Accurate**: Multiple detection methods for reliable classification
+- **AI-Powered**: GPT-4o-mini integration for text quality analysis
+- **Composite Analysis**: Unified scoring combining behavioral and text quality
 - **Fast**: Real-time analysis with sub-200ms processing
 - **Flexible**: Configurable thresholds and detection methods
 - **Transparent**: Clear confidence scores and reasoning
@@ -629,10 +822,13 @@ Our bot detection methodology provides comprehensive, real-time analysis of user
 **System Verification Completed**:
 1. ✅ JavaScript client SDK implemented and tested
 2. ✅ Detection thresholds configured and operational
-3. ✅ Monitoring and metrics endpoints active
-4. ✅ Integration with survey platforms verified
-5. ✅ Performance optimized (sub-100ms response times)
+3. ✅ OpenAI GPT-4o-mini integration operational
+4. ✅ Text quality analysis pipeline tested
+5. ✅ Composite scoring system implemented
+6. ✅ Monitoring and metrics endpoints active
+7. ✅ Integration with survey platforms verified
+8. ✅ Performance optimized (sub-100ms response times)
 
-**Production Ready**: The system is fully operational and ready for production use.
+**Production Ready**: The system is fully operational with advanced text quality analysis and ready for production use.
 
 For technical support or questions about implementation, please refer to our API documentation or contact our support team. 

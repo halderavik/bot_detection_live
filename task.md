@@ -508,16 +508,290 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] **Navigation Integration** - Added Reports link to main navigation menu
 - [x] **Unit Tests** - Created comprehensive test suite for report service functionality
 
-### Dashboard Enhancement: Session Logs & Respondent Activity Table (Planned)
-- [ ] Add a session table to the dashboard:
-    - Columns: Session ID, Respondent ID, Created At, Event Count, Status, Bot/Human, Confidence, Risk Level, Last Analysis, Reason/Flagged Patterns
-    - Each row clickable to view detailed logs
-- [ ] Implement session activity log view:
-    - Show all events for the selected session (timestamp, type, details)
-    - Show analysis summary: bot/human, confidence, risk, reasons
-    - Show flagged patterns and method scores
-- [ ] Display final identification (Bot/Human) with badge and main reason
-- [ ] Ensure all data is shown in a structured, readable format (tables, badges, lists)
-- [ ] Add loading/error states for all new data fetches
-- [ ] Add tests for new frontend components
-- [ ] Update documentation to reflect new dashboard features
+
+#####Second Stage
+
+
+# Feature Development Tasks - Prioritized Stages (Using GPT-4o-mini)
+
+## STAGE 1 — Critical Content Quality Foundation ✅ (COMPLETED)
+
+### Backend Tasks ✅
+- [x] **OpenAI Integration Service**
+  - [x] Set up OpenAI API client with gpt-4o-mini
+  - [x] Create prompt templates for text analysis
+  - [x] Implement rate limiting and error handling
+  - [x] Add response caching to reduce API costs
+  - [x] Build retry logic for failed API calls
+  - [x] Create usage tracking and cost monitoring
+
+- [x] **Open-Ended Response Analysis Service**
+  - [x] Implement GPT-4o-mini based quality scorer
+  - [x] Create gibberish detection (via GPT prompts)
+  - [x] Build copy-paste detection (text similarity + GPT verification)
+  - [x] Add topic relevance checker (GPT-based)
+  - [x] Implement generic answer detection
+  - [x] Create response quality scoring (0-100)
+  - [x] Add API endpoints for text analysis
+
+- [x] **Database Schema Updates**
+  - [x] Create `survey_questions` table
+  - [x] Create `survey_responses` table
+  - [x] Add relationships to existing `Session` model
+  - [x] Create indexes for performance
+
+### Frontend Tasks ✅
+- [x] **Text Quality Dashboard Widget**
+  - [x] Create text quality score display
+  - [x] Build flagged responses table
+  - [x] Add response detail modal with GPT analysis
+  - [x] Implement filtering by quality score
+  - [x] Create simple quality trend chart
+
+### Implementation Details ✅
+- [x] **Environment Setup**: OpenAI API key configured in .env
+- [x] **Service Layer**: OpenAIService with rate limiting, caching, and retry logic
+- [x] **Text Analysis**: TextAnalysisService with 5 GPT-based analysis methods
+- [x] **API Endpoints**: Question capture, response analysis, and session summaries
+- [x] **Database Models**: SurveyQuestion and SurveyResponse with proper relationships
+- [x] **Composite Scoring**: Unified bot detection combining behavioral + text quality
+- [x] **Client SDK**: Enhanced JavaScript tracking with question/answer capture
+- [x] **Unit Tests**: Comprehensive test suite with 17 test cases
+- [x] **Frontend Integration**: TextQualityWidget component in SessionDetails
+
+---
+
+## STAGE 2 — Survey-Specific Detection (Weeks 4-5)
+
+### Backend Tasks
+- [ ] **Grid/Matrix Question Analysis**
+  - [ ] Implement straight-lining detector (statistical)
+  - [ ] Build pattern detection (diagonal, zigzag)
+  - [ ] Create response variance calculator
+  - [ ] Add satisficing behavior scorer
+  - [ ] Build API endpoints for grid analysis
+
+- [ ] **Enhanced Time-Based Analysis**
+  - [ ] Add per-question timing tracker
+  - [ ] Implement speeder detection (< threshold)
+  - [ ] Create flatliner detection (> threshold)
+  - [ ] Build adaptive timing thresholds
+  - [ ] Add timing anomaly detection
+
+### Frontend Tasks
+- [ ] **Survey Pattern Dashboard**
+  - [ ] Create grid question analysis widget
+  - [ ] Build timing distribution charts
+  - [ ] Add speeder/flatliner alerts
+  - [ ] Implement per-question timing table
+
+---
+
+## STAGE 3 — Fraud & Duplicate Detection (Weeks 6-7)
+
+### Backend Tasks
+- [ ] **Duplicate Detection Service**
+  - [ ] Build IP address tracking and analysis
+  - [ ] Implement device fingerprint comparison
+  - [ ] Create duplicate response detector
+  - [ ] Add geolocation consistency checker
+  - [ ] Build velocity checking (responses per time)
+  - [ ] Create API endpoints for fraud detection
+
+- [ ] **Attention Check Validator**
+  - [ ] Implement trap question validation
+  - [ ] Create attention failure scorer
+  - [ ] Build consistency check validator
+
+### Frontend Tasks
+- [ ] **Fraud Detection Dashboard**
+  - [ ] Create duplicate detection widget
+  - [ ] Build IP/device tracking table
+  - [ ] Add geolocation visualization
+  - [ ] Implement fraud alert system
+
+---
+
+## STAGE 4 — Unified Quality Scoring (Weeks 8-9)
+
+### Backend Tasks
+- [ ] **Composite Quality Score Service (R-Score)**
+  - [ ] Build unified scoring algorithm combining:
+    - Behavioral analysis (existing)
+    - Text quality (GPT-based)
+    - Grid patterns
+    - Timing analysis
+    - Fraud indicators
+  - [ ] Implement weighted scoring system
+  - [ ] Create quality classification (A-F or 0-100)
+  - [ ] Add confidence intervals
+  - [ ] Build score explanation generator (GPT-assisted)
+
+- [ ] **Real-Time Filtering Service**
+  - [ ] Implement auto-flagging rules
+  - [ ] Build quality-based quotas
+  - [ ] Create manual review queue
+  - [ ] Add filtering audit trail
+
+### Frontend Tasks
+- [ ] **Composite Score Dashboard**
+  - [ ] Create unified quality score widget
+  - [ ] Build score breakdown visualization
+  - [ ] Add quality distribution charts
+  - [ ] Implement filtering configuration UI
+
+---
+
+## STAGE 5 — Enhanced Reporting System (Weeks 10-11)
+
+### Backend Tasks
+- [ ] **Enhanced Report Service**
+  - [ ] Add per-respondent quality breakdown
+  - [ ] Build aggregate quality metrics
+  - [ ] Create detailed explanations (GPT-generated)
+  - [ ] Implement comparative analysis
+  - [ ] Add CSV/Excel export with all metrics
+  - [ ] Create PDF report generation
+  - [ ] Build scheduled report system
+
+- [ ] **Report Data Models**
+  - [ ] Create `detailed_quality_reports` table
+  - [ ] Add `report_templates` table
+  - [ ] Build `report_schedules` table
+
+### Frontend Tasks (Admin Dashboard)
+- [ ] **Enhanced Report Builder**
+  - [ ] Add all quality metrics selection
+  - [ ] Build report template creator
+  - [ ] Create report scheduling UI
+  - [ ] Implement comparative analysis tools
+  - [ ] Add bulk export functionality
+
+---
+
+## STAGE 6 — Client-Facing Dashboard (Weeks 12-14)
+
+### Backend Tasks
+- [ ] **Client API Layer**
+  - [ ] Create client authentication (JWT-based)
+  - [ ] Build client-specific data filtering
+  - [ ] Implement client session endpoints
+  - [ ] Add client report generation API
+  - [ ] Create client analytics endpoints
+  - [ ] Build usage tracking and quotas
+
+- [ ] **Client Data Service**
+  - [ ] Implement client data isolation
+  - [ ] Add client-level caching
+  - [ ] Create client access control
+  - [ ] Build audit logging
+
+### Frontend Tasks (New Client Dashboard)
+- [ ] **Core Dashboard**
+  - [ ] Create minimalist layout (single page app)
+  - [ ] Build authentication flow
+  - [ ] Implement responsive navigation
+  - [ ] Add dashboard overview with key metrics
+  - [ ] Create profile/settings page
+
+- [ ] **Live Monitoring**
+  - [ ] Build live session counter
+  - [ ] Create recent sessions widget
+  - [ ] Add bot/human ratio display
+  - [ ] Implement quality score gauge
+  - [ ] Create real-time alerts panel
+
+- [ ] **Simple Report Interface**
+  - [ ] Create report generation form (date range, survey selector)
+  - [ ] Build summary report view (key metrics, charts)
+  - [ ] Add detailed report table (respondent list with scores)
+  - [ ] Implement one-click download (CSV, PDF)
+  - [ ] Create report history viewer
+
+- [ ] **Minimal Analytics**
+  - [ ] Build trend charts (quality over time)
+  - [ ] Create detection performance widget
+  - [ ] Add usage statistics
+  - [ ] Implement simple comparison tools
+
+---
+
+## STAGE 7 — Polish & Optimization (Weeks 15-16)
+
+### Backend Tasks
+- [ ] **Performance Optimization**
+  - [ ] Optimize GPT API calls (batching, caching)
+  - [ ] Add database query optimization
+  - [ ] Implement background job processing
+  - [ ] Add connection pooling improvements
+
+- [ ] **Testing & Documentation**
+  - [ ] Create unit tests for new services
+  - [ ] Build integration tests
+  - [ ] Add API documentation
+  - [ ] Create client dashboard user guide
+
+### Frontend Tasks
+- [ ] **UX Improvements**
+  - [ ] Add loading states for GPT analysis
+  - [ ] Implement error boundaries
+  - [ ] Create onboarding tutorial
+  - [ ] Add contextual help tooltips
+  - [ ] Build feedback collection
+
+- [ ] **Testing**
+  - [ ] Create component tests
+  - [ ] Add E2E tests for critical flows
+  - [ ] Implement accessibility testing
+  - [ ] Add mobile responsiveness checks
+
+---
+
+## STAGE 8 — Advanced Features (Future - Weeks 17+)
+
+### Backend Tasks
+- [ ] **Advanced GPT Features**
+  - [ ] Implement response coherence analysis (cross-question)
+  - [ ] Add sentiment analysis
+  - [ ] Create automated insight generation
+  - [ ] Build custom GPT fine-tuning (if needed)
+
+- [ ] **Integration Expansion**
+  - [ ] Add SurveyMonkey integration
+  - [ ] Build Typeform integration
+  - [ ] Create webhook builder
+
+### Frontend Tasks
+- [ ] **Advanced Client Features**
+  - [ ] Add custom report builder
+  - [ ] Implement white-label options
+  - [ ] Create API key management
+  - [ ] Build webhook configuration UI
+
+---
+
+## Implementation Notes
+
+### GPT-4o-mini Usage Strategy
+1. **Cost Control**: Cache responses, batch requests where possible
+2. **Prompt Engineering**: Create reusable, optimized prompts
+3. **Fallback**: Have rule-based fallbacks if API fails
+4. **Rate Limits**: Implement queue system for high volume
+
+### Priority Rationale
+- **Stage 1**: Core value - text quality is what Redem excels at
+- **Stage 2**: Survey-specific detection completes the detection suite
+- **Stage 3**: Fraud prevention is critical for trust
+- **Stage 4**: Unified scoring provides clear actionable metrics
+- **Stage 5**: Better reporting delivers value to existing admin dashboard
+- **Stage 6**: Client dashboard creates new revenue stream
+- **Stage 7**: Polish ensures production readiness
+- **Stage 8**: Advanced features for differentiation
+
+### Success Metrics per Stage
+- **Stage 1**: Text analysis accuracy > 90%, API response < 3s
+- **Stage 2**: Pattern detection accuracy > 85%
+- **Stage 3**: Duplicate detection rate > 95%
+- **Stage 4**: Unified score correlates with manual review > 90%
+- **Stage 5**: Report generation < 5s, export success > 99%
+- **Stage 6**: Client dashboard load < 2s, uptime > 99.9%

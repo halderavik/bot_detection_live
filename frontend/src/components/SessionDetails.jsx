@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { config } from '../config/config';
+import TextQualityWidget from './TextQualityWidget';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -170,6 +171,17 @@ function SessionDetails({ sessionId }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Text Quality Analysis */}
+      <div className="mt-6">
+        <TextQualityWidget 
+          sessionId={sessionId} 
+          onDataLoad={(data) => {
+            // Optionally update session data with text quality info
+            console.log('Text quality data loaded:', data);
+          }}
+        />
       </div>
     </div>
   );

@@ -20,7 +20,9 @@
         trackMouse: true,
         trackScroll: true,
         trackFocus: true,
-        trackPageLoad: true
+        trackPageLoad: true,
+        trackTextQuality: true, // Enable text quality analysis
+        minResponseLength: 10   // Minimum response length to analyze
     };
 
     class BotDetectionTracker {
@@ -33,6 +35,8 @@
             this.lastMouseMove = { x: 0, y: 0 };
             this.lastScroll = { x: 0, y: 0 };
             this.pageLoadStart = performance.now();
+            this.currentQuestionId = null;
+            this.questionStartTime = null;
             
             this.log('Bot Detection Tracker initialized', this.config);
         }
@@ -62,6 +66,9 @@
                 
                 // Start periodic flushing
                 this.startFlushTimer();
+                
+                // Setup text quality capture
+                this.setupTextCapture();
                 
                 this.isInitialized = true;
                 this.log('Tracker initialized successfully', { sessionId: this.sessionId });
@@ -514,6 +521,166 @@
             if (this.config.debug) {
                 console.log(`[BotDetection] ${message}`, data);
             }
+        }
+
+        /**
+         * Capture a survey question for text quality analysis
+         */
+        async captureQuestion(questionText, questionType, elementId) {
+            if (!this.config.trackTextQuality || !this.sessionId) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${this.config.apiBaseUrl}/text-analysis/questions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: this.sessionId,
+                        question_text: questionText,
+                        question_type: questionType || 'open_ended',
+                        element_id: elementId,
+                        page_url: window.location.href,
+                        page_title: document.title
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.currentQuestionId = data.question_id;
+                    this.questionStartTime = Date.now();
+                    this.log('Question captured:', data.question_id);
+                } else {
+                    this.log('Failed to capture question:', response.status);
+                }
+            } catch (error) {
+                this.log('Error capturing question:', error);
+            }
+        }
+
+        /**
+         * Capture a survey response and analyze text quality
+         */
+        async captureResponse(responseText, responseTimeMs) {
+            if (!this.config.trackTextQuality || !this.sessionId || !this.currentQuestionId) {
+                return;
+            }
+
+            if (responseText.length < this.config.minResponseLength) {
+                this.log('Response too short for analysis:', responseText.length);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${this.config.apiBaseUrl}/text-analysis/responses`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: this.sessionId,
+                        question_id: this.currentQuestionId,
+                        response_text: responseText,
+                        response_time_ms: responseTimeMs || (Date.now() - this.questionStartTime)
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.log('Response analyzed:', data.quality_score, data.is_flagged);
+                    
+                    // Store quality score in hidden field if it exists
+                    const qualityField = document.getElementById('text_quality_score');
+                    if (qualityField) {
+                        qualityField.value = data.quality_score;
+                    }
+                    
+                    // Store flag status in hidden field if it exists
+                    const flagField = document.getElementById('text_flagged');
+                    if (flagField) {
+                        flagField.value = data.is_flagged ? 'true' : 'false';
+                    }
+                } else {
+                    this.log('Failed to analyze response:', response.status);
+                }
+            } catch (error) {
+                this.log('Error analyzing response:', error);
+            }
+        }
+
+        /**
+         * Auto-detect and capture text responses on form blur events
+         */
+        setupTextCapture() {
+            if (!this.config.trackTextQuality) {
+                return;
+            }
+
+            // Capture responses when users finish typing in text fields
+            document.addEventListener('focusout', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || 
+                    (e.target.tagName === 'INPUT' && e.target.type === 'text')) {
+                    const responseText = e.target.value.trim();
+                    if (responseText.length >= this.config.minResponseLength) {
+                        this.captureResponse(responseText);
+                    }
+                }
+            });
+
+            // Auto-detect questions when users focus on text fields
+            document.addEventListener('focusin', (e) => {
+                if (e.target.tagName === 'TEXTAREA' || 
+                    (e.target.tagName === 'INPUT' && e.target.type === 'text')) {
+                    
+                    // Try to find question text from nearby elements
+                    const questionText = this.findQuestionText(e.target);
+                    if (questionText) {
+                        this.captureQuestion(
+                            questionText,
+                            'open_ended',
+                            e.target.id || e.target.name
+                        );
+                    }
+                }
+            });
+
+            this.log('Text capture setup complete');
+        }
+
+        /**
+         * Find question text from nearby DOM elements
+         */
+        findQuestionText(inputElement) {
+            // Look for question text in various nearby elements
+            const selectors = [
+                'label',
+                '.question-text',
+                '.question',
+                'h1, h2, h3, h4, h5, h6',
+                '.form-label',
+                '[data-question]'
+            ];
+
+            for (const selector of selectors) {
+                // Check parent elements
+                let parent = inputElement.parentElement;
+                while (parent && parent !== document.body) {
+                    const questionElement = parent.querySelector(selector);
+                    if (questionElement && questionElement.textContent.trim()) {
+                        return questionElement.textContent.trim();
+                    }
+                    parent = parent.parentElement;
+                }
+
+                // Check previous siblings
+                let sibling = inputElement.previousElementSibling;
+                while (sibling) {
+                    if (sibling.matches(selector) && sibling.textContent.trim()) {
+                        return sibling.textContent.trim();
+                    }
+                    sibling = sibling.previousElementSibling;
+                }
+            }
+
+            return null;
         }
     }
 

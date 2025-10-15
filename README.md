@@ -5,11 +5,14 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 ## 🚀 Features
 
 - **Advanced Bot Detection**: Rule-based analysis of user behavior patterns with 5 detection methods
+- **OpenAI Text Quality Analysis**: GPT-4o-mini powered analysis of open-ended survey responses
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
+- **Text Quality Dashboard**: Real-time text analysis results with flagged responses and quality scores
 - **Report Builder**: Comprehensive reporting system with survey selection, summary/detailed reports, and CSV exports
 - **Scalable Architecture**: FastAPI backend with PostgreSQL and Redis
 - **Client SDKs**: Python and JavaScript client libraries for easy integration
+- **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking
 - **Webhook Support**: Automated survey response processing
 - **Monitoring & Logging**: Comprehensive observability with Prometheus and Grafana
 - **Performance Testing**: Locust load testing and async performance validation
@@ -17,6 +20,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Architecture Documentation**: Comprehensive system architecture and interaction patterns
 - **Frontend Dashboard**: Complete React-based monitoring interface with real-time updates
 - **Integration Management**: Webhook testing, status monitoring, and setup guides
+- **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis
 
 ## 🏗️ Architecture
 
@@ -57,8 +61,13 @@ bot_iden_live/
 │   │   ├── config.py          # Configuration settings
 │   │   ├── database.py        # Database setup
 │   │   ├── models/            # SQLAlchemy models
+│   │   │   ├── survey_question.py    # Survey question model
+│   │   │   └── survey_response.py    # Survey response model
 │   │   ├── services/          # Business logic
+│   │   │   ├── openai_service.py     # OpenAI API integration
+│   │   │   └── text_analysis_service.py # Text quality analysis
 │   │   ├── controllers/       # API controllers
+│   │   │   └── text_analysis_controller.py # Text analysis endpoints
 │   │   ├── utils/             # Utility functions
 │   │   └── routes/            # API routes
 │   ├── main.py               # Application entry point
@@ -77,7 +86,8 @@ bot_iden_live/
 │   │   │   ├── Settings.jsx  # System settings
 │   │   │   ├── ApiPlayground.jsx # API testing interface
 │   │   │   ├── QuickStartGuide.jsx # Getting started guide
-│   │   │   └── SessionDetails.jsx # Session analysis view
+│   │   │   ├── SessionDetails.jsx # Session analysis view
+│   │   │   └── TextQualityWidget.jsx # Text quality analysis display
 │   │   ├── services/         # API services
 │   │   ├── utils/            # Utility functions
 │   │   └── styles/           # CSS styles
@@ -104,6 +114,7 @@ bot_iden_live/
 - **Redis**: Caching and session storage
 - **Pydantic**: Data validation and settings management
 - **Uvicorn**: ASGI server for production deployment
+- **OpenAI**: GPT-4o-mini integration for text quality analysis
 
 ### Frontend
 - **React**: UI framework with modern hooks
@@ -132,6 +143,7 @@ bot_iden_live/
 - Docker and Docker Compose
 - Node.js 18+ (for frontend development)
 - Python 3.11+ (for backend development)
+- OpenAI API key (for text quality analysis)
 
 ### 1. Clone the Repository
 ```bash
@@ -204,6 +216,7 @@ POST /api/v1/detection/sessions/{session_id}/events
 #### Analysis
 ```http
 POST /api/v1/detection/sessions/{session_id}/analyze
+POST /api/v1/detection/sessions/{session_id}/composite-analyze
 ```
 
 #### Dashboard
@@ -211,6 +224,14 @@ POST /api/v1/detection/sessions/{session_id}/analyze
 GET /api/v1/dashboard/overview
 GET /api/v1/dashboard/sessions
 GET /api/v1/dashboard/sessions/{session_id}/details
+```
+
+#### Text Quality Analysis
+```http
+POST /api/v1/text-analysis/questions
+POST /api/v1/text-analysis/responses
+GET /api/v1/text-analysis/sessions/{session_id}/summary
+GET /api/v1/text-analysis/stats
 ```
 
 #### Integrations
@@ -299,7 +320,36 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analy
 curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
 ```
 
-#### 5. Generate Reports
+#### 5. Text Quality Analysis
+```bash
+# Capture a survey question
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/questions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "your-session-id",
+    "question_text": "What is your favorite color?",
+    "question_type": "open_ended",
+    "element_id": "color-input"
+  }'
+
+# Analyze a response
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/responses" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "your-session-id",
+    "question_id": "question-id",
+    "response_text": "My favorite color is blue because it reminds me of the ocean.",
+    "response_time_ms": 2500
+  }'
+
+# Get text quality summary
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
+
+# Composite analysis (behavioral + text quality)
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
+```
+
+#### 6. Generate Reports
 ```bash
 # Get available surveys
 curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
@@ -335,6 +385,14 @@ DECIPHER_API_KEY=your-decipher-key
 # Bot Detection
 DETECTION_THRESHOLD=0.7
 SESSION_TIMEOUT_MINUTES=30
+
+# OpenAI settings (for text quality analysis)
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=500
+OPENAI_TEMPERATURE=0.3
+OPENAI_TIMEOUT=30
+OPENAI_MAX_RETRIES=3
 
 # Debug Mode
 DEBUG=true
@@ -541,6 +599,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **Full system health verification completed**
 - ✅ **Centralized Configuration System** - Environment-based config for zero-code switching
 - ✅ **Environment-Agnostic Frontend** - All URLs dynamically derived from environment variables
+- ✅ **OpenAI Text Quality Analysis** - GPT-4o-mini powered analysis of open-ended responses
+- ✅ **Composite Bot Detection** - Unified scoring combining behavioral + text quality
+- ✅ **Enhanced JavaScript SDK** - Automatic question/answer capture and text quality tracking
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models
@@ -574,6 +635,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **System Health**: All endpoints operational, database connected, full analysis pipeline tested
 - **Configuration**: Centralized config system enables zero-code environment switching
 - **Environment Management**: All URLs dynamically derived from environment variables
+- **Text Quality Analysis**: GPT-4o-mini integration with caching, rate limiting, and cost optimization
+- **Composite Detection**: Unified bot detection combining behavioral patterns and text quality
+- **Real-time Processing**: Automatic question/answer capture and immediate text analysis
 
 ---
 

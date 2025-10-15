@@ -17,6 +17,9 @@ graph TB
         C --> D[Data Collection]
         D --> E[Event Batching]
         E --> F[Network Transmission]
+        B --> T[Text Capture]
+        T --> U[Question/Answer Tracking]
+        U --> V[Real-time Analysis]
     end
     
     subgraph "Server Side (GCP)"
@@ -28,12 +31,21 @@ graph TB
             J --> K[Detection Engine]
             K --> L[Result Generation]
             L --> M[Response to Client]
+            V --> W[Text Quality Analysis]
+            W --> X[OpenAI GPT-4o-mini]
+            X --> Y[Quality Scoring]
+            Y --> Z[Composite Analysis]
+            Z --> AA[Unified Bot Detection]
         end
         subgraph "Cloud SQL: PostgreSQL"
             N[(Database)]
+            BB[(Survey Questions)]
+            CC[(Survey Responses)]
         end
         I --> N
         K --> N
+        W --> BB
+        W --> CC
     end
     
     subgraph "Static Hosting"
@@ -56,13 +68,15 @@ graph TB
     style N fill:#fff3e0
     style R fill:#e8f5e9
     style S fill:#e8f5e9
+    style X fill:#ffeb3b
+    style AA fill:#4caf50
 ```
 
 ## 2. Data Collection Flow
 
 ```mermaid
 graph LR
-    subgraph "Event Types Captured"
+    subgraph "Behavioral Event Types Captured"
         A1[Keystroke Events]
         A2[Mouse Behavior]
         A3[Scroll Events]
@@ -71,11 +85,21 @@ graph LR
         A6[Timing Patterns]
     end
     
+    subgraph "Text Quality Data Captured"
+        A7[Survey Questions]
+        A8[Open-ended Responses]
+        A9[Response Timing]
+        A10[Question Context]
+    end
+    
     subgraph "Collection Process"
         B1[DOM Event Listeners]
-        B2[Throttling & Filtering]
-        B3[Event Batching]
-        B4[Real-time Transmission]
+        B2[Text Field Detection]
+        B3[Throttling & Filtering]
+        B4[Event Batching]
+        B5[Real-time Transmission]
+        B6[Question Capture]
+        B7[Response Analysis]
     end
     
     A1 --> B1
@@ -85,9 +109,17 @@ graph LR
     A5 --> B1
     A6 --> B1
     
-    B1 --> B2
-    B2 --> B3
+    A7 --> B2
+    A8 --> B2
+    A9 --> B2
+    A10 --> B2
+    
+    B1 --> B3
+    B2 --> B6
+    B6 --> B7
     B3 --> B4
+    B4 --> B5
+    B7 --> B5
     
     style A1 fill:#ffebee
     style A2 fill:#e8f5e8
@@ -95,13 +127,17 @@ graph LR
     style A4 fill:#f3e5f5
     style A5 fill:#e3f2fd
     style A6 fill:#fce4ec
+    style A7 fill:#e8f5e8
+    style A8 fill:#e8f5e8
+    style A9 fill:#e8f5e8
+    style A10 fill:#e8f5e8
 ```
 
 ## 3. Detection Methods & Weights
 
 ```mermaid
 graph TB
-    subgraph "Detection Methods"
+    subgraph "Behavioral Detection Methods"
         A[Keystroke Analysis<br/>30% Weight]
         B[Mouse Analysis<br/>25% Weight]
         C[Timing Analysis<br/>20% Weight]
@@ -109,37 +145,101 @@ graph TB
         E[Network Analysis<br/>10% Weight]
     end
     
-    subgraph "Analysis Process"
-        F[Individual Method Scoring<br/>0.0 - 1.0]
-        G[Weighted Combination]
-        H[Confidence Calculation]
-        I[Classification Decision]
+    subgraph "Text Quality Analysis"
+        F1[Gibberish Detection<br/>GPT-4o-mini]
+        F2[Copy-Paste Detection<br/>GPT-4o-mini]
+        F3[Relevance Analysis<br/>GPT-4o-mini]
+        F4[Generic Answer Detection<br/>GPT-4o-mini]
+        F5[Overall Quality Score<br/>GPT-4o-mini]
     end
     
-    A --> F
-    B --> F
-    C --> F
-    D --> F
-    E --> F
+    subgraph "Composite Analysis Process"
+        G[Individual Method Scoring<br/>0.0 - 1.0]
+        H[Behavioral Weight: 60%]
+        I[Text Quality Weight: 40%]
+        J[Weighted Combination]
+        K[Confidence Calculation]
+        L[Classification Decision]
+    end
     
-    F --> G
+    A --> G
+    B --> G
+    C --> G
+    D --> G
+    E --> G
+    
+    F1 --> G
+    F2 --> G
+    F3 --> G
+    F4 --> G
+    F5 --> G
+    
     G --> H
-    H --> I
+    G --> I
+    H --> J
+    I --> J
+    J --> K
+    K --> L
     
-    I --> J{Is Bot?}
-    J -->|Yes| K[Bot Classification]
-    J -->|No| L[Human Classification]
+    L --> M{Is Bot?}
+    M -->|Yes| N[Bot Classification]
+    M -->|No| O[Human Classification]
     
     style A fill:#ffcdd2
     style B fill:#c8e6c9
     style C fill:#ffe0b2
     style D fill:#bbdefb
     style E fill:#f8bbd9
-    style K fill:#ffcdd2
-    style L fill:#c8e6c9
+    style F1 fill:#ffeb3b
+    style F2 fill:#ffeb3b
+    style F3 fill:#ffeb3b
+    style F4 fill:#ffeb3b
+    style F5 fill:#ffeb3b
+    style N fill:#ffcdd2
+    style O fill:#c8e6c9
 ```
 
-## 4. Decision Making Process
+## 4. Text Quality Analysis Flow
+
+```mermaid
+graph TD
+    A[User Types Response] --> B[Auto-detect Text Field]
+    B --> C[Capture Question Context]
+    C --> D[Monitor Response Time]
+    D --> E[User Submits Response]
+    E --> F[Send to Text Analysis API]
+    
+    F --> G[OpenAI GPT-4o-mini Analysis]
+    G --> H[Gibberish Check]
+    G --> I[Copy-Paste Detection]
+    G --> J[Relevance Analysis]
+    G --> K[Generic Answer Check]
+    G --> L[Quality Scoring]
+    
+    H --> M[Flag Reasons]
+    I --> M
+    J --> M
+    K --> M
+    L --> N[Quality Score 0-100]
+    
+    M --> O[Response Flagged?]
+    N --> O
+    O -->|Yes| P[Store Flagged Response]
+    O -->|No| Q[Store Clean Response]
+    
+    P --> R[Update Session Quality Metrics]
+    Q --> R
+    R --> S[Return to Composite Analysis]
+    
+    style A fill:#e1f5fe
+    style G fill:#ffeb3b
+    style O fill:#fff3e0
+    style P fill:#ffcdd2
+    style Q fill:#c8e6c9
+    style S fill:#4caf50
+```
+
+## 5. Decision Making Process
 
 ```mermaid
 graph TD
@@ -153,34 +253,42 @@ graph TD
     D --> G[Timing Analysis]
     D --> H[Device Analysis]
     D --> I[Network Analysis]
+    D --> J[Text Quality Analysis]
     
-    E --> J[Score: 0.0-1.0]
-    F --> K[Score: 0.0-1.0]
-    G --> L[Score: 0.0-1.0]
-    H --> M[Score: 0.0-1.0]
-    I --> N[Score: 0.0-1.0]
+    E --> K[Score: 0.0-1.0]
+    F --> L[Score: 0.0-1.0]
+    G --> M[Score: 0.0-1.0]
+    H --> N[Score: 0.0-1.0]
+    I --> O[Score: 0.0-1.0]
+    J --> P[Quality Score: 0-100]
     
-    J --> O[Weighted Average<br/>Calculation]
-    K --> O
-    L --> O
-    M --> O
-    N --> O
+    K --> Q[Behavioral Weighted Average<br/>60% Weight]
+    L --> Q
+    M --> Q
+    N --> Q
+    O --> Q
     
-    O --> P[Confidence Score]
-    P --> Q{Confidence > 0.7?}
-    Q -->|Yes| R[Classified as BOT]
-    Q -->|No| S[Classified as HUMAN]
+    P --> R[Text Quality Normalized<br/>40% Weight]
     
-    R --> T[Risk Level Assessment]
-    S --> T
-    T --> U[Return Result]
+    Q --> S[Composite Score Calculation]
+    R --> S
     
-    style R fill:#ffcdd2
-    style S fill:#c8e6c9
-    style T fill:#fff3e0
+    S --> T[Confidence Score]
+    T --> U{Confidence > 0.7?}
+    U -->|Yes| V[Classified as BOT]
+    U -->|No| W[Classified as HUMAN]
+    
+    V --> X[Risk Level Assessment]
+    W --> X
+    X --> Y[Return Composite Result]
+    
+    style V fill:#ffcdd2
+    style W fill:#c8e6c9
+    style X fill:#fff3e0
+    style J fill:#ffeb3b
 ```
 
-## 5. Confidence Scoring & Risk Levels
+## 6. Confidence Scoring & Risk Levels
 
 ```mermaid
 graph LR
@@ -216,7 +324,7 @@ graph LR
     style I fill:#ffcdd2
 ```
 
-## 6. Integration Flow
+## 7. Integration Flow
 
 ```mermaid
 graph TB
@@ -256,7 +364,7 @@ graph TB
     style L fill:#fff3e0
 ```
 
-## 7. Data Processing Pipeline
+## 8. Data Processing Pipeline
 
 ```mermaid
 graph LR
@@ -264,56 +372,73 @@ graph LR
         A[Raw Events]
         B[Session Data]
         C[Device Info]
+        D[Survey Questions]
+        E[User Responses]
     end
     
     subgraph "Processing Layer"
-        D[Validation]
-        E[Normalization]
-        F[Enrichment]
-        G[Storage]
+        F[Validation]
+        G[Normalization]
+        H[Enrichment]
+        I[Storage]
+        J[Text Analysis]
     end
     
     subgraph "Analysis Layer"
-        H[Session Management]
-        I[Analysis Triggering]
-        J[Detection Engine]
-        K[Result Generation]
+        K[Session Management]
+        L[Analysis Triggering]
+        M[Behavioral Detection Engine]
+        N[Text Quality Engine]
+        O[Composite Analysis]
+        P[Result Generation]
     end
     
     subgraph "Output Layer"
-        L[API Response]
-        M[Database Storage]
-        N[Webhook Notifications]
+        Q[API Response]
+        R[Database Storage]
+        S[Webhook Notifications]
+        T[Quality Dashboard]
     end
     
-    A --> D
-    B --> D
-    C --> D
-    
-    D --> E
+    A --> F
+    B --> F
+    C --> F
+    D --> F
     E --> F
-    F --> G
     
+    F --> G
     G --> H
     H --> I
-    I --> J
-    J --> K
+    E --> J
     
+    I --> K
+    J --> K
     K --> L
-    K --> M
-    K --> N
+    L --> M
+    L --> N
+    M --> O
+    N --> O
+    O --> P
+    
+    P --> Q
+    P --> R
+    P --> S
+    N --> T
     
     style A fill:#e1f5fe
-    style L fill:#c8e6c9
-    style M fill:#fff3e0
-    style N fill:#f3e5f5
+    style Q fill:#c8e6c9
+    style R fill:#fff3e0
+    style S fill:#f3e5f5
+    style J fill:#ffeb3b
+    style N fill:#ffeb3b
+    style T fill:#4caf50
 ```
 
-## 8. Bot vs Human Indicators
+## 9. Bot vs Human Indicators
 
 ```mermaid
 graph TB
-    subgraph "Bot Indicators"
+    subgraph "Behavioral Bot Indicators"
         A1[Too Regular Timing<br/>std dev < 10ms]
         A2[Too Fast/Slow<br/>< 50ms or > 2000ms]
         A3[Perfect Precision<br/>> 99% accuracy]
@@ -322,7 +447,7 @@ graph TB
         A6[Common Bot Screen Sizes]
     end
     
-    subgraph "Human Indicators"
+    subgraph "Behavioral Human Indicators"
         B1[Natural Variation<br/>std dev > 10ms]
         B2[Realistic Timing<br/>50-2000ms intervals]
         B3[Variable Precision<br/>< 99% accuracy]
@@ -331,12 +456,29 @@ graph TB
         B6[Unique Device Characteristics]
     end
     
+    subgraph "Text Quality Bot Indicators"
+        A7[Gibberish Text<br/>Random characters]
+        A8[Copy-Paste Content<br/>Generic responses]
+        A9[Irrelevant Answers<br/>Off-topic responses]
+        A10[Generic Responses<br/>Low-effort answers]
+        A11[Very Low Quality<br/>Score < 30]
+    end
+    
+    subgraph "Text Quality Human Indicators"
+        B7[Coherent Text<br/>Meaningful responses]
+        B8[Original Content<br/>Personal insights]
+        B9[Relevant Answers<br/>On-topic responses]
+        B10[Specific Details<br/>Thoughtful answers]
+        B11[High Quality<br/>Score > 70]
+    end
+    
     subgraph "Analysis Methods"
         C1[Keystroke Analysis]
         C2[Mouse Analysis]
         C3[Timing Analysis]
         C4[Device Analysis]
         C5[Network Analysis]
+        C6[Text Quality Analysis<br/>GPT-4o-mini]
     end
     
     A1 --> C1
@@ -353,16 +495,39 @@ graph TB
     B5 --> C3
     B6 --> C4
     
+    A7 --> C6
+    A8 --> C6
+    A9 --> C6
+    A10 --> C6
+    A11 --> C6
+    
+    B7 --> C6
+    B8 --> C6
+    B9 --> C6
+    B10 --> C6
+    B11 --> C6
+    
     style A1 fill:#ffcdd2
     style A2 fill:#ffcdd2
     style A3 fill:#ffcdd2
     style A4 fill:#ffcdd2
     style A5 fill:#ffcdd2
     style A6 fill:#ffcdd2
+    style A7 fill:#ffcdd2
+    style A8 fill:#ffcdd2
+    style A9 fill:#ffcdd2
+    style A10 fill:#ffcdd2
+    style A11 fill:#ffcdd2
     style B1 fill:#c8e6c9
     style B2 fill:#c8e6c9
     style B3 fill:#c8e6c9
     style B4 fill:#c8e6c9
     style B5 fill:#c8e6c9
     style B6 fill:#c8e6c9
+    style B7 fill:#c8e6c9
+    style B8 fill:#c8e6c9
+    style B9 fill:#c8e6c9
+    style B10 fill:#c8e6c9
+    style B11 fill:#c8e6c9
+    style C6 fill:#ffeb3b
 ``` 

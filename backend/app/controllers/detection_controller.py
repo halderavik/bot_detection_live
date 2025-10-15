@@ -266,6 +266,34 @@ class DetectionController:
                 await db.rollback()
                 raise HTTPException(status_code=500, detail="Failed to analyze session")
         
+        @self.router.post("/sessions/{session_id}/composite-analyze")
+        async def composite_analyze_session(
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Analyze a session with composite scoring (behavioral + text quality)."""
+            try:
+                # Validate session exists
+                session_query = select(Session).where(Session.id == session_id)
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(status_code=404, detail="Session not found")
+                
+                # Calculate composite score
+                composite_result = await self.detection_engine.calculate_composite_score(session_id, db)
+                
+                logger.info(f"Composite analysis completed for session {session_id}: score={composite_result['composite_score']:.3f}")
+                
+                return composite_result
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error in composite analysis: {e}")
+                raise HTTPException(status_code=500, detail="Failed to perform composite analysis")
+        
         @self.router.get("/sessions/{session_id}/status")
         async def get_session_status(
             session_id: str,

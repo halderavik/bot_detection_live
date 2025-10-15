@@ -32,7 +32,7 @@ This guide shows you exactly how to add bot detection to your Decipher survey in
 That's it! The full guide below explains everything in detail.
 
 ## What This Does
-Our system watches how people interact with your survey (typing, mouse movements, scrolling) and determines if they're real humans or automated bots.
+Our system watches how people interact with your survey (typing, mouse movements, scrolling) and uses AI to analyze the quality of their text responses to determine if they're real humans or automated bots. We detect low-quality responses like gibberish, copy-pasted text, irrelevant answers, or generic responses using OpenAI's GPT-4o-mini model.
 
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 
@@ -43,7 +43,9 @@ Our system watches how people interact with your survey (typing, mouse movements
 ### 🎯 What it does:
 - Creates a unique session ID for each user
 - Starts collecting data about user behavior (typing, mouse movements, scrolling)
+- Automatically detects text input fields and captures questions
 - Sends data to our analysis server automatically
+- Analyzes text responses in real-time using AI
 
 ### 📋 Step-by-step instructions:
 1. **Open your Decipher survey** in the survey editor
@@ -54,7 +56,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 6. **Click "Save"** to save your survey
 
 ```javascript
-// Bot Detection Setup - Add this once at the start of your survey
+// Bot Detection Setup with Text Quality Analysis - Add this once at the start of your survey
 const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
 // Read identifiers (create these hidden fields in Step 2)
@@ -110,7 +112,100 @@ async function setupBotDetection() {
   }
 }
 
-// Step 1b: Collect and send user behavior data
+// Step 1b: Text Quality Analysis Setup
+let currentQuestionId = null;
+let questionStartTime = null;
+
+// Find question text near an input element
+function findQuestionText(inputElement) {
+  if (!inputElement) return '';
+  
+  // Look for nearby text elements that could be the question
+  const parent = inputElement.closest('div, p, li, td, th, label');
+  if (parent) {
+    const textNodes = Array.from(parent.childNodes).filter(node => 
+      node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 10
+    );
+    if (textNodes.length > 0) {
+      return textNodes[0].textContent.trim();
+    }
+    
+    // Look for labels or other text elements
+    const labels = parent.querySelectorAll('label, span, p, div');
+    for (let label of labels) {
+      if (label.textContent.trim().length > 10 && !label.querySelector('input, textarea')) {
+        return label.textContent.trim();
+      }
+    }
+  }
+  
+  return '';
+}
+
+// Capture a survey question
+async function captureQuestion(inputElement) {
+  const sessionId = document.getElementById('bot_session_id')?.value;
+  if (!sessionId) return;
+  
+  const questionText = findQuestionText(inputElement);
+  if (!questionText) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/text-analysis/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_text: questionText,
+        question_type: 'open_ended',
+        element_id: inputElement.id || inputElement.name,
+        page_url: window.location.href,
+        page_title: document.title
+      })
+    });
+    
+    const data = await response.json();
+    currentQuestionId = data.question_id;
+    questionStartTime = Date.now();
+  } catch (error) {
+    console.log('Question capture failed:', error);
+  }
+}
+
+// Analyze a response
+async function analyzeResponse(inputElement, responseText) {
+  const sessionId = document.getElementById('bot_session_id')?.value;
+  if (!sessionId || !currentQuestionId || !responseText || responseText.length < 10) return;
+  
+  const responseTime = Date.now() - questionStartTime;
+  
+  try {
+    const response = await fetch(`${API_BASE}/text-analysis/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: currentQuestionId,
+        response_text: responseText,
+        response_time_ms: responseTime
+      })
+    });
+    
+    const data = await response.json();
+    
+    // Store text quality results in hidden fields
+    const qualityField = document.getElementById('text_quality_score');
+    if (qualityField) qualityField.value = data.quality_score || '';
+    
+    const flaggedField = document.getElementById('text_flagged');
+    if (flaggedField) flaggedField.value = data.is_flagged ? 'true' : 'false';
+    
+  } catch (error) {
+    console.log('Response analysis failed:', error);
+  }
+}
+
+// Step 1c: Collect and send user behavior data
 window.eventBuffer = window.eventBuffer || [];
 const BATCH_SIZE = 10;
 
@@ -145,7 +240,7 @@ function sendEvents() {
   });
 }
 
-// Step 1c: Track user interactions
+// Step 1d: Track user interactions
 document.addEventListener('keydown', (e) => {
   window.eventBuffer.push({
     event_type: 'keystroke',
@@ -194,7 +289,13 @@ document.addEventListener('scroll', () => {
   });
 });
 
+// Step 1e: Text input tracking for quality analysis
 document.addEventListener('focusin', (e) => {
+  const target = e.target;
+  if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && target.type === 'text')) {
+    captureQuestion(target);
+  }
+  
   window.eventBuffer.push({
     event_type: 'focus',
     timestamp: new Date().toISOString(),
@@ -203,6 +304,11 @@ document.addEventListener('focusin', (e) => {
 });
 
 document.addEventListener('focusout', (e) => {
+  const target = e.target;
+  if (target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && target.type === 'text')) {
+    analyzeResponse(target, target.value);
+  }
+  
   window.eventBuffer.push({
     event_type: 'blur',
     timestamp: new Date().toISOString(),
@@ -290,6 +396,20 @@ Hidden fields store data that users can't see but gets saved with their survey r
 - **Make it Hidden:** ✅ Check "Hidden" box
 - **Click "Save"**
 
+#### Optional Field 8: Text Quality Score
+- **Question Text:** `text_quality_score` (or leave blank)
+- **Variable Name:** `text_quality_score` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
+#### Optional Field 9: Text Flagged Status
+- **Question Text:** `text_flagged` (or leave blank)
+- **Variable Name:** `text_flagged` (must be exactly this)
+- **Question Type:** Text Entry
+- **Make it Hidden:** ✅ Check "Hidden" box
+- **Click "Save"**
+
 #### Optional Field 8: Page URL
 - **Variable Name:** `page_url`
 - Purpose: stores the page URL captured at start for convenience
@@ -330,7 +450,7 @@ Hidden fields store data that users can't see but gets saved with their survey r
 4. **Click "Save"**
 
 ```javascript
-// Bot Detection Analysis - Add this at the end of your survey
+// Bot Detection Analysis with Text Quality - Add this at the end of your survey
 async function analyzeBotDetection() {
   const sessionId = document.getElementById('bot_session_id')?.value;
   if (!sessionId) return;
@@ -347,8 +467,8 @@ async function analyzeBotDetection() {
       window.eventBuffer = [];
     }
     
-    // Analyze the session
-    const response = await fetch(`${API_BASE}/detection/sessions/${sessionId}/analyze`, {
+    // Run composite analysis (behavioral + text quality)
+    const response = await fetch(`${API_BASE}/detection/sessions/${sessionId}/composite-analyze`, {
       method: 'POST'
     });
     const result = await response.json();
@@ -359,7 +479,19 @@ async function analyzeBotDetection() {
     const isBotField = document.getElementById('bot_is_bot');
     if (isBotField) isBotField.value = result.is_bot ? 'true' : 'false';
     const confidenceField = document.getElementById('bot_confidence');
-    if (confidenceField) confidenceField.value = String(result.confidence_score ?? '0');
+    if (confidenceField) confidenceField.value = String(result.composite_score ?? result.confidence_score ?? '0');
+    
+    // Update text quality fields with latest results
+    const qualityField = document.getElementById('text_quality_score');
+    if (qualityField && result.text_quality_score) {
+      qualityField.value = result.text_quality_score;
+    }
+    
+    const flaggedField = document.getElementById('text_flagged');
+    if (flaggedField && result.text_quality_details) {
+      const isFlagged = result.text_quality_details.flagged_count > 0;
+      flaggedField.value = isFlagged ? 'true' : 'false';
+    }
     
   } catch (error) {
     console.log('Bot analysis failed:', error);
@@ -381,20 +513,29 @@ analyzeBotDetection();
 
 1. **Session Creation:** When someone starts your survey, we create a unique session ID to track them.
 
-2. **Data Collection:** Our script automatically watches for:
+2. **Behavioral Data Collection:** Our script automatically watches for:
    - **Keystrokes:** What keys they press and how fast
    - **Mouse movements:** How they move their mouse around
    - **Scrolling:** How they scroll through pages
    - **Focus changes:** When they click on different parts of the page
 
-3. **Data Sending:** Every 10 events or every 5 seconds, we send the collected data to our analysis server.
+3. **Text Quality Collection:** When users type in text fields, we also:
+   - **Capture questions:** Automatically find and save the question text
+   - **Analyze responses:** Use AI to check if responses are gibberish, copy-pasted, irrelevant, or generic
+   - **Score quality:** Give each response a quality score from 0-100
 
-4. **Analysis:** When the survey is complete, we analyze all the collected behavior data to determine if it looks like human or bot behavior.
+4. **Data Sending:** Every 10 events or every 5 seconds, we send the collected data to our analysis server.
 
-5. **Results:** The final result is saved in your hidden fields:
+5. **Real-time Analysis:** As users finish typing, we immediately analyze their text responses using OpenAI's AI model.
+
+6. **Final Analysis:** When the survey is complete, we combine behavioral data and text quality to determine if it looks like human or bot behavior.
+
+7. **Results:** The final result is saved in your hidden fields:
    - `bot_is_bot`: "true" if detected as bot, "false" if human
-   - `bot_confidence`: A number from 0-1 showing how confident we are
-   - `bot_result`: Full analysis details
+   - `bot_confidence`: A number from 0-1 showing how confident we are (combines both behavioral and text analysis)
+   - `bot_result`: Full analysis details including both behavioral and text quality results
+   - `text_quality_score`: Average quality score 0-100 for all text responses
+   - `text_flagged`: "true" if any text response was flagged as low quality
 
 ## 📚 Complete Setup Checklist
 
@@ -440,9 +581,20 @@ Use this checklist to make sure you've done everything correctly:
 ## What You Get in Your Data Export
 
 After the survey, you'll see these new columns in your Decipher data:
-- `bot_is_bot`: true/false/unknown
-- `bot_confidence`: 0.0 to 1.0 (higher = more confident)
-- `bot_result`: Complete analysis details in JSON format
+- `bot_is_bot`: true/false/unknown (based on combined behavioral + text analysis)
+- `bot_confidence`: 0.0 to 1.0 (composite score combining behavioral and text quality)
+- `bot_result`: Complete analysis details in JSON format (includes both behavioral and text quality results)
+- `text_quality_score`: 0-100 (average quality score of all text responses)
+- `text_flagged`: true/false (whether any text response was flagged as low quality)
+
+**Example data export:**
+```
+bot_is_bot: "false"
+bot_confidence: 0.23
+text_quality_score: 85.5
+text_flagged: "false"
+bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, ...}
+```
 
 ## ⚠️ Common Mistakes to Avoid
 
@@ -520,8 +672,10 @@ After the survey, you'll see these new columns in your Decipher data:
 **In your data export:**
 - `bot_session_id`: Should have a long ID like "abc123-def456-..."
 - `bot_is_bot`: Should show "false" (since you're a real human testing it)
-- `bot_confidence`: Should show a number like 0.15 or 0.85
-- `bot_result`: Should show detailed analysis data
+- `bot_confidence`: Should show a number like 0.15 or 0.85 (composite score)
+- `text_quality_score`: Should show a number like 75.5 (if you typed in text fields)
+- `text_flagged`: Should show "false" (if your text responses were good quality)
+- `bot_result`: Should show detailed analysis data including both behavioral and text quality results
 
 ### Testing Checklist
 
@@ -533,24 +687,38 @@ After the survey, you'll see these new columns in your Decipher data:
 - [ ] No console errors during survey
 
 **Test Scenarios:**
-1. **Normal Human Test:** Take the survey naturally (should show `bot_is_bot: false`)
+1. **Normal Human Test:** Take the survey naturally with thoughtful text responses (should show `bot_is_bot: false`, good `text_quality_score`)
 2. **Quick Bot Test:** Rush through the survey very fast (might show higher bot probability)
-3. **Mobile Test:** Test on mobile device to ensure it works on phones
+3. **Poor Text Quality Test:** Type gibberish like "asdfghjkl" in text fields (should show `text_flagged: true`, low `text_quality_score`)
+4. **Mobile Test:** Test on mobile device to ensure it works on phones
 
 ### Common Test Results
 
-**What you'll see when testing as a human:**
+**What you'll see when testing as a human with good text responses:**
 ```
 bot_is_bot: "false"
 bot_confidence: 0.23
-bot_result: {"is_bot": false, "confidence_score": 0.23, "risk_level": "low"}
+text_quality_score: 85.5
+text_flagged: "false"
+bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, ...}
 ```
 
 **What you might see if testing very quickly:**
 ```
 bot_is_bot: "true" 
 bot_confidence: 0.78
-bot_result: {"is_bot": true, "confidence_score": 0.78, "risk_level": "high"}
+text_quality_score: 45.0
+text_flagged: "true"
+bot_result: {"composite_score": 0.78, "behavioral_score": 0.85, "text_quality_score": 45.0, ...}
+```
+
+**What you'll see if typing gibberish in text fields:**
+```
+bot_is_bot: "false"
+bot_confidence: 0.45
+text_quality_score: 15.0
+text_flagged: "true"
+bot_result: {"composite_score": 0.45, "behavioral_score": 0.25, "text_quality_score": 15.0, ...}
 ```
 
 ### Using the API Playground for Testing
@@ -562,7 +730,8 @@ You can also test the bot detection system directly using our API Playground:
 3. **Test endpoints:**
    - Click "Create Session" to create a test session
    - Click "Ingest Events" to simulate user behavior
-   - Click "Analyze Session" to see the bot detection result
+   - Click "Analyze Session" to see the behavioral bot detection result
+   - Click "Composite Analyze" to see the combined behavioral + text quality result
 
 This helps you understand how the system works before integrating it into your survey.
 
@@ -595,6 +764,13 @@ This helps you understand how the system works before integrating it into your s
 
 ## That's It!
 
-Copy the code from Step 1 to your survey start, create the hidden fields from Step 2, and add the code from Step 3 to your survey end. The system will automatically handle everything else.
+Copy the code from Step 1 to your survey start, create the hidden fields from Step 2, and add the code from Step 3 to your survey end. The system will automatically handle everything else, including:
+
+- **Behavioral tracking:** Keystrokes, mouse movements, scrolling patterns
+- **Text quality analysis:** AI-powered analysis of open-ended responses
+- **Real-time processing:** Immediate analysis as users type
+- **Composite scoring:** Combined behavioral + text quality bot detection
 
 **Remember:** Always test with a small survey first before adding bot detection to your main surveys!
+
+**New Features:** The system now automatically detects text input fields, captures questions, and analyzes response quality using OpenAI's AI model. This provides much more accurate bot detection than behavioral analysis alone.

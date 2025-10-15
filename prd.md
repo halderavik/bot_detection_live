@@ -5,14 +5,20 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 
 ## 2. Scope ✅
 - **Behavioral Data Capture**: Keystrokes, mouse movement, focus/blur, scroll, device fingerprint, network events.
+- **Text Quality Analysis**: OpenAI GPT-4o-mini powered analysis of open-ended survey responses ✅
 - **API**:
   - `POST /api/v1/detection/sessions` – start session ✅
   - `POST /api/v1/detection/sessions/{sessionId}/events` – ingest batched events, return classification + `processing_time_ms` and `event_count` ✅
   - `GET /api/v1/detection/sessions/{sessionId}/status` – retrieve raw session metadata + latest detection result ✅
   - `POST /api/v1/detection/sessions/{sessionId}/analyze` – perform bot detection analysis ✅
+  - `POST /api/v1/detection/sessions/{sessionId}/composite-analyze` – unified analysis with text quality ✅
   - `GET /api/v1/detection/sessions/{sessionId}/ready-for-analysis` – check if session is ready for analysis ✅
+  - `POST /api/v1/text-analysis/questions` – capture survey questions ✅
+  - `POST /api/v1/text-analysis/responses` – analyze responses with GPT-4o-mini ✅
+  - `GET /api/v1/text-analysis/sessions/{sessionId}/summary` – text quality summary ✅
 - **Classification Engine**: Rule-based checks with thresholds, returns `is_bot`, `confidence_score`, `risk_level`, plus performance metadata ✅
-- **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results including extra columns for `processing_time_ms` and `event_count` ✅
+- **Text Quality Engine**: GPT-4o-mini powered analysis for gibberish, copy-paste, relevance, generic answers, and quality scoring ✅
+- **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results, survey_questions, survey_responses including extra columns for `processing_time_ms` and `event_count` ✅
 - **Dashboard Metrics**:
   - Latency analysis (ms) ✅
   - Event volume per session ✅
@@ -30,19 +36,28 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
    - Mouse speed & presence ✅
    - Focus/blur & scroll detection ✅
    - Device fingerprint & network anomalies ✅
-3. **Performance Metrics**: Capture and store per-request processing time and event counts ✅
-4. **Robust API**: 400/404 error handling, debug logging of raw payloads ✅
-5. **Dashboard**: Timeline charts + summary tables showing classification outcomes and system KPIs ✅
-6. **Client SDKs**: Python and JavaScript client libraries for easy integration ✅
-7. **Performance Testing**: Locust load testing and async performance validation ✅
-8. **Error Handling**: Comprehensive error messages and validation ✅
-9. **Integration Support**: Qualtrics and Decipher webhook handlers with mock mode ✅
-10. **Architecture Design**: Well-documented system architecture with clear interaction patterns ✅
-11. **Frontend Integration**: Complete React dashboard with real-time updates and comprehensive features ✅
-12. **Integration Management**: Webhook testing interface and status monitoring ✅
-13. **API Playground**: Interactive API testing interface ✅
-14. **Quick Start Guide**: Step-by-step integration instructions ✅
-15. **User Experience**: Toast notifications, responsive design, and error handling ✅
+3. **Text Quality Analysis**:
+   - GPT-4o-mini powered gibberish detection ✅
+   - Copy-paste content detection ✅
+   - Topic relevance checking ✅
+   - Generic answer detection ✅
+   - Overall quality scoring (0-100) ✅
+4. **Performance Metrics**: Capture and store per-request processing time and event counts ✅
+5. **Robust API**: 400/404 error handling, debug logging of raw payloads ✅
+6. **Dashboard**: Timeline charts + summary tables showing classification outcomes and system KPIs ✅
+7. **Text Quality Dashboard**: Real-time text analysis results with flagged responses ✅
+8. **Client SDKs**: Python and JavaScript client libraries for easy integration ✅
+9. **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking ✅
+10. **Performance Testing**: Locust load testing and async performance validation ✅
+11. **Error Handling**: Comprehensive error messages and validation ✅
+12. **Integration Support**: Qualtrics and Decipher webhook handlers with mock mode ✅
+13. **Architecture Design**: Well-documented system architecture with clear interaction patterns ✅
+14. **Frontend Integration**: Complete React dashboard with real-time updates and comprehensive features ✅
+15. **Integration Management**: Webhook testing interface and status monitoring ✅
+16. **API Playground**: Interactive API testing interface ✅
+17. **Quick Start Guide**: Step-by-step integration instructions ✅
+18. **User Experience**: Toast notifications, responsive design, and error handling ✅
+19. **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis ✅
 
 ## 4. Success Metrics ✅
 - <200 ms median `processing_time_ms` per request ✅ (Achieved: ~100ms average)

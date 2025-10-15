@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     ENABLE_METRICS: bool = True
     METRICS_PORT: int = 9090
     
+    # OpenAI settings
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MAX_TOKENS: int = 500
+    OPENAI_TEMPERATURE: float = 0.3
+    OPENAI_TIMEOUT: int = 30
+    OPENAI_MAX_RETRIES: int = 3
+    
     model_config = ConfigDict(
         env_file=".env",
         case_sensitive=True
@@ -76,7 +84,7 @@ def validate_settings():
         raise ValueError("SECRET_KEY must be set in environment variables")
     
     if settings.DEBUG:
-        print("⚠️  Running in DEBUG mode - not suitable for production")
+        print("WARNING: Running in DEBUG mode - not suitable for production")
 
 # Validate on import
 validate_settings() 

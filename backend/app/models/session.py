@@ -42,6 +42,8 @@ class Session(Base):
     # Relationships
     behavior_data = relationship("BehaviorData", back_populates="session", cascade="all, delete-orphan")
     detection_results = relationship("DetectionResult", back_populates="session", cascade="all, delete-orphan")
+    survey_questions = relationship("SurveyQuestion", back_populates="session", cascade="all, delete-orphan")
+    survey_responses = relationship("SurveyResponse", back_populates="session", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Session(id={self.id}, platform={self.platform}, is_active={self.is_active})>"

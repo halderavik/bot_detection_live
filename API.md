@@ -4,24 +4,27 @@
 1. [Overview](#overview)
 2. [Base URL & Authentication](#base-url--authentication)
 3. [Core API Endpoints](#core-api-endpoints)
-4. [Integration APIs](#integration-apis)
-5. [Dashboard APIs](#dashboard-apis)
-6. [Health & Monitoring](#health--monitoring)
-7. [Error Handling](#error-handling)
-8. [Integration Guides](#integration-guides)
-9. [Client SDKs](#client-sdks)
-10. [Rate Limits & Best Practices](#rate-limits--best-practices)
-11. [Frontend Integration](#frontend-integration)
+4. [Text Quality Analysis APIs](#text-quality-analysis-apis)
+5. [Integration APIs](#integration-apis)
+6. [Dashboard APIs](#dashboard-apis)
+7. [Health & Monitoring](#health--monitoring)
+8. [Error Handling](#error-handling)
+9. [Integration Guides](#integration-guides)
+10. [Client SDKs](#client-sdks)
+11. [Rate Limits & Best Practices](#rate-limits--best-practices)
+12. [Frontend Integration](#frontend-integration)
 
 ---
 
 ## Overview
 
-The Bot Detection API provides comprehensive bot detection capabilities through behavioral analysis, survey platform integration, and real-time monitoring. The API is built with FastAPI and supports both synchronous and asynchronous operations.
+The Bot Detection API provides comprehensive bot detection capabilities through behavioral analysis, OpenAI-powered text quality analysis, survey platform integration, and real-time monitoring. The API is built with FastAPI and supports both synchronous and asynchronous operations.
 
 ### Key Features
 - **Session Management**: Create and manage bot detection sessions
 - **Event Collection**: Ingest behavioral events (keystrokes, mouse movements, etc.)
+- **Text Quality Analysis**: OpenAI GPT-4o-mini powered analysis of survey responses
+- **Composite Analysis**: Unified bot detection combining behavioral + text quality
 - **Real-time Analysis**: Perform bot detection analysis with confidence scoring
 - **Survey Integration**: Seamless integration with Qualtrics and Decipher
 - **Dashboard Analytics**: Comprehensive monitoring and reporting
@@ -230,6 +233,166 @@ POST /detection/sessions/{session_id}/analyze
 - `LOW`: Very likely human (confidence > 0.7)
 - `MEDIUM`: Uncertain (confidence 0.3-0.7)
 - `HIGH`: Very likely bot (confidence < 0.3)
+
+#### Composite Analysis (Behavioral + Text Quality)
+```http
+POST /detection/sessions/{session_id}/composite-analyze
+```
+
+**Description:** Performs unified bot detection analysis combining behavioral patterns and text quality analysis.
+
+**Response:**
+```json
+{
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "composite_score": 0.75,
+  "behavioral_score": 0.85,
+  "text_quality_score": 65.5,
+  "text_quality_normalized": 0.345,
+  "risk_level": "LOW",
+  "is_bot": false,
+  "behavioral_details": {
+    "confidence_score": 0.85,
+    "method_scores": {
+      "keystroke_analysis": 0.9,
+      "mouse_analysis": 0.8,
+      "timing_analysis": 0.85,
+      "device_analysis": 0.9
+    }
+  },
+  "text_quality_details": {
+    "total_responses": 3,
+    "avg_quality_score": 65.5,
+    "flagged_count": 1,
+    "flagged_percentage": 33.33,
+    "flag_types": {
+      "generic": 1
+    }
+  }
+}
+```
+
+---
+
+## Text Quality Analysis APIs
+
+### 1. Question Capture
+
+#### Capture Survey Question
+```http
+POST /text-analysis/questions
+```
+
+**Description:** Captures a survey question for text quality analysis.
+
+**Request Body:**
+```json
+{
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "question_text": "What is your favorite color?",
+  "question_type": "open_ended",
+  "element_id": "color-input",
+  "page_url": "https://example.com/survey",
+  "page_title": "Color Preference Survey"
+}
+```
+
+**Response:**
+```json
+{
+  "question_id": "q_12345678-1234-1234-1234-123456789abc",
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "message": "Question captured successfully"
+}
+```
+
+### 2. Response Analysis
+
+#### Analyze Response
+```http
+POST /text-analysis/responses
+```
+
+**Description:** Analyzes a survey response using OpenAI GPT-4o-mini for quality assessment.
+
+**Request Body:**
+```json
+{
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "question_id": "q_12345678-1234-1234-1234-123456789abc",
+  "response_text": "My favorite color is blue because it reminds me of the ocean and sky.",
+  "response_time_ms": 2500
+}
+```
+
+**Response:**
+```json
+{
+  "response_id": "r_87654321-4321-4321-4321-cba987654321",
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "question_id": "q_12345678-1234-1234-1234-123456789abc",
+  "quality_score": 85.5,
+  "is_flagged": false,
+  "flag_reasons": {},
+  "message": "Response analyzed successfully"
+}
+```
+
+**Flag Reasons:**
+- `gibberish`: Random characters or nonsensical text
+- `copy_paste`: Generic or copied content
+- `irrelevant`: Off-topic responses
+- `generic`: Low-effort, uninformative answers
+- `low_quality`: Very poor quality score (< 30)
+
+### 3. Session Summary
+
+#### Get Text Quality Summary
+```http
+GET /text-analysis/sessions/{session_id}/summary
+```
+
+**Description:** Retrieves a summary of text quality analysis for a session.
+
+**Response:**
+```json
+{
+  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+  "total_responses": 3,
+  "avg_quality_score": 72.3,
+  "flagged_count": 1,
+  "flag_type_counts": {
+    "generic": 1
+  },
+  "responses": [
+    {
+      "response_id": "r_87654321-4321-4321-4321-cba987654321",
+      "question_id": "q_12345678-1234-1234-1234-123456789abc",
+      "response_text": "My favorite color is blue because it reminds me of the ocean and sky.",
+      "quality_score": 85.5,
+      "is_flagged": false,
+      "flag_reasons": {}
+    }
+  ]
+}
+```
+
+### 4. Usage Statistics
+
+#### Get OpenAI Usage Stats
+```http
+GET /text-analysis/stats
+```
+
+**Description:** Returns OpenAI API usage statistics and cost tracking.
+
+**Response:**
+```json
+{
+  "total_tokens": 15420,
+  "total_cost": 0.0231
+}
+```
 
 ---
 

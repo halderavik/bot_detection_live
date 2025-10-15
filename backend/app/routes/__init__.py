@@ -9,6 +9,7 @@ from app.controllers.detection_controller import DetectionController
 from app.controllers.dashboard_controller import DashboardController
 from app.controllers.integration_controller import IntegrationController
 from app.controllers.report_controller import ReportController
+from app.controllers.text_analysis_controller import router as text_analysis_router
 
 # Create main API router
 api_router = APIRouter()
@@ -22,4 +23,5 @@ report_controller = ReportController()
 api_router.include_router(detection_controller.get_router())
 api_router.include_router(dashboard_controller.get_router())
 api_router.include_router(integration_controller.get_router())
-api_router.include_router(report_controller.get_router()) 
+api_router.include_router(report_controller.get_router())
+api_router.include_router(text_analysis_router) 

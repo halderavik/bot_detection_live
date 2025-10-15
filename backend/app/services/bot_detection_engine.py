@@ -8,13 +8,15 @@ and device characteristics.
 
 import time
 import statistics
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime, timedelta
 import logging
 
 from app.utils.logger import setup_logger
 from app.utils.helpers import calculate_confidence_score, determine_risk_level
-from app.models import BehaviorData, DetectionResult
+from app.models import BehaviorData, DetectionResult, SurveyResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 logger = setup_logger(__name__)
 
@@ -98,6 +100,161 @@ class BotDetectionEngine:
         
         logger.info(f"Analysis completed: is_bot={is_bot}, confidence={confidence_score:.3f}")
         return result
+    
+    async def calculate_composite_score(self, session_id: str, db: AsyncSession) -> Dict[str, Any]:
+        """
+        Calculate unified composite score combining behavioral and text quality analysis.
+        
+        Args:
+            session_id: Session ID to analyze
+            db: Database session
+            
+        Returns:
+            Dictionary with composite scoring results
+        """
+        try:
+            # Get behavioral analysis result (existing)
+            behavior_result = await self._get_latest_behavioral_analysis(session_id, db)
+            
+            # Get text quality analysis results
+            text_quality_result = await self._get_text_quality_analysis(session_id, db)
+            
+            # Extract scores
+            behavioral_score = behavior_result.get('confidence_score', 0.5) if behavior_result else 0.5
+            avg_text_quality = text_quality_result.get('avg_quality_score', 50.0) if text_quality_result else 50.0
+            
+            # Normalize text quality score (0-100 -> 0-1, inverted so higher quality = lower risk)
+            text_quality_normalized = 1.0 - (avg_text_quality / 100.0)
+            
+            # Calculate composite score (weighted combination)
+            composite_score = (
+                0.6 * behavioral_score +  # 60% weight on behavioral analysis
+                0.4 * text_quality_normalized  # 40% weight on text quality (inverted)
+            )
+            
+            # Determine risk level based on composite score
+            if composite_score >= 0.8:
+                risk_level = "CRITICAL"
+            elif composite_score >= 0.6:
+                risk_level = "HIGH"
+            elif composite_score >= 0.4:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+            
+            # Determine if session is flagged as bot/fraud
+            is_bot = composite_score >= 0.7
+            
+            logger.info(f"Composite score calculated: {composite_score:.3f}, risk: {risk_level}")
+            
+            return {
+                'session_id': session_id,
+                'composite_score': composite_score,
+                'behavioral_score': behavioral_score,
+                'text_quality_score': avg_text_quality,
+                'text_quality_normalized': text_quality_normalized,
+                'risk_level': risk_level,
+                'is_bot': is_bot,
+                'behavioral_details': behavior_result,
+                'text_quality_details': text_quality_result
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating composite score: {e}")
+            # Fallback to behavioral score only
+            behavior_result = await self._get_latest_behavioral_analysis(session_id, db)
+            behavioral_score = behavior_result.get('confidence_score', 0.5) if behavior_result else 0.5
+            
+            return {
+                'session_id': session_id,
+                'composite_score': behavioral_score,
+                'behavioral_score': behavioral_score,
+                'text_quality_score': None,
+                'text_quality_normalized': 0.5,
+                'risk_level': "HIGH" if behavioral_score >= 0.7 else "MEDIUM",
+                'is_bot': behavioral_score >= 0.7,
+                'behavioral_details': behavior_result,
+                'text_quality_details': None,
+                'error': str(e)
+            }
+    
+    async def _get_latest_behavioral_analysis(self, session_id: str, db: AsyncSession) -> Optional[Dict]:
+        """Get the latest behavioral analysis result for a session."""
+        try:
+            from app.models import DetectionResult
+            
+            result = await db.execute(
+                select(DetectionResult)
+                .where(DetectionResult.session_id == session_id)
+                .order_by(DetectionResult.created_at.desc())
+                .limit(1)
+            )
+            detection_result = result.scalar_one_or_none()
+            
+            if detection_result:
+                return {
+                    'confidence_score': detection_result.confidence_score,
+                    'is_bot': detection_result.is_bot,
+                    'risk_level': detection_result.risk_level,
+                    'method_scores': detection_result.method_scores,
+                    'analysis_summary': detection_result.analysis_summary,
+                    'created_at': detection_result.created_at
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting behavioral analysis: {e}")
+            return None
+    
+    async def _get_text_quality_analysis(self, session_id: str, db: AsyncSession) -> Optional[Dict]:
+        """Get text quality analysis results for a session."""
+        try:
+            result = await db.execute(
+                select(SurveyResponse)
+                .where(SurveyResponse.session_id == session_id)
+                .where(SurveyResponse.quality_score.isnot(None))
+            )
+            responses = result.scalars().all()
+            
+            if not responses:
+                return None
+            
+            # Calculate aggregate statistics
+            quality_scores = [r.quality_score for r in responses if r.quality_score is not None]
+            flagged_responses = [r for r in responses if r.is_flagged]
+            
+            avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 50.0
+            flagged_count = len(flagged_responses)
+            total_responses = len(responses)
+            
+            # Analyze flag types
+            flag_types = {}
+            for response in flagged_responses:
+                if response.flag_reasons:
+                    for flag_type in response.flag_reasons.keys():
+                        flag_types[flag_type] = flag_types.get(flag_type, 0) + 1
+            
+            return {
+                'total_responses': total_responses,
+                'avg_quality_score': avg_quality,
+                'flagged_count': flagged_count,
+                'flagged_percentage': (flagged_count / total_responses * 100) if total_responses > 0 else 0,
+                'flag_types': flag_types,
+                'quality_scores': quality_scores,
+                'responses': [
+                    {
+                        'response_id': r.id,
+                        'quality_score': r.quality_score,
+                        'is_flagged': r.is_flagged,
+                        'flag_reasons': r.flag_reasons or {}
+                    }
+                    for r in responses
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting text quality analysis: {e}")
+            return None
     
     def _analyze_keystrokes(self, behavior_data: List[BehaviorData]) -> float:
         """
