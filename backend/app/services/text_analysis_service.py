@@ -88,6 +88,10 @@ Analyze if this is a generic, low-effort, or lazy response. Look for:
 - One-word answers where more detail would be expected
 - Responses that seem dismissive or uninterested
 
+NOTE: Do NOT flag as generic if the text is:
+- Gibberish or random characters (that's a different category)
+- Completely off-topic or irrelevant (that's a different category)
+
 Text: "{text}"
 
 Return JSON with: {{"is_generic": bool, "confidence": 0.0-1.0, "reason": "explanation"}}
@@ -173,8 +177,17 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
         # Extract scores
         gibberish_score = gibberish_result.get("confidence", 0.0) if gibberish_result.get("is_gibberish", False) else 0.0
         copy_paste_score = copy_paste_result.get("confidence", 0.0) if copy_paste_result.get("is_copypaste", False) else 0.0
-        # Relevance: high confidence in relevance = low risk score, high confidence in irrelevance = high risk score
-        relevance_score = (1.0 - relevance_result.get("confidence", 0.5)) if relevance_result.get("is_relevant", True) else relevance_result.get("confidence", 0.5)
+        
+        # Relevance: Calculate irrelevance risk score
+        # When is_relevant=True, use (1 - confidence) as risk score (low risk)
+        # When is_relevant=False, use high risk score based on confidence
+        if relevance_result.get("is_relevant", True):
+            relevance_score = 1.0 - relevance_result.get("confidence", 0.5)
+        else:
+            # Not relevant - higher confidence in irrelevance = higher risk score
+            # Use 1.0 as base since we know it's irrelevant
+            relevance_score = max(0.7, 1.0 - relevance_result.get("confidence", 0.0))
+        
         generic_score = generic_result.get("confidence", 0.0) if generic_result.get("is_generic", False) else 0.0
         quality_score = quality_result.get("score", 50)
         
@@ -201,6 +214,16 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
         if quality_score < 30:
             flag_reasons["low_quality"] = {"confidence": 1.0, "reason": f"Quality score {quality_score} is very low"}
             is_flagged = True
+        
+        # Apply priority filtering to prevent over-flagging
+        # Priority order: gibberish > irrelevant > copy_paste > generic > low_quality
+        if "gibberish" in flag_reasons:
+            # Gibberish takes precedence - remove generic and low_quality flags
+            flag_reasons.pop("generic", None)
+            flag_reasons.pop("low_quality", None)
+        elif "irrelevant" in flag_reasons:
+            # Irrelevant takes precedence over generic
+            flag_reasons.pop("generic", None)
         
         # Calculate overall confidence
         confidences = [
@@ -236,28 +259,26 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
     
     async def _analyze_gibberish(self, text: str) -> Dict[str, Any]:
         """Analyze if text is gibberish."""
-        prompt = self.prompts["gibberish"].format(text=text)
-        return await self.openai_service.analyze_text(text, prompt)
+        return await self.openai_service.analyze_text(text, self.prompts["gibberish"])
     
     async def _analyze_copy_paste(self, text: str) -> Dict[str, Any]:
         """Analyze if text appears to be copy-pasted."""
-        prompt = self.prompts["copy_paste"].format(text=text)
-        return await self.openai_service.analyze_text(text, prompt)
+        return await self.openai_service.analyze_text(text, self.prompts["copy_paste"])
     
     async def _analyze_relevance(self, question: str, text: str) -> Dict[str, Any]:
         """Analyze if text is relevant to the question."""
-        prompt = self.prompts["relevance"].format(question=question, text=text)
-        return await self.openai_service.analyze_text(text, prompt)
+        # For relevance analysis, we need to format the prompt with both question and text
+        prompt_template = self.prompts["relevance"]
+        formatted_prompt = prompt_template.format(question=question, text=text)
+        return await self.openai_service.analyze_with_formatted_prompt(formatted_prompt)
     
     async def _analyze_generic(self, text: str) -> Dict[str, Any]:
         """Analyze if text is a generic response."""
-        prompt = self.prompts["generic"].format(text=text)
-        return await self.openai_service.analyze_text(text, prompt)
+        return await self.openai_service.analyze_text(text, self.prompts["generic"])
     
     async def _analyze_quality(self, text: str) -> Dict[str, Any]:
         """Analyze overall quality of the text."""
-        prompt = self.prompts["quality"].format(text=text)
-        return await self.openai_service.analyze_text(text, prompt)
+        return await self.openai_service.analyze_text(text, self.prompts["quality"])
     
     async def batch_analyze_responses(self, questions_and_answers: List[tuple]) -> List[TextAnalysisResult]:
         """

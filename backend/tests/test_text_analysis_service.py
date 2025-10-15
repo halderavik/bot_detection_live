@@ -81,7 +81,9 @@ class TestTextAnalysisService:
         assert result.is_flagged
         assert result.gibberish_score == 0.9
         assert "gibberish" in result.flag_reasons
-        assert "low_quality" in result.flag_reasons
+        # With priority filtering, gibberish takes precedence - generic and low_quality should be removed
+        assert "generic" not in result.flag_reasons
+        assert "low_quality" not in result.flag_reasons
     
     @pytest.mark.asyncio
     async def test_analyze_response_copy_paste(self, text_service, mock_openai_service):
@@ -150,8 +152,11 @@ class TestTextAnalysisService:
         
         assert result.quality_score == 20
         assert result.is_flagged
-        assert abs(result.relevance_score - 0.9) < 0.001  # High score = high irrelevance (corrected logic)
+        # With corrected logic: is_relevant=False, so relevance_score = max(0.7, 1.0 - 0.9) = max(0.7, 0.1) = 0.7
+        assert abs(result.relevance_score - 0.7) < 0.001
         assert "irrelevant" in result.flag_reasons
+        # With priority filtering, irrelevant takes precedence over generic
+        assert "generic" not in result.flag_reasons
     
     @pytest.mark.asyncio
     async def test_analyze_response_too_short(self, text_service):
