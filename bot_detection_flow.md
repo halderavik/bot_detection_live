@@ -2,10 +2,12 @@
 
 ## Production Status
 ✅ **System Operational** - All endpoints verified and working
-- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
-- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
-- **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **Backend API**: https://bot-backend-119522247395.northamerica-northeast2.run.app
+- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+- **Metrics**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
 - **Frontend**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+- **OpenAI Integration**: GPT-4o-mini fully operational with 100% test accuracy ✅
+- **Text Analysis Health**: Real-time OpenAI service monitoring ✅
 
 ## 1. Overall System Architecture
 

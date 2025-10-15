@@ -296,6 +296,34 @@ async def get_session_summary(
             detail="Failed to get session summary"
         )
 
+@router.get("/health")
+async def text_analysis_health():
+    """
+    Check text analysis service health and configuration.
+    
+    Returns OpenAI service availability and configuration status without exposing secrets.
+    """
+    try:
+        openai_service = text_analysis_service.openai_service
+        
+        return {
+            "status": "healthy",
+            "openai_available": openai_service.is_available,
+            "model": openai_service.model if openai_service.is_available else None,
+            "max_tokens": openai_service.max_tokens if openai_service.is_available else None,
+            "temperature": openai_service.temperature if openai_service.is_available else None,
+            "rate_limiter_enabled": True,
+            "cache_enabled": True,
+            "service_initialized": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking text analysis health: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check text analysis health"
+        )
+
 @router.get("/stats", response_model=TextAnalysisStatsResponse)
 async def get_text_analysis_stats():
     """

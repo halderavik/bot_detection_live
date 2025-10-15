@@ -279,6 +279,81 @@ class OpenAIService:
         
         return processed_results
     
+    async def analyze_with_formatted_prompt(self, formatted_prompt: str) -> Dict[str, Any]:
+        """
+        Analyze text using a pre-formatted prompt.
+        
+        Args:
+            formatted_prompt: Already formatted prompt string
+            
+        Returns:
+            Analysis result dictionary
+            
+        Raises:
+            Exception: If analysis fails after retries or OpenAI is unavailable
+        """
+        # Check if OpenAI is available
+        if not self.is_available or not self.client:
+            raise Exception("OpenAI unavailable: missing OPENAI_API_KEY")
+        
+        # Check cache first
+        cached_result = self.cache.get(formatted_prompt, self.model)
+        if cached_result:
+            self.usage_stats.cache_hits += 1
+            logger.debug("Cache hit for text analysis")
+            return cached_result
+        
+        # Rate limiting
+        if not await self.rate_limiter.acquire():
+            raise Exception("Rate limit exceeded. Please try again later.")
+        
+        # Make API request with retries
+        for attempt in range(self.max_retries):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": formatted_prompt}],
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    timeout=self.timeout
+                )
+                
+                # Parse response
+                content = response.choices[0].message.content.strip()
+                
+                # Try to parse as JSON
+                try:
+                    result = json.loads(content)
+                except json.JSONDecodeError:
+                    # If not JSON, wrap in a simple structure
+                    result = {"analysis": content, "raw_response": True}
+                
+                # Update usage stats
+                self.usage_stats.total_requests += 1
+                if response.usage:
+                    self.usage_stats.total_tokens_input += response.usage.prompt_tokens
+                    self.usage_stats.total_tokens_output += response.usage.completion_tokens
+                    
+                    # Calculate cost
+                    input_cost = (response.usage.prompt_tokens / 1000) * self.input_cost_per_1k
+                    output_cost = (response.usage.completion_tokens / 1000) * self.output_cost_per_1k
+                    self.usage_stats.estimated_cost += input_cost + output_cost
+                
+                # Cache the result
+                self.cache.set(formatted_prompt, self.model, result)
+                
+                logger.debug(f"OpenAI analysis successful (attempt {attempt + 1})")
+                return result
+                
+            except Exception as e:
+                logger.warning(f"OpenAI API request failed (attempt {attempt + 1}): {e}")
+                if attempt == self.max_retries - 1:
+                    self.usage_stats.errors += 1
+                    raise Exception(f"OpenAI analysis failed after {self.max_retries} attempts: {e}")
+                
+                # Wait before retry
+                await asyncio.sleep(2 ** attempt)
+    
     def get_usage_stats(self) -> Dict[str, Any]:
         """
         Get current usage statistics.

@@ -9,39 +9,54 @@
       ]
     },
     "result": {
-      "response_id": "c9d69caf-1926-4e08-8e9f-9a28aace97cb",
-      "question_id": "b25ef269-31ff-4a77-a91c-6346d816d145",
-      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
-      "quality_score": 50.0,
-      "is_flagged": false,
-      "flag_reasons": {},
+      "response_id": "d9c4b7f0-8921-46ad-ab29-41b11da0ca4f",
+      "question_id": "6adcb033-4758-4356-afc6-b80469a54571",
+      "session_id": "44ab737d-57ec-4a72-b781-a63e158b02b0",
+      "quality_score": 5.0,
+      "is_flagged": true,
+      "flag_reasons": {
+        "gibberish": {
+          "is_gibberish": true,
+          "confidence": 0.9,
+          "reason": "The text consists of sequences of characters that are commonly found on a QWERTY keyboard, but they do not form meaningful words or sentences. The combinations are incoherent and lack semantic content, indicating a high likelihood of being gibberish."
+        },
+        "generic": {
+          "is_generic": true,
+          "confidence": 1.0,
+          "reason": "The response consists of a random sequence of letters that does not convey any meaningful information or context. It appears to be a placeholder or nonsensical text rather than a thoughtful or relevant reply."
+        },
+        "low_quality": {
+          "confidence": 1.0,
+          "reason": "Quality score 5 is very low"
+        }
+      },
       "analysis_details": {
         "gibberish": {
-          "is_gibberish": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "is_gibberish": true,
+          "confidence": 0.9,
+          "reason": "The text consists of sequences of characters that are commonly found on a QWERTY keyboard, but they do not form meaningful words or sentences. The combinations are incoherent and lack semantic content, indicating a high likelihood of being gibberish."
         },
         "copy_paste": {
           "is_copypaste": false,
           "confidence": 0.0,
-          "reason": "Analysis failed"
+          "reason": "The text consists of random keyboard characters and does not contain any formal language, complete sentences, technical jargon, or generic responses. It appears to be nonsensical rather than copy-pasted content."
         },
         "relevance": {
-          "is_relevant": true,
-          "confidence": 0.5,
-          "reason": "Analysis failed"
+          "is_relevant": false,
+          "confidence": 0.0,
+          "reason": "The answer does not directly respond to the question about favorite color and instead provides a nonsensical string of letters, showing a lack of understanding of the question."
         },
         "generic": {
-          "is_generic": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "is_generic": true,
+          "confidence": 1.0,
+          "reason": "The response consists of a random sequence of letters that does not convey any meaningful information or context. It appears to be a placeholder or nonsensical text rather than a thoughtful or relevant reply."
         },
         "quality": {
-          "score": 50,
-          "reasoning": "Analysis failed"
+          "score": 5,
+          "reasoning": "The response lacks coherence and clarity, as it consists of random letters that do not form any meaningful words or sentences. It is completely irrelevant to any potential question, showing no effort or thoughtfulness in addressing the topic. The response is also incomplete, as it does not provide any information or insight. While the grammar is technically correct in terms of letter arrangement, the overall readability is extremely low due to the nonsensical nature of the text."
         }
       },
-      "analyzed_at": "2025-10-15T20:14:57.437247Z"
+      "analyzed_at": "2025-10-15T20:29:53.395430Z"
     },
     "is_correct": false
   },
@@ -55,41 +70,47 @@
       ]
     },
     "result": {
-      "response_id": "7d0c6033-d669-4762-9e57-1716dd855de7",
-      "question_id": "edc43cd0-8a06-4ae8-a89d-8397ca30af71",
-      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
-      "quality_score": 50.0,
-      "is_flagged": false,
-      "flag_reasons": {},
+      "response_id": "e222f0dd-bf3d-4149-b782-c2df84490c8f",
+      "question_id": "40c5a015-68ff-4f3f-91ed-7bbd5a4315aa",
+      "session_id": "44ab737d-57ec-4a72-b781-a63e158b02b0",
+      "quality_score": 75.0,
+      "is_flagged": true,
+      "flag_reasons": {
+        "copy_paste": {
+          "is_copypaste": true,
+          "confidence": 0.85,
+          "reason": "The text uses formal language that is inconsistent with the casual context of a survey. It provides a generic description of the color blue rather than directly answering a specific question, and the language appears pre-written and somewhat promotional, indicating it may have been sourced from marketing material or a color psychology article."
+        }
+      },
       "analysis_details": {
         "gibberish": {
           "is_gibberish": false,
           "confidence": 0.0,
-          "reason": "Analysis failed"
+          "reason": "The text is coherent, contains meaningful sentences, and discusses the significance of the color blue in a clear and logical manner."
         },
         "copy_paste": {
-          "is_copypaste": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "is_copypaste": true,
+          "confidence": 0.85,
+          "reason": "The text uses formal language that is inconsistent with the casual context of a survey. It provides a generic description of the color blue rather than directly answering a specific question, and the language appears pre-written and somewhat promotional, indicating it may have been sourced from marketing material or a color psychology article."
         },
         "relevance": {
           "is_relevant": true,
-          "confidence": 0.5,
-          "reason": "Analysis failed"
+          "confidence": 0.9,
+          "reason": "The answer provides 'blue' as a favorite color, which directly responds to the question. Additionally, it offers context about the color's associations and popularity, showing an understanding of the question type."
         },
         "generic": {
           "is_generic": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "confidence": 0.9,
+          "reason": "The response provides specific information about the color blue, including its associations and uses in branding. It is not a low-effort or dismissive response, as it offers meaningful insights rather than a generic or one-word answer."
         },
         "quality": {
-          "score": 50,
-          "reasoning": "Analysis failed"
+          "score": 75,
+          "reasoning": "The response demonstrates coherence and clarity, effectively conveying the associations of the color blue. It is relevant to the likely question about the significance or meaning of the color. However, the response lacks depth and detail, as it could explore more aspects of the color's impact or cultural significance. The effort and thoughtfulness are present, but the completeness is somewhat lacking due to the brevity of the response. The grammar and readability are good, with no noticeable errors. Overall, while the response is solid, it could benefit from additional elaboration."
         }
       },
-      "analyzed_at": "2025-10-15T20:14:59.241240Z"
+      "analyzed_at": "2025-10-15T20:29:58.884386Z"
     },
-    "is_correct": false
+    "is_correct": true
   },
   {
     "test_case": {
@@ -101,39 +122,49 @@
       ]
     },
     "result": {
-      "response_id": "498800e8-399e-450e-9f1d-27c76d2e6859",
-      "question_id": "8e57dd91-19d1-456a-b449-d356c7cce874",
-      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
-      "quality_score": 50.0,
-      "is_flagged": false,
-      "flag_reasons": {},
+      "response_id": "c6ecaf5f-233a-436a-886f-4605186784b3",
+      "question_id": "0c58769d-1eaf-4b76-a98c-565d2935ea41",
+      "session_id": "44ab737d-57ec-4a72-b781-a63e158b02b0",
+      "quality_score": 20.0,
+      "is_flagged": true,
+      "flag_reasons": {
+        "generic": {
+          "is_generic": true,
+          "confidence": 0.85,
+          "reason": "The response 'I like pizza and movies' is a very general statement that does not provide any specific information or insight. It lacks detail and could be considered a low-effort response, as it does not engage with the topic in a meaningful way."
+        },
+        "low_quality": {
+          "confidence": 1.0,
+          "reason": "Quality score 20 is very low"
+        }
+      },
       "analysis_details": {
         "gibberish": {
           "is_gibberish": false,
           "confidence": 0.0,
-          "reason": "Analysis failed"
+          "reason": "The text 'I like pizza and movies' consists of coherent words that form a meaningful sentence expressing a preference for pizza and movies. There are no random character sequences, incoherent word combinations, or nonsensical elements present."
         },
         "copy_paste": {
           "is_copypaste": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "confidence": 0.1,
+          "reason": "The text is a simple and casual statement that directly answers a question about personal preferences. It does not contain formal language, complete pre-written sentences, technical jargon, or generic responses."
         },
         "relevance": {
-          "is_relevant": true,
-          "confidence": 0.5,
-          "reason": "Analysis failed"
+          "is_relevant": false,
+          "confidence": 0.0,
+          "reason": "The answer does not directly respond to the question about favorite color and instead provides unrelated information about pizza and movies, showing a lack of understanding of the question."
         },
         "generic": {
-          "is_generic": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "is_generic": true,
+          "confidence": 0.85,
+          "reason": "The response 'I like pizza and movies' is a very general statement that does not provide any specific information or insight. It lacks detail and could be considered a low-effort response, as it does not engage with the topic in a meaningful way."
         },
         "quality": {
-          "score": 50,
-          "reasoning": "Analysis failed"
+          "score": 20,
+          "reasoning": "The response lacks coherence and clarity as it does not provide a clear connection to any specific question. It is relevant only if the question was about personal preferences, but it does not elaborate on these preferences or provide any context. The effort and thoughtfulness are minimal, as the response is very brief and does not engage with the topic in depth. The completeness of the response is low, as it does not address any potential follow-up questions or provide additional information. However, the grammar and readability are acceptable, as the sentence is correctly structured. Overall, the response is too simplistic and does not meet the expectations for a more comprehensive answer."
         }
       },
-      "analyzed_at": "2025-10-15T20:15:01.033176Z"
+      "analyzed_at": "2025-10-15T20:30:03.572799Z"
     },
     "is_correct": false
   },
@@ -147,39 +178,49 @@
       ]
     },
     "result": {
-      "response_id": "18923d19-b19e-4f63-92d0-2b4c6fca67ac",
-      "question_id": "73f88761-e0cf-44ab-900e-27fdc50e9521",
-      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
-      "quality_score": 50.0,
-      "is_flagged": false,
-      "flag_reasons": {},
+      "response_id": "4ee9b4be-5c61-4f59-88c1-b17f5862d2fd",
+      "question_id": "26739786-e4f8-4631-b872-29202d392b6f",
+      "session_id": "44ab737d-57ec-4a72-b781-a63e158b02b0",
+      "quality_score": 10.0,
+      "is_flagged": true,
+      "flag_reasons": {
+        "generic": {
+          "is_generic": true,
+          "confidence": 1.0,
+          "reason": "The response 'idk' is a very short answer that does not provide useful information or any detail. It indicates a lack of engagement or interest in the topic, making it a generic and low-effort response."
+        },
+        "low_quality": {
+          "confidence": 1.0,
+          "reason": "Quality score 10 is very low"
+        }
+      },
       "analysis_details": {
         "gibberish": {
           "is_gibberish": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "confidence": 0.1,
+          "reason": "The text 'idk' is an abbreviation for 'I don't know,' which is a coherent expression in informal communication. While it may lack context, it is not meaningless or nonsensical."
         },
         "copy_paste": {
           "is_copypaste": false,
           "confidence": 0.0,
-          "reason": "Analysis failed"
+          "reason": "The text 'idk' is an informal abbreviation for 'I don't know' and does not exhibit any characteristics of being copy-pasted. It is casual and directly answers the question with a personal response, lacking formal language, complete sentences, technical jargon, or generic responses."
         },
         "relevance": {
-          "is_relevant": true,
-          "confidence": 0.5,
-          "reason": "Analysis failed"
+          "is_relevant": false,
+          "confidence": 0.2,
+          "reason": "The answer 'idk' does not directly respond to the question about favorite color. It indicates a lack of knowledge or certainty, which does not provide any relevant information regarding the question asked."
         },
         "generic": {
-          "is_generic": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "is_generic": true,
+          "confidence": 1.0,
+          "reason": "The response 'idk' is a very short answer that does not provide useful information or any detail. It indicates a lack of engagement or interest in the topic, making it a generic and low-effort response."
         },
         "quality": {
-          "score": 50,
-          "reasoning": "Analysis failed"
+          "score": 10,
+          "reasoning": "The response 'idk' (I don't know) lacks coherence and clarity as it does not provide any information or insight related to the question. It is minimally relevant but does not engage with the topic at all, showing a lack of effort and thoughtfulness. The response is incomplete, as it does not attempt to answer or elaborate on the question posed. While the grammar is correct, the overall readability is poor due to the brevity and lack of substance. Therefore, the score reflects a very low quality response."
         }
       },
-      "analyzed_at": "2025-10-15T20:15:02.832527Z"
+      "analyzed_at": "2025-10-15T20:30:08.757746Z"
     },
     "is_correct": false
   },
@@ -191,39 +232,39 @@
       "expected_flags": []
     },
     "result": {
-      "response_id": "038f3836-6259-4131-ab1d-0dccd8c31f34",
-      "question_id": "0b77698d-eabf-45ca-8616-4bef23aed909",
-      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
-      "quality_score": 50.0,
+      "response_id": "cf4e0599-53ba-4205-9c1b-8a465b17e338",
+      "question_id": "14173a0c-4e35-44e1-9ddb-64783dbebc70",
+      "session_id": "44ab737d-57ec-4a72-b781-a63e158b02b0",
+      "quality_score": 85.0,
       "is_flagged": false,
       "flag_reasons": {},
       "analysis_details": {
         "gibberish": {
           "is_gibberish": false,
           "confidence": 0.0,
-          "reason": "Analysis failed"
+          "reason": "The text is coherent, forms meaningful sentences, and expresses a clear thought about the speaker's favorite color and its calming effects. There are no random character sequences, incoherent word combinations, or repeated patterns."
         },
         "copy_paste": {
           "is_copypaste": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "confidence": 0.1,
+          "reason": "The text uses casual language and provides a personal opinion about a favorite color, which is consistent with a survey context. There are no signs of formal language, technical jargon, or generic responses that would indicate it is copy-pasted."
         },
         "relevance": {
           "is_relevant": true,
-          "confidence": 0.5,
-          "reason": "Analysis failed"
+          "confidence": 1.0,
+          "reason": "The answer directly responds to the question by stating a favorite color and providing a rationale for that choice, which is appropriate for the question type."
         },
         "generic": {
           "is_generic": false,
-          "confidence": 0.0,
-          "reason": "Analysis failed"
+          "confidence": 0.9,
+          "reason": "The response provides specific reasons for the favorite color, including personal associations and emotional effects, which indicates thoughtful engagement rather than a generic or lazy response."
         },
         "quality": {
-          "score": 50,
-          "reasoning": "Analysis failed"
+          "score": 85,
+          "reasoning": "The response is coherent and clear, effectively communicating the respondent's favorite color and the reasons behind it. It is relevant to the question asked, as it directly answers what the favorite color is and provides personal insights. The effort and thoughtfulness are evident in the explanation of why blue is favored, highlighting emotional connections to the color. However, the response could be considered somewhat brief, lacking additional details or examples that could enhance completeness. The grammar and readability are excellent, with no errors present. Overall, the response is strong but could benefit from a bit more elaboration."
         }
       },
-      "analyzed_at": "2025-10-15T20:15:04.619387Z"
+      "analyzed_at": "2025-10-15T20:30:14.343398Z"
     },
     "is_correct": true
   }

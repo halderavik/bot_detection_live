@@ -394,6 +394,37 @@ GET /text-analysis/stats
 }
 ```
 
+### 5. Health Monitoring
+
+#### Get Text Analysis Health Status
+```http
+GET /text-analysis/health
+```
+
+**Description:** Returns OpenAI service availability and configuration status without exposing secrets.
+
+**Status:** ✅ **OPERATIONAL** - Production endpoint active with OpenAI fully configured
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "openai_available": true,
+  "model": "gpt-4o-mini",
+  "max_tokens": 500,
+  "temperature": 0.3,
+  "rate_limiter_enabled": true,
+  "cache_enabled": true,
+  "service_initialized": true
+}
+```
+
+**Example Usage:**
+```bash
+# Production
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/health"
+```
+
 ---
 
 ## Integration APIs
