@@ -36,6 +36,10 @@ class TextAnalysisService:
         """Initialize text analysis service."""
         self.openai_service = openai_service
         
+        # Log availability status
+        if not self.openai_service.is_available:
+            logger.warning("Text analysis service initialized without OpenAI - will use fallback analysis mode")
+        
         # Prompt templates for different analysis types
         self.prompts = {
             "gibberish": """

@@ -382,5 +382,71 @@ class TestPromptTemplates:
         assert "quality" in prompt.lower()
         assert "0-100" in prompt
 
+class TestOpenAIUnavailable:
+    """Test text analysis service when OpenAI is unavailable."""
+    
+    @pytest.fixture
+    def text_service_no_openai(self):
+        """Create a text analysis service with OpenAI unavailable."""
+        service = TextAnalysisService()
+        # Mock OpenAI service as unavailable
+        service.openai_service.is_available = False
+        service.openai_service.client = None
+        return service
+    
+    @pytest.mark.asyncio
+    async def test_analyze_response_openai_unavailable(self, text_service_no_openai):
+        """Test analysis when OpenAI is unavailable returns fallback results."""
+        result = await text_service_no_openai.analyze_response(
+            "What is your favorite color?",
+            "Blue is my favorite color"
+        )
+        
+        # Should return fallback result without crashing
+        assert isinstance(result, TextAnalysisResult)
+        assert result.quality_score == 50.0  # Default fallback score
+        assert not result.is_flagged
+        assert result.gibberish_score == 0.0
+        assert result.copy_paste_score == 0.0
+        assert result.relevance_score == 0.5
+        assert result.generic_score == 0.0
+        assert result.confidence == 0.0
+        assert "error" in result.analysis_details
+    
+    @pytest.mark.asyncio
+    async def test_batch_analyze_openai_unavailable(self, text_service_no_openai):
+        """Test batch analysis when OpenAI is unavailable."""
+        questions_and_answers = [
+            ("What is your favorite color?", "Blue"),
+            ("What is your favorite food?", "Pizza")
+        ]
+        
+        results = await text_service_no_openai.batch_analyze_responses(questions_and_answers)
+        
+        assert len(results) == 2
+        for result in results:
+            assert isinstance(result, TextAnalysisResult)
+            assert result.quality_score == 50.0  # Default fallback score
+            assert not result.is_flagged
+            assert "error" in result.analysis_details
+    
+    def test_openai_service_initialization_without_key(self):
+        """Test OpenAI service initialization without API key."""
+        from app.services.openai_service import OpenAIService
+        from unittest.mock import patch
+        
+        with patch('app.services.openai_service.settings') as mock_settings:
+            mock_settings.OPENAI_API_KEY = None
+            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
+            mock_settings.OPENAI_MAX_TOKENS = 500
+            mock_settings.OPENAI_TEMPERATURE = 0.3
+            mock_settings.OPENAI_TIMEOUT = 30
+            mock_settings.OPENAI_MAX_RETRIES = 3
+            
+            # Should not raise an exception
+            service = OpenAIService()
+            assert not service.is_available
+            assert service.client is None
+
 if __name__ == "__main__":
     pytest.main([__file__])

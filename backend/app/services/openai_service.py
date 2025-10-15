@@ -124,10 +124,15 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI service."""
-        if not settings.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY must be set in environment variables")
+        self.is_available = bool(settings.OPENAI_API_KEY)
         
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        if self.is_available:
+            self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            logger.info(f"OpenAI service initialized with model: {settings.OPENAI_MODEL}")
+        else:
+            self.client = None
+            logger.warning("OpenAI service initialized without API key - text analysis will use fallback mode")
+        
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE
@@ -142,8 +147,6 @@ class OpenAIService:
         # Token costs (GPT-4o-mini pricing)
         self.input_cost_per_1k = 0.00015  # $0.15 per 1M tokens
         self.output_cost_per_1k = 0.0006   # $0.60 per 1M tokens
-        
-        logger.info(f"OpenAI service initialized with model: {self.model}")
     
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:
         """
@@ -157,8 +160,12 @@ class OpenAIService:
             Analysis result dictionary
             
         Raises:
-            Exception: If analysis fails after retries
+            Exception: If analysis fails after retries or OpenAI is unavailable
         """
+        # Check if OpenAI is available
+        if not self.is_available or not self.client:
+            raise Exception("OpenAI unavailable: missing OPENAI_API_KEY")
+        
         # Check cache first
         prompt = prompt_template.format(text=text)
         cached_result = self.cache.get(prompt, self.model)
