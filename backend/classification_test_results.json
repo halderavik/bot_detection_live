@@ -1,0 +1,230 @@
+[
+  {
+    "test_case": {
+      "category": "gibberish",
+      "question": "What is your favorite color?",
+      "text": "asdfghjkl qwertyuiop zxcvbnm",
+      "expected_flags": [
+        "gibberish"
+      ]
+    },
+    "result": {
+      "response_id": "c9d69caf-1926-4e08-8e9f-9a28aace97cb",
+      "question_id": "b25ef269-31ff-4a77-a91c-6346d816d145",
+      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
+      "quality_score": 50.0,
+      "is_flagged": false,
+      "flag_reasons": {},
+      "analysis_details": {
+        "gibberish": {
+          "is_gibberish": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "copy_paste": {
+          "is_copypaste": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "relevance": {
+          "is_relevant": true,
+          "confidence": 0.5,
+          "reason": "Analysis failed"
+        },
+        "generic": {
+          "is_generic": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "quality": {
+          "score": 50,
+          "reasoning": "Analysis failed"
+        }
+      },
+      "analyzed_at": "2025-10-15T20:14:57.437247Z"
+    },
+    "is_correct": false
+  },
+  {
+    "test_case": {
+      "category": "copy_paste",
+      "question": "What is your favorite color?",
+      "text": "Blue is a color that is associated with tranquility, stability, and trust. It is often used in corporate branding and is considered one of the most popular colors worldwide.",
+      "expected_flags": [
+        "copy_paste"
+      ]
+    },
+    "result": {
+      "response_id": "7d0c6033-d669-4762-9e57-1716dd855de7",
+      "question_id": "edc43cd0-8a06-4ae8-a89d-8397ca30af71",
+      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
+      "quality_score": 50.0,
+      "is_flagged": false,
+      "flag_reasons": {},
+      "analysis_details": {
+        "gibberish": {
+          "is_gibberish": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "copy_paste": {
+          "is_copypaste": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "relevance": {
+          "is_relevant": true,
+          "confidence": 0.5,
+          "reason": "Analysis failed"
+        },
+        "generic": {
+          "is_generic": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "quality": {
+          "score": 50,
+          "reasoning": "Analysis failed"
+        }
+      },
+      "analyzed_at": "2025-10-15T20:14:59.241240Z"
+    },
+    "is_correct": false
+  },
+  {
+    "test_case": {
+      "category": "irrelevant",
+      "question": "What is your favorite color?",
+      "text": "I like pizza and movies",
+      "expected_flags": [
+        "irrelevant"
+      ]
+    },
+    "result": {
+      "response_id": "498800e8-399e-450e-9f1d-27c76d2e6859",
+      "question_id": "8e57dd91-19d1-456a-b449-d356c7cce874",
+      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
+      "quality_score": 50.0,
+      "is_flagged": false,
+      "flag_reasons": {},
+      "analysis_details": {
+        "gibberish": {
+          "is_gibberish": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "copy_paste": {
+          "is_copypaste": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "relevance": {
+          "is_relevant": true,
+          "confidence": 0.5,
+          "reason": "Analysis failed"
+        },
+        "generic": {
+          "is_generic": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "quality": {
+          "score": 50,
+          "reasoning": "Analysis failed"
+        }
+      },
+      "analyzed_at": "2025-10-15T20:15:01.033176Z"
+    },
+    "is_correct": false
+  },
+  {
+    "test_case": {
+      "category": "generic",
+      "question": "What is your favorite color?",
+      "text": "idk",
+      "expected_flags": [
+        "generic"
+      ]
+    },
+    "result": {
+      "response_id": "18923d19-b19e-4f63-92d0-2b4c6fca67ac",
+      "question_id": "73f88761-e0cf-44ab-900e-27fdc50e9521",
+      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
+      "quality_score": 50.0,
+      "is_flagged": false,
+      "flag_reasons": {},
+      "analysis_details": {
+        "gibberish": {
+          "is_gibberish": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "copy_paste": {
+          "is_copypaste": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "relevance": {
+          "is_relevant": true,
+          "confidence": 0.5,
+          "reason": "Analysis failed"
+        },
+        "generic": {
+          "is_generic": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "quality": {
+          "score": 50,
+          "reasoning": "Analysis failed"
+        }
+      },
+      "analyzed_at": "2025-10-15T20:15:02.832527Z"
+    },
+    "is_correct": false
+  },
+  {
+    "test_case": {
+      "category": "high_quality",
+      "question": "What is your favorite color?",
+      "text": "My favorite color is blue because it reminds me of the ocean and sky. It has a calming effect and I find it very peaceful.",
+      "expected_flags": []
+    },
+    "result": {
+      "response_id": "038f3836-6259-4131-ab1d-0dccd8c31f34",
+      "question_id": "0b77698d-eabf-45ca-8616-4bef23aed909",
+      "session_id": "b582dfac-3ba9-481a-9c1e-1f4e38e8e234",
+      "quality_score": 50.0,
+      "is_flagged": false,
+      "flag_reasons": {},
+      "analysis_details": {
+        "gibberish": {
+          "is_gibberish": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "copy_paste": {
+          "is_copypaste": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "relevance": {
+          "is_relevant": true,
+          "confidence": 0.5,
+          "reason": "Analysis failed"
+        },
+        "generic": {
+          "is_generic": false,
+          "confidence": 0.0,
+          "reason": "Analysis failed"
+        },
+        "quality": {
+          "score": 50,
+          "reasoning": "Analysis failed"
+        }
+      },
+      "analyzed_at": "2025-10-15T20:15:04.619387Z"
+    },
+    "is_correct": true
+  }
+]
