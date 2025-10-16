@@ -48,6 +48,9 @@ class SurveySummaryReport(BaseModel):
     average_session_duration: Optional[float] = Field(None, description="Average session duration in minutes")
     average_events_per_session: Optional[float] = Field(None, description="Average events per session")
     
+    # Text quality analysis
+    text_quality_summary: Optional[Dict[str, Any]] = Field(None, description="Text quality analysis summary")
+    
     model_config = ConfigDict(
         json_encoders={
             datetime: lambda v: v.isoformat()
@@ -85,6 +88,12 @@ class RespondentDetail(BaseModel):
     
     # Bot detection explanation
     bot_explanation: Optional[str] = Field(None, description="Explanation if detected as bot")
+    
+    # Text quality metrics
+    text_response_count: Optional[int] = Field(None, description="Number of text responses analyzed")
+    avg_text_quality_score: Optional[float] = Field(None, description="Average text quality score")
+    flagged_text_responses: Optional[int] = Field(None, description="Number of flagged text responses")
+    text_quality_percentage: Optional[float] = Field(None, description="Percentage of flagged text responses")
     
     model_config = ConfigDict(
         json_encoders={

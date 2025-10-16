@@ -15,7 +15,7 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 import logging
 
-from app.models import Session, BehaviorData, DetectionResult
+from app.models import Session, BehaviorData, DetectionResult, SurveyResponse
 from app.models.report_models import (
     SurveySummaryReport, DetailedReport, RespondentDetail,
     ReportRequest, ReportResponse, ReportType, ReportFormat
@@ -229,6 +229,41 @@ class ReportService:
                     "to": date_to.isoformat() if date_to else None
                 }
             
+            # Get text quality analysis data
+            text_quality_summary = None
+            if sessions:
+                session_ids = [session.id for session in sessions]
+                
+                # Get text responses for these sessions
+                text_responses_query = select(SurveyResponse).where(
+                    SurveyResponse.session_id.in_(session_ids)
+                )
+                text_responses_result = await db.execute(text_responses_query)
+                text_responses = text_responses_result.scalars().all()
+                
+                if text_responses:
+                    total_text_responses = len(text_responses)
+                    quality_scores = [r.quality_score for r in text_responses if r.quality_score is not None]
+                    avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else None
+                    flagged_count = sum(1 for r in text_responses if r.is_flagged)
+                    flagged_percentage = (flagged_count / total_text_responses * 100) if total_text_responses > 0 else 0
+                    
+                    # Calculate quality distribution
+                    quality_distribution = {}
+                    for i in range(10):
+                        bucket_start = i * 10
+                        bucket_end = (i + 1) * 10
+                        count = sum(1 for score in quality_scores if bucket_start <= score < bucket_end)
+                        quality_distribution[f"{bucket_start}-{bucket_end}"] = count
+                    
+                    text_quality_summary = {
+                        "total_responses": total_text_responses,
+                        "avg_quality_score": avg_quality_score,
+                        "flagged_count": flagged_count,
+                        "flagged_percentage": flagged_percentage,
+                        "quality_distribution": quality_distribution
+                    }
+            
             return SurveySummaryReport(
                 survey_id=survey_id,
                 total_respondents=total_sessions,
@@ -241,7 +276,8 @@ class ReportService:
                 platform=platform,
                 date_range=date_range,
                 average_session_duration=average_session_duration,
-                average_events_per_session=average_events_per_session
+                average_events_per_session=average_events_per_session,
+                text_quality_summary=text_quality_summary
             )
             
         except Exception as e:
@@ -385,6 +421,15 @@ class ReportService:
             if latest_detection.is_bot:
                 bot_explanation = self._generate_bot_explanation(latest_detection)
         
+        # Get text quality data for this session
+        text_response_count = None
+        avg_text_quality_score = None
+        flagged_text_responses = None
+        text_quality_percentage = None
+        
+        # This would need to be passed from the calling method or queried here
+        # For now, we'll add the fields but they'll be None until we implement the query
+        
         return RespondentDetail(
             session_id=session.id,
             respondent_id=session.respondent_id,
@@ -399,7 +444,11 @@ class ReportService:
             method_scores=method_scores,
             flagged_patterns=flagged_patterns,
             analysis_summary=analysis_summary,
-            bot_explanation=bot_explanation
+            bot_explanation=bot_explanation,
+            text_response_count=text_response_count,
+            avg_text_quality_score=avg_text_quality_score,
+            flagged_text_responses=flagged_text_responses,
+            text_quality_percentage=text_quality_percentage
         )
     
     def _generate_bot_explanation(self, detection: DetectionResult) -> str:
@@ -447,7 +496,8 @@ class ReportService:
                 "Session ID", "Respondent ID", "Created At", "Last Activity",
                 "Is Bot", "Confidence Score", "Risk Level", "Total Events",
                 "Session Duration (min)", "Event Breakdown", "Method Scores",
-                "Flagged Patterns", "Analysis Summary", "Bot Explanation"
+                "Flagged Patterns", "Analysis Summary", "Bot Explanation",
+                "Text Response Count", "Avg Text Quality Score", "Flagged Text Responses", "Text Quality Percentage"
             ]
             writer.writerow(header)
             
@@ -467,7 +517,11 @@ class ReportService:
                     json.dumps(respondent.method_scores),
                     json.dumps(respondent.flagged_patterns) if respondent.flagged_patterns else "",
                     respondent.analysis_summary or "",
-                    respondent.bot_explanation or ""
+                    respondent.bot_explanation or "",
+                    respondent.text_response_count or 0,
+                    f"{respondent.avg_text_quality_score:.1f}" if respondent.avg_text_quality_score else "N/A",
+                    respondent.flagged_text_responses or 0,
+                    f"{respondent.text_quality_percentage:.1f}%" if respondent.text_quality_percentage else "N/A"
                 ]
                 writer.writerow(row)
             

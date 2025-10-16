@@ -8,7 +8,7 @@ with text quality analysis results.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -403,4 +403,236 @@ async def batch_analyze_responses(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to perform batch analysis"
+        )
+
+@router.get("/dashboard/summary")
+async def get_dashboard_summary(
+    days: int = 7,
+    survey_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get aggregated text quality statistics for dashboard.
+    
+    Returns overall quality metrics across all sessions or filtered by survey.
+    """
+    try:
+        # Calculate date range
+        from datetime import timedelta
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Build query conditions
+        conditions = [
+            SurveyResponse.analyzed_at >= start_date,
+            SurveyResponse.analyzed_at <= end_date
+        ]
+        
+        if survey_id:
+            # Join with Session table to filter by survey_id
+            query = (
+                select(SurveyResponse)
+                .join(Session, SurveyResponse.session_id == Session.id)
+                .where(
+                    and_(
+                        *conditions,
+                        Session.survey_id == survey_id
+                    )
+                )
+            )
+        else:
+            query = select(SurveyResponse).where(and_(*conditions))
+        
+        result = await db.execute(query)
+        responses = result.scalars().all()
+        
+        if not responses:
+            return {
+                "total_responses": 0,
+                "avg_quality_score": None,
+                "flagged_count": 0,
+                "flagged_percentage": 0.0,
+                "quality_distribution": {},
+                "date_range": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                    "days": days
+                }
+            }
+        
+        # Calculate statistics
+        total_responses = len(responses)
+        quality_scores = [r.quality_score for r in responses if r.quality_score is not None]
+        avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else None
+        flagged_count = sum(1 for r in responses if r.is_flagged)
+        flagged_percentage = (flagged_count / total_responses * 100) if total_responses > 0 else 0
+        
+        # Calculate quality distribution (0-10, 10-20, ..., 90-100)
+        quality_distribution = {}
+        for i in range(10):
+            bucket_start = i * 10
+            bucket_end = (i + 1) * 10
+            count = sum(1 for score in quality_scores if bucket_start <= score < bucket_end)
+            quality_distribution[f"{bucket_start}-{bucket_end}"] = count
+        
+        logger.info(f"Dashboard summary generated: {total_responses} responses, {flagged_count} flagged")
+        
+        return {
+            "total_responses": total_responses,
+            "avg_quality_score": avg_quality_score,
+            "flagged_count": flagged_count,
+            "flagged_percentage": flagged_percentage,
+            "quality_distribution": quality_distribution,
+            "date_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "days": days
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting dashboard summary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get dashboard summary"
+        )
+
+@router.get("/dashboard/respondents")
+async def get_respondent_analysis(
+    survey_id: Optional[str] = None,
+    days: int = 30,
+    page: int = 1,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get respondent-level text analysis data with all findings and reasons.
+    
+    Returns paginated list of respondents with their text quality metrics.
+    """
+    try:
+        # Calculate date range
+        from datetime import timedelta
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Build query to get sessions with their text analysis data
+        base_query = (
+            select(Session, func.count(SurveyResponse.id).label('response_count'))
+            .outerjoin(SurveyResponse, Session.id == SurveyResponse.session_id)
+            .where(
+                and_(
+                    Session.created_at >= start_date,
+                    Session.created_at <= end_date
+                )
+            )
+        )
+        
+        if survey_id:
+            base_query = base_query.where(Session.survey_id == survey_id)
+        
+        base_query = base_query.group_by(Session.id)
+        
+        # Add pagination
+        offset = (page - 1) * limit
+        query = base_query.offset(offset).limit(limit)
+        
+        result = await db.execute(query)
+        sessions_with_counts = result.all()
+        
+        # Get detailed response data for these sessions
+        respondents = []
+        for session, response_count in sessions_with_counts:
+            if response_count == 0:
+                # Session has no text responses
+                respondents.append({
+                    "respondent_id": session.respondent_id,
+                    "session_id": session.id,
+                    "survey_id": session.survey_id,
+                    "response_count": 0,
+                    "avg_quality_score": None,
+                    "flagged_count": 0,
+                    "flagged_percentage": 0.0,
+                    "quality_scores": [],
+                    "flag_reasons_summary": {},
+                    "analyzed_at": None
+                })
+            else:
+                # Get responses for this session
+                responses_query = (
+                    select(SurveyResponse)
+                    .where(SurveyResponse.session_id == session.id)
+                )
+                responses_result = await db.execute(responses_query)
+                session_responses = responses_result.scalars().all()
+                
+                # Calculate metrics
+                quality_scores = [r.quality_score for r in session_responses if r.quality_score is not None]
+                avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else None
+                flagged_count = sum(1 for r in session_responses if r.is_flagged)
+                flagged_percentage = (flagged_count / len(session_responses) * 100) if session_responses else 0
+                
+                # Aggregate flag reasons
+                flag_reasons_summary = {}
+                for response in session_responses:
+                    if response.flag_reasons:
+                        for flag_type, flag_data in response.flag_reasons.items():
+                            if flag_type not in flag_reasons_summary:
+                                flag_reasons_summary[flag_type] = 0
+                            flag_reasons_summary[flag_type] += 1
+                
+                # Get latest analysis date
+                analyzed_at = max([r.analyzed_at for r in session_responses if r.analyzed_at], default=None)
+                
+                respondents.append({
+                    "respondent_id": session.respondent_id,
+                    "session_id": session.id,
+                    "survey_id": session.survey_id,
+                    "response_count": len(session_responses),
+                    "avg_quality_score": avg_quality_score,
+                    "flagged_count": flagged_count,
+                    "flagged_percentage": flagged_percentage,
+                    "quality_scores": quality_scores,
+                    "flag_reasons_summary": flag_reasons_summary,
+                    "analyzed_at": analyzed_at.isoformat() if analyzed_at else None
+                })
+        
+        # Get total count for pagination
+        count_query = select(func.count(Session.id)).where(
+            and_(
+                Session.created_at >= start_date,
+                Session.created_at <= end_date
+            )
+        )
+        if survey_id:
+            count_query = count_query.where(Session.survey_id == survey_id)
+        
+        count_result = await db.execute(count_query)
+        total_count = count_result.scalar()
+        
+        logger.info(f"Respondent analysis generated: {len(respondents)} respondents, page {page}")
+        
+        return {
+            "respondents": respondents,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": (total_count + limit - 1) // limit
+            },
+            "filters": {
+                "survey_id": survey_id,
+                "days": days,
+                "date_range": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat()
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting respondent analysis: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get respondent analysis"
         )
