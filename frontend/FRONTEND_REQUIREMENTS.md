@@ -23,10 +23,12 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 
 ### Key Features
 - **Real-time Dashboard**: Live session monitoring and analysis results
+- **Text Analysis Dashboard**: Real-time text quality analysis with filtering and pagination
 - **Integration Management**: Webhook testing and status monitoring
 - **API Playground**: Interactive API testing interface
 - **Quick Start Guide**: Step-by-step integration instructions
 - **Settings Interface**: System configuration management
+- **Report Builder**: Enhanced reporting with text quality metrics integration
 - **Toast Notifications**: User feedback and alerts
 - **Responsive Design**: Mobile-friendly interface
 

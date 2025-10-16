@@ -9,7 +9,8 @@ import {
   X,
   BookOpen,
   TerminalSquare,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react'
 
 const Navigation = () => {
@@ -30,6 +31,7 @@ const Navigation = () => {
     { name: 'Quick Start Guide', href: '/quick-start', icon: BookOpen },
     { name: 'API Playground', href: '/api-playground', icon: TerminalSquare },
     { name: 'Sessions', href: '/sessions', icon: Users },
+    { name: 'Text Analysis', href: '/text-analysis', icon: MessageSquare },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Integrations', href: '/integrations', icon: Settings },
     { name: 'Settings', href: '/settings', icon: Settings },

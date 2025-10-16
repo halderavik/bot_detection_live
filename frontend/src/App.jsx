@@ -9,6 +9,7 @@ import Settings from './components/Settings'
 import ApiPlayground from './components/ApiPlayground'
 import QuickStartGuide from './components/QuickStartGuide'
 import ReportBuilder from './components/ReportBuilder'
+import TextAnalysis from './components/TextAnalysis'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/App.css'
@@ -24,6 +25,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sessions" element={<SessionList />} />
             <Route path="/sessions/:sessionId" element={<SessionDetails />} />
+            <Route path="/text-analysis" element={<TextAnalysis />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/api-playground" element={<ApiPlayground />} />

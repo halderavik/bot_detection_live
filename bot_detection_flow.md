@@ -8,6 +8,8 @@
 - **Frontend**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
 - **OpenAI Integration**: GPT-4o-mini fully operational with 100% test accuracy ✅
 - **Text Analysis Health**: Real-time OpenAI service monitoring ✅
+- **Text Analysis Dashboard**: New dashboard endpoints deployed and operational ✅
+- **Enhanced Reporting**: Text quality metrics integrated into all reports ✅
 
 ## 1. Overall System Architecture
 
@@ -532,4 +534,51 @@ graph TB
     style B10 fill:#c8e6c9
     style B11 fill:#c8e6c9
     style C6 fill:#ffeb3b
+```
+
+## 10. Text Analysis Dashboard Flow
+
+```mermaid
+graph TB
+    subgraph "Text Analysis Dashboard"
+        A[User Access Dashboard] --> B[Load Dashboard Summary]
+        B --> C[Get Aggregated Metrics]
+        C --> D[Display Summary Widget]
+        D --> E[Show Quality Distribution]
+        E --> F[Display Flagged Responses Count]
+        F --> G[Show Average Quality Score]
+        G --> H[User Clicks View Details]
+        H --> I[Load Respondent Analysis]
+        I --> J[Apply Filters]
+        J --> K[Paginate Results]
+        K --> L[Display Respondent Table]
+        L --> M[Show Quality Scores per Respondent]
+        M --> N[Expand Flagged Responses]
+        N --> O[Display Flag Reasons]
+        O --> P[Export to CSV]
+    end
+    
+    subgraph "Backend Processing"
+        Q[Dashboard Summary Endpoint] --> R[Query Survey Responses]
+        R --> S[Calculate Quality Metrics]
+        S --> T[Aggregate by Time Period]
+        T --> U[Return Summary Data]
+        
+        V[Respondent Analysis Endpoint] --> W[Query with Pagination]
+        W --> X[Apply Survey/Date Filters]
+        X --> Y[Calculate Per-Respondent Metrics]
+        Y --> Z[Return Paginated Results]
+    end
+    
+    B --> Q
+    I --> V
+    U --> D
+    Z --> L
+    
+    style A fill:#e1f5fe
+    style D fill:#c8e6c9
+    style L fill:#c8e6c9
+    style P fill:#4caf50
+    style Q fill:#fff3e0
+    style V fill:#fff3e0
 ``` 

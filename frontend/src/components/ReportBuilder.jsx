@@ -11,10 +11,12 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  MessageSquare,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { reportService } from '../services/apiService';
+import { reportService, textAnalysisService } from '../services/apiService';
 
 const ReportBuilder = () => {
   const [surveys, setSurveys] = useState([]);
@@ -348,6 +350,80 @@ const ReportBuilder = () => {
             </div>
           </div>
 
+          {/* Text Quality Analysis Section */}
+          {summaryReport.text_quality_summary && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
+                Text Quality Analysis
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-blue-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-blue-900">
+                    {summaryReport.text_quality_summary.total_responses}
+                  </div>
+                  <div className="text-sm font-medium text-blue-600">Total Text Responses</div>
+                </div>
+                
+                <div className="bg-green-50 p-4 rounded-lg text-center">
+                  <div className={`text-2xl font-bold ${
+                    summaryReport.text_quality_summary.avg_quality_score >= 70 ? 'text-green-600' :
+                    summaryReport.text_quality_summary.avg_quality_score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {summaryReport.text_quality_summary.avg_quality_score?.toFixed(1) || 'N/A'}
+                  </div>
+                  <div className="text-sm font-medium text-green-600">Avg Quality Score</div>
+                </div>
+                
+                <div className="bg-red-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-900">
+                    {summaryReport.text_quality_summary.flagged_count}
+                  </div>
+                  <div className="text-sm font-medium text-red-600">Flagged Responses</div>
+                </div>
+                
+                <div className="bg-yellow-50 p-4 rounded-lg text-center">
+                  <div className={`text-2xl font-bold ${
+                    summaryReport.text_quality_summary.flagged_percentage > 30 ? 'text-red-600' :
+                    summaryReport.text_quality_summary.flagged_percentage > 15 ? 'text-yellow-600' : 'text-green-600'
+                  }`}>
+                    {summaryReport.text_quality_summary.flagged_percentage?.toFixed(1) || '0.0'}%
+                  </div>
+                  <div className="text-sm font-medium text-yellow-600">Flagged Rate</div>
+                </div>
+              </div>
+
+              {/* Quality Distribution Chart */}
+              {summaryReport.text_quality_summary.quality_distribution && (
+                <div>
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Quality Score Distribution</h4>
+                  <div className="flex items-end space-x-1 h-16 bg-gray-50 p-4 rounded-lg">
+                    {Object.entries(summaryReport.text_quality_summary.quality_distribution).map(([bucket, count]) => {
+                      const maxCount = Math.max(...Object.values(summaryReport.text_quality_summary.quality_distribution));
+                      const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                      const bucketNum = parseInt(bucket.split('-')[0]);
+                      
+                      return (
+                        <div key={bucket} className="flex-1 flex flex-col items-center">
+                          <div 
+                            className={`w-full rounded-t ${
+                              bucketNum >= 70 ? 'bg-green-500' : 
+                              bucketNum >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ height: `${height}%` }}
+                            title={`${bucket}: ${count} responses`}
+                          />
+                          <div className="text-xs text-gray-500 mt-1">{bucketNum}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Date Range */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
@@ -429,6 +505,9 @@ const ReportBuilder = () => {
                     Duration
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Text Quality
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                 </tr>
@@ -466,6 +545,25 @@ const ReportBuilder = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {respondent.session_duration_minutes.toFixed(1)}m
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {respondent.text_response_count ? (
+                        <div className="flex items-center space-x-2">
+                          <div className={`text-sm font-medium ${
+                            respondent.avg_text_quality_score >= 70 ? 'text-green-600' :
+                            respondent.avg_text_quality_score >= 50 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {respondent.avg_text_quality_score?.toFixed(1) || 'N/A'}
+                          </div>
+                          {respondent.flagged_text_responses > 0 && (
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">
+                              {respondent.flagged_text_responses} flagged
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No text data</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(respondent.created_at)}

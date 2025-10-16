@@ -10,11 +10,13 @@ import {
   Database,
   Zap,
   Globe,
-  XCircle
+  XCircle,
+  MessageSquare,
+  Eye
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts'
 import { format } from 'date-fns'
-import { dashboardService, mockData, healthService, integrationService } from '../services/apiService'
+import { dashboardService, mockData, healthService, integrationService, textAnalysisService } from '../services/apiService'
 import SessionTable from './SessionTable'
 import SessionDetails from './SessionDetails'
 
@@ -79,6 +81,7 @@ const SystemHealth = () => {
 const Dashboard = () => {
   const [overviewData, setOverviewData] = useState(null)
   const [trendsData, setTrendsData] = useState([])
+  const [textAnalysisData, setTextAnalysisData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedSessionId, setSelectedSessionId] = useState(null)
@@ -109,12 +112,14 @@ const Dashboard = () => {
       
       // Try to fetch real data from backend
       try {
-        const [overview, trends] = await Promise.all([
+        const [overview, trends, textAnalysis] = await Promise.all([
           dashboardService.getOverviewStats(7),
-          dashboardService.getAnalyticsTrends(30, 'day')
+          dashboardService.getAnalyticsTrends(30, 'day'),
+          textAnalysisService.getDashboardSummary(7).catch(() => null) // Don't fail if text analysis is unavailable
         ])
         setOverviewData(overview)
         setTrendsData(trends || [])
+        setTextAnalysisData(textAnalysis)
       } catch (apiError) {
         console.warn('Backend not available, using mock data:', apiError)
         // Fallback to mock data if backend is not available
@@ -334,6 +339,81 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Text Quality Analysis */}
+      {textAnalysisData && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
+              Text Quality Analysis
+            </h3>
+            <a 
+              href="/text-analysis" 
+              className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              View Details
+            </a>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="text-center p-3 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-900">{textAnalysisData.total_responses}</div>
+              <div className="text-sm text-blue-600">Total Responses</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className={`text-2xl font-bold ${
+                textAnalysisData.avg_quality_score >= 70 ? 'text-green-600' :
+                textAnalysisData.avg_quality_score >= 50 ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {textAnalysisData.avg_quality_score?.toFixed(1) || 'N/A'}
+              </div>
+              <div className="text-sm text-green-600">Avg Quality</div>
+            </div>
+            <div className="text-center p-3 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-900">{textAnalysisData.flagged_count}</div>
+              <div className="text-sm text-red-600">Flagged</div>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 rounded-lg">
+              <div className={`text-2xl font-bold ${
+                textAnalysisData.flagged_percentage > 30 ? 'text-red-600' :
+                textAnalysisData.flagged_percentage > 15 ? 'text-yellow-600' : 'text-green-600'
+              }`}>
+                {textAnalysisData.flagged_percentage?.toFixed(1) || '0.0'}%
+              </div>
+              <div className="text-sm text-yellow-600">Flagged Rate</div>
+            </div>
+          </div>
+
+          {/* Quality Distribution Mini Chart */}
+          {textAnalysisData.quality_distribution && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">Quality Distribution</h4>
+              <div className="flex items-end space-x-1 h-12">
+                {Object.entries(textAnalysisData.quality_distribution).map(([bucket, count]) => {
+                  const maxCount = Math.max(...Object.values(textAnalysisData.quality_distribution));
+                  const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                  const bucketNum = parseInt(bucket.split('-')[0]);
+                  
+                  return (
+                    <div key={bucket} className="flex-1 flex flex-col items-center">
+                      <div 
+                        className={`w-full rounded-t ${
+                          bucketNum >= 70 ? 'bg-green-500' : 
+                          bucketNum >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ height: `${height}%` }}
+                        title={`${bucket}: ${count} responses`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent Activity */}
       <div className="card">

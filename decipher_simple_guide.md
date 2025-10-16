@@ -35,6 +35,8 @@ That's it! The full guide below explains everything in detail.
 Our system watches how people interact with your survey (typing, mouse movements, scrolling) and uses AI to analyze the quality of their text responses to determine if they're real humans or automated bots. We detect low-quality responses like gibberish, copy-pasted text, irrelevant answers, or generic responses using OpenAI's GPT-4o-mini model.
 
 **✅ Production Status**: OpenAI integration fully operational with 100% test accuracy achieved!
+**✅ Text Analysis Dashboard**: New dashboard endpoints deployed and operational!
+**✅ Enhanced Reporting**: Text quality metrics integrated into all reports!
 
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 

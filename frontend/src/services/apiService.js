@@ -206,6 +206,60 @@ export const healthService = {
   },
 };
 
+// Text Analysis Services
+export const textAnalysisService = {
+  // Get dashboard summary statistics
+  getDashboardSummary: async (days = 7, surveyId = null) => {
+    const params = new URLSearchParams();
+    params.append('days', days.toString());
+    if (surveyId) {
+      params.append('survey_id', surveyId);
+    }
+    return api.get(`/text-analysis/dashboard/summary?${params}`);
+  },
+
+  // Get respondent-level analysis data
+  getRespondentAnalysis: async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.surveyId) params.append('survey_id', filters.surveyId);
+    if (filters.days) params.append('days', filters.days.toString());
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    
+    return api.get(`/text-analysis/dashboard/respondents?${params}`);
+  },
+
+  // Get session text quality summary
+  getSessionSummary: async (sessionId) => {
+    return api.get(`/text-analysis/sessions/${sessionId}/summary`);
+  },
+
+  // Submit survey question
+  submitQuestion: async (questionData) => {
+    return api.post('/text-analysis/questions', questionData);
+  },
+
+  // Submit survey response
+  submitResponse: async (responseData) => {
+    return api.post('/text-analysis/responses', responseData);
+  },
+
+  // Get text analysis statistics
+  getStats: async () => {
+    return api.get('/text-analysis/stats');
+  },
+
+  // Batch analyze responses
+  batchAnalyze: async (questionsAndAnswers) => {
+    return api.post('/text-analysis/batch-analyze', questionsAndAnswers);
+  },
+
+  // Get text analysis health
+  getHealth: async () => {
+    return api.get('/text-analysis/health');
+  }
+};
+
 // Mock data for development (when backend is not available)
 export const mockData = {
   overviewStats: {

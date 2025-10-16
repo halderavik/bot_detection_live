@@ -83,6 +83,70 @@ const ApiPlayground = () => {
       url: '/api/v1/integrations/status',
       body: '',
       description: 'Get status of all integrations'
+    },
+    'Submit Survey Question': {
+      method: 'POST',
+      url: '/api/v1/text-analysis/questions',
+      body: JSON.stringify({
+        session_id: 'test-session-123',
+        question_text: 'What is your favorite color?',
+        question_type: 'open_ended',
+        element_id: 'question-1',
+        element_type: 'textarea',
+        page_url: 'https://example.com/survey',
+        page_title: 'Survey Page'
+      }, null, 2),
+      description: 'Submit a survey question for text analysis tracking'
+    },
+    'Submit Survey Response': {
+      method: 'POST',
+      url: '/api/v1/text-analysis/responses',
+      body: JSON.stringify({
+        session_id: 'test-session-123',
+        question_id: 'question-456',
+        response_text: 'I really like blue because it reminds me of the ocean.',
+        response_time_ms: 2500
+      }, null, 2),
+      description: 'Submit a survey response for real-time text quality analysis'
+    },
+    'Get Session Text Summary': {
+      method: 'GET',
+      url: '/api/v1/text-analysis/sessions/{sessionId}/summary',
+      body: '',
+      description: 'Get text quality summary for a specific session'
+    },
+    'Get Text Analysis Stats': {
+      method: 'GET',
+      url: '/api/v1/text-analysis/stats',
+      body: '',
+      description: 'Get OpenAI API usage statistics and performance metrics'
+    },
+    'Batch Analyze Responses': {
+      method: 'POST',
+      url: '/api/v1/text-analysis/batch-analyze',
+      body: JSON.stringify([
+        {
+          question: 'What is your favorite color?',
+          answer: 'I really like blue because it reminds me of the ocean.'
+        },
+        {
+          question: 'Describe your ideal vacation.',
+          answer: 'I want to go to Hawaii and relax on the beach.'
+        }
+      ], null, 2),
+      description: 'Analyze multiple question-answer pairs in batch'
+    },
+    'Get Text Analysis Dashboard Summary': {
+      method: 'GET',
+      url: '/api/v1/text-analysis/dashboard/summary?days=7',
+      body: '',
+      description: 'Get aggregated text quality statistics for dashboard'
+    },
+    'Get Respondent Analysis': {
+      method: 'GET',
+      url: '/api/v1/text-analysis/dashboard/respondents?days=30&page=1&limit=50',
+      body: '',
+      description: 'Get respondent-level text analysis data with all findings'
     }
   };
 
