@@ -374,15 +374,27 @@ Added: 2025-09-29 — End-to-end steps to deploy on Google Cloud Platform
 - [x] Copy the Cloud Run URL and update frontend `VITE_API_BASE_URL`
 
 ### Environment & URLs (Production) ✅
-- [x] Cloud Run Backend URL: `https://bot-backend-i56xopdg6q-pd.a.run.app`
+- [x] Cloud Run Backend URL: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - [x] Frontend Production URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/`
 - [x] Frontend Direct URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
 - [x] Load Balancer IP: `http://34.95.104.61` (HTTP only, for testing)
-- [x] Metrics Endpoint: `https://bot-backend-i56xopdg6q-pd.a.run.app/metrics` ✅ Operational
+- [x] Metrics Endpoint: `https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics` ✅ Operational
 - [x] Set frontend `.env`:
-  - [x] `VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+  - [x] `VITE_API_BASE_URL=https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1`
 - [x] Set backend CORS/allowed origins (Secret/Env):
   - [x] `ALLOWED_ORIGINS=["*"]` (temporarily allow all origins for testing)
+
+### Hierarchical API Structure ✅ (2025-01-08)
+- [x] **Database Schema Update**: Added `platform_id` column to `sessions` table
+- [x] **Database Migration**: Created and executed migration script on production
+- [x] **Composite Indexes**: Created indexes for efficient hierarchical queries
+- [x] **Aggregation Service**: Built service for calculating aggregated metrics at each hierarchy level
+- [x] **Hierarchical Controller**: Created new controller with all hierarchical endpoints
+- [x] **Frontend Components**: Created SurveyList, SurveyDetails, PlatformDetails, RespondentDetails components
+- [x] **Frontend Routing**: Added hierarchical routes to React app
+- [x] **API Documentation**: Created API_V2.md with complete hierarchical API documentation
+- [x] **Backward Compatibility**: All existing endpoints remain unchanged
+- [x] **Testing**: All respondent endpoints tested and verified working ✅
 
 ### Post-Deploy Smoke Tests (targeting Cloud Run URL) ✅
 - [x] Health
@@ -495,7 +507,7 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] **Fixed API Documentation Link** - Enabled API documentation in production by removing DEBUG-only restriction
 - [x] **Updated FastAPI Configuration** - Modified main.py to always serve /docs and /redoc endpoints
 - [x] **Redeployed Backend** - Successfully deployed updated backend with API documentation enabled
-- [x] **Verified Functionality** - Confirmed API documentation is accessible at https://bot-backend-i56xopdg6q-pd.a.run.app/docs
+- [x] **Verified Functionality** - Confirmed API documentation is accessible at https://bot-backend-119522247395.northamerica-northeast2.run.app/docs
 - [x] **Updated Root Endpoint** - Root endpoint now correctly shows documentation URLs
 
 ### Report Builder System ✅

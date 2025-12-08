@@ -61,7 +61,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 
 ```javascript
 // Bot Detection Setup with Text Quality Analysis - Add this once at the start of your survey
-const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
+const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
 
 // Read identifiers (create these hidden fields in Step 2)
 function getIdentifierValue(id) {
@@ -72,7 +72,17 @@ function getIdentifierValue(id) {
 // Step 1a: Create a session when survey starts
 async function setupBotDetection() {
   try {
-    const response = await fetch(`${API_BASE}/detection/sessions`, { 
+    // Get survey identifiers for hierarchical tracking
+    const surveyId = getIdentifierValue('survey_id') || '';
+    const respondentId = getIdentifierValue('respondent_id') || '';
+    const platformId = 'decipher'; // Platform identifier for hierarchical API
+    
+    // Create session with survey metadata (recommended for hierarchical tracking)
+    const sessionUrl = surveyId && respondentId 
+      ? `${API_BASE}/detection/sessions?survey_id=${encodeURIComponent(surveyId)}&respondent_id=${encodeURIComponent(respondentId)}&platform_id=${encodeURIComponent(platformId)}`
+      : `${API_BASE}/detection/sessions`;
+    
+    const response = await fetch(sessionUrl, { 
       method: 'POST' 
     });
     const data = await response.json();

@@ -24,12 +24,14 @@ class TestTextAnalysisAPI:
         response = client.get("/api/v1/text-analysis/stats")
         assert response.status_code != 404, "Text analysis endpoints should not return 404"
     
-    @patch('app.services.openai_service.openai_service')
+    @patch('app.services.text_analysis_service.openai_service')
     def test_submit_response_without_openai(self, mock_openai_service):
         """Test submitting a response when OpenAI is unavailable."""
-        # Mock OpenAI service as unavailable
+        # Mock OpenAI service as unavailable - make methods raise exceptions
         mock_openai_service.is_available = False
         mock_openai_service.client = None
+        mock_openai_service.analyze_text = AsyncMock(side_effect=Exception("OpenAI unavailable"))
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(side_effect=Exception("OpenAI unavailable"))
         
         # First create a session
         session_response = client.post("/api/v1/detection/sessions")

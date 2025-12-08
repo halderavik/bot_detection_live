@@ -95,8 +95,12 @@ class QualtricsIntegration:
             # Extract bot detection related fields
             bot_detection_data = self._extract_bot_detection_data(response_data)
             
+            # Extract platform_id from embedded data or use default
+            platform_id = response_data.get('embeddedData', {}).get('platform_id') or 'qualtrics'
+            
             processed_data = {
-                'platform': 'qualtrics',
+                'platform': 'qualtrics',  # Keep for backward compatibility
+                'platform_id': platform_id,  # New hierarchical field
                 'survey_id': survey_id,
                 'response_id': response_id,
                 'respondent_id': respondent_id,

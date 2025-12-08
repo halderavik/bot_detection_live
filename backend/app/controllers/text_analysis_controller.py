@@ -570,7 +570,7 @@ async def get_respondent_analysis(
                 quality_scores = [r.quality_score for r in session_responses if r.quality_score is not None]
                 avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else None
                 flagged_count = sum(1 for r in session_responses if r.is_flagged)
-                flagged_percentage = (flagged_count / len(session_responses) * 100) if session_responses else 0
+                flagged_percentage = (flagged_count / len(session_responses) * 100) if len(session_responses) > 0 else 0
                 
                 # Aggregate flag reasons
                 flag_reasons_summary = {}

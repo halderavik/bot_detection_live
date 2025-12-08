@@ -26,8 +26,9 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 - **Frontend Dashboard**: React-based real-time monitoring interface with comprehensive features
 - **Bot Detection Engine**: Rule-based analysis with composite scoring (behavioral + text quality)
 - **Text Quality Engine**: OpenAI GPT-4o-mini powered analysis for response authenticity
+- **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access
 - **Integration Layer**: Webhook handlers for Qualtrics and Decipher with testing interface
-- **Database Layer**: PostgreSQL with async SQLAlchemy ORM
+- **Database Layer**: PostgreSQL with async SQLAlchemy ORM and composite indexes for hierarchical queries
 - **Client SDKs**: Python and JavaScript libraries for easy integration
 
 ---
@@ -230,12 +231,21 @@ CREATE TABLE sessions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     status VARCHAR(20) DEFAULT 'active',
-    platform VARCHAR(50),
+    platform VARCHAR(50),  -- Legacy field, maintained for backward compatibility
+    platform_id VARCHAR(50),  -- Hierarchical field for platform identification
     survey_id VARCHAR(255),
     respondent_id VARCHAR(255),
     is_completed BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Composite indexes for hierarchical queries
+CREATE INDEX idx_survey_platform_respondent_session 
+    ON sessions (survey_id, platform_id, respondent_id, id);
+CREATE INDEX idx_survey_platform 
+    ON sessions (survey_id, platform_id);
+CREATE INDEX idx_survey_platform_respondent 
+    ON sessions (survey_id, platform_id, respondent_id);
 ```
 
 #### 2. Behavior Data Table
@@ -328,6 +338,17 @@ survey_questions (1) ──── (N) survey_responses
 │   ├── sessions/{id}/analyze       # Bot detection analysis
 │   ├── sessions/{id}/composite-analyze # Composite analysis
 │   └── sessions/{id}/ready-for-analysis
+├── surveys/                        # Hierarchical API (V2)
+│   ├── ""                          # List all surveys
+│   ├── {survey_id}                 # Survey details
+│   ├── {survey_id}/summary         # Survey summary
+│   ├── {survey_id}/platforms       # List platforms
+│   ├── {survey_id}/platforms/{platform_id}  # Platform details
+│   ├── {survey_id}/platforms/{platform_id}/respondents  # List respondents
+│   ├── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}  # Respondent details
+│   ├── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}/summary  # Respondent summary
+│   ├── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions  # List sessions
+│   └── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}  # Session by hierarchy
 ├── text-analysis/
 │   ├── questions                   # Question capture
 │   ├── responses                   # Response analysis

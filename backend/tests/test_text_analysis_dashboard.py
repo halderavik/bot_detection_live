@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
 import sys
@@ -142,9 +142,12 @@ class TestTextAnalysisDashboardEndpoints:
         from app.controllers.text_analysis_controller import get_dashboard_summary
         
         # Mock empty query result - fix async mock setup
-        mock_result = AsyncMock()
-        mock_result.scalars.return_value.all.return_value = []
-        mock_db_session.execute.return_value = mock_result
+        mock_result = MagicMock()  # Use MagicMock for result object
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = []
+        mock_result.scalars.return_value = mock_scalars_result
+        # Make execute return an awaitable that resolves to mock_result
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
         
         result = await get_dashboard_summary(
             days=7,
@@ -164,9 +167,12 @@ class TestTextAnalysisDashboardEndpoints:
         from app.controllers.text_analysis_controller import get_dashboard_summary
         
         # Mock query result - fix async mock setup
-        mock_result = AsyncMock()
-        mock_result.scalars.return_value.all.return_value = sample_survey_responses
-        mock_db_session.execute.return_value = mock_result
+        mock_result = MagicMock()  # Use MagicMock instead of AsyncMock for result
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = sample_survey_responses
+        mock_result.scalars.return_value = mock_scalars_result
+        # Make execute return an awaitable that resolves to mock_result
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
         
         result = await get_dashboard_summary(
             days=30,
@@ -203,7 +209,11 @@ class TestTextAnalysisDashboardEndpoints:
         
         # Filter responses for survey-1 only
         survey1_responses = [r for r in sample_survey_responses if r.session_id in ["session-1", "session-2"]]
-        mock_db_session.execute.return_value.scalars.return_value.all.return_value = survey1_responses
+        mock_result = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = survey1_responses
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
         
         result = await get_dashboard_summary(
             days=30,
@@ -222,7 +232,11 @@ class TestTextAnalysisDashboardEndpoints:
         
         # Mock recent responses only (last 1 day)
         recent_responses = sample_survey_responses[:2]  # responses 1 and 2
-        mock_db_session.execute.return_value.scalars.return_value.all.return_value = recent_responses
+        mock_result = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = recent_responses
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
         
         result = await get_dashboard_summary(
             days=1,
@@ -247,9 +261,30 @@ class TestTextAnalysisDashboardEndpoints:
             (sample_sessions[2], 2),  # session-3 has 2 responses
         ]
         
-        # Mock first page (limit=2)
-        mock_db_session.execute.return_value.all.return_value = mock_sessions_with_counts[:2]
-        mock_db_session.execute.return_value.scalar.return_value = 3  # total count
+        # Mock first page (limit=2) - endpoint makes queries in this order:
+        # 1. Get sessions with counts (paginated)
+        # 2. For each session with response_count > 0, get responses (2 sessions, so 2 queries)
+        # 3. Get total count for pagination
+        mock_result1 = MagicMock()
+        mock_result1.all.return_value = mock_sessions_with_counts[:2]
+        
+        # Mock responses for session-1 and session-2 (both have response_count=2)
+        session1_responses = []
+        session2_responses = []
+        mock_result2 = MagicMock()
+        mock_scalars_result2 = MagicMock()
+        mock_scalars_result2.all.return_value = session1_responses
+        mock_result2.scalars.return_value = mock_scalars_result2
+        
+        mock_result3 = MagicMock()
+        mock_scalars_result3 = MagicMock()
+        mock_scalars_result3.all.return_value = session2_responses
+        mock_result3.scalars.return_value = mock_scalars_result3
+        
+        mock_result4 = MagicMock()
+        mock_result4.scalar.return_value = 3  # total count
+        
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result3, mock_result4])
         
         result = await get_respondent_analysis(
             survey_id=None,
@@ -270,14 +305,23 @@ class TestTextAnalysisDashboardEndpoints:
         """Test respondent analysis with response data."""
         from app.controllers.text_analysis_controller import get_respondent_analysis
         
-        # Mock session query
+        # Mock session query - get_respondent_analysis makes multiple queries:
+        # 1. Sessions with counts (paginated)
+        # 2. Total count query (for pagination)
+        # 3. Responses for each session (if response_count > 0)
         mock_sessions_with_counts = [(sample_sessions[0], 2)]
-        mock_db_session.execute.return_value.all.return_value = mock_sessions_with_counts
-        mock_db_session.execute.return_value.scalar.return_value = 1
+        mock_result1 = MagicMock()
+        mock_result1.all.return_value = mock_sessions_with_counts
+        mock_result2 = MagicMock()
+        mock_result2.scalar.return_value = 1  # Total count
         
         # Mock responses for session-1
         session1_responses = [r for r in sample_survey_responses if r.session_id == "session-1"]
-        mock_db_session.execute.return_value.scalars.return_value.all.return_value = session1_responses
+        mock_result3 = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = session1_responses
+        mock_result3.scalars.return_value = mock_scalars_result
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result3])
         
         result = await get_respondent_analysis(
             survey_id=None,
@@ -305,8 +349,11 @@ class TestTextAnalysisDashboardEndpoints:
         survey1_sessions = [s for s in sample_sessions if s.survey_id == "survey-1"]
         mock_sessions_with_counts = [(s, 0) for s in survey1_sessions]
         
-        mock_db_session.execute.return_value.all.return_value = mock_sessions_with_counts
-        mock_db_session.execute.return_value.scalar.return_value = 2
+        mock_result1 = MagicMock()
+        mock_result1.all.return_value = mock_sessions_with_counts
+        mock_result2 = MagicMock()
+        mock_result2.scalar.return_value = 2
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
         
         result = await get_respondent_analysis(
             survey_id="survey-1",
@@ -326,8 +373,11 @@ class TestTextAnalysisDashboardEndpoints:
         
         # Mock session with 0 responses
         mock_sessions_with_counts = [(sample_sessions[0], 0)]
-        mock_db_session.execute.return_value.all.return_value = mock_sessions_with_counts
-        mock_db_session.execute.return_value.scalar.return_value = 1
+        mock_result1 = AsyncMock()
+        mock_result1.all.return_value = mock_sessions_with_counts
+        mock_result2 = AsyncMock()
+        mock_result2.scalar.return_value = 1
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
         
         result = await get_respondent_analysis(
             survey_id=None,
@@ -352,12 +402,18 @@ class TestTextAnalysisDashboardEndpoints:
         
         # Mock session with flagged responses
         mock_sessions_with_counts = [(sample_sessions[2], 2)]  # session-3 has flagged responses
-        mock_db_session.execute.return_value.all.return_value = mock_sessions_with_counts
-        mock_db_session.execute.return_value.scalar.return_value = 1
+        mock_result1 = MagicMock()
+        mock_result1.all.return_value = mock_sessions_with_counts
+        mock_result2 = MagicMock()
+        mock_result2.scalar.return_value = 1
         
         # Mock responses for session-3 (both flagged)
         session3_responses = [r for r in sample_survey_responses if r.session_id == "session-3"]
-        mock_db_session.execute.return_value.scalars.return_value.all.return_value = session3_responses
+        mock_result3 = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = session3_responses
+        mock_result3.scalars.return_value = mock_scalars_result
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result3])
         
         result = await get_respondent_analysis(
             survey_id=None,
@@ -400,7 +456,11 @@ class TestTextAnalysisDashboardEndpoints:
                 )
             )
         
-        mock_db_session.execute.return_value.scalars.return_value.all.return_value = responses
+        mock_result = MagicMock()
+        mock_scalars_result = MagicMock()
+        mock_scalars_result.all.return_value = responses
+        mock_result.scalars.return_value = mock_scalars_result
+        mock_db_session.execute = AsyncMock(return_value=mock_result)
         
         result = await get_dashboard_summary(
             days=30,
@@ -426,7 +486,7 @@ class TestTextAnalysisDashboardEndpoints:
         from fastapi import HTTPException
         
         # Mock database error
-        mock_db_session.execute.side_effect = Exception("Database error")
+        mock_db_session.execute = AsyncMock(side_effect=Exception("Database error"))
         
         with pytest.raises(HTTPException) as exc_info:
             await get_dashboard_summary(
@@ -445,7 +505,7 @@ class TestTextAnalysisDashboardEndpoints:
         from fastapi import HTTPException
         
         # Mock database error
-        mock_db_session.execute.side_effect = Exception("Database error")
+        mock_db_session.execute = AsyncMock(side_effect=Exception("Database error"))
         
         with pytest.raises(HTTPException) as exc_info:
             await get_respondent_analysis(

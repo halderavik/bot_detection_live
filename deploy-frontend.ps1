@@ -27,7 +27,7 @@ gcloud storage buckets update gs://$BUCKET_NAME --web-main-page-suffix=index.htm
 
 # Step 3: Upload frontend build
 Write-Host "`n📤 Uploading frontend build to bucket..." -ForegroundColor Yellow
-gcloud storage rsync -r -d frontend/dist gs://$BUCKET_NAME
+gcloud storage rsync -r frontend/dist gs://$BUCKET_NAME
 
 # Step 4: Make all objects publicly readable
 Write-Host "`n🔓 Setting public access permissions..." -ForegroundColor Yellow

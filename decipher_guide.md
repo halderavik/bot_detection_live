@@ -4,13 +4,14 @@ This guide shows step-by-step how to integrate Bot Detection into a Decipher (Fo
 
 ## Production System Status
 ✅ **FULLY OPERATIONAL** - All endpoints verified and working
-- **API Base URL**: `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+- **API Base URL**: `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1`
 - **Frontend Dashboard**: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
-- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
-- **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
-- **API Documentation**: https://bot-backend-i56xopdg6q-pd.a.run.app/docs
+- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+- **Metrics**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
+- **API Documentation**: https://bot-backend-119522247395.northamerica-northeast2.run.app/docs
 - **Database**: Connected and processing requests
 - **Analysis Pipeline**: End-to-end testing completed successfully
+- **Hierarchical API**: Survey → Platform → Respondent → Session structure available
 
 Note: Replace example IDs/variables with those from your study. All examples use HTTPS and JSON.
 
@@ -28,13 +29,22 @@ Note: Replace example IDs/variables with those from your study. All examples use
 
 Create a session when the respondent starts your survey. Store the returned `session_id` in a Decipher variable (e.g., `session_id`). You can do this in a pre-load script on your first page or a custom initialization question.
 
+**Recommended:** Include `survey_id`, `respondent_id`, and `platform_id` parameters for hierarchical tracking and aggregation.
+
 Example (custom JavaScript, runs once at start):
 
 ```javascript
-const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
+const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+
+// Get survey identifiers from Decipher
+const surveyId = getIdentifierValue('survey_id') || 'decipher_survey_123';
+const respondentId = getIdentifierValue('respondent_id') || 'resp_' + Date.now();
+const platformId = 'decipher'; // Platform identifier
 
 async function createBotSession() {
-  const resp = await fetch(`${API_BASE}/detection/sessions`, { method: 'POST' });
+  // Create session with survey metadata for hierarchical tracking
+  const url = `${API_BASE}/detection/sessions?survey_id=${encodeURIComponent(surveyId)}&respondent_id=${encodeURIComponent(respondentId)}&platform_id=${encodeURIComponent(platformId)}`;
+  const resp = await fetch(url, { method: 'POST' });
   const data = await resp.json();
   // Save session_id to a hidden question or Decipher variable
   // Example: write to a hidden input with id "session_id"
@@ -43,6 +53,8 @@ async function createBotSession() {
 
 createBotSession().catch(console.error);
 ```
+
+**Note:** The `platform_id` parameter enables hierarchical data access. You can later query aggregated metrics at the survey, platform, and respondent levels using the hierarchical API endpoints.
 
 Hidden question HTML example (Decipher page):
 
@@ -57,7 +69,7 @@ Hidden question HTML example (Decipher page):
 Capture keystrokes, mouse, focus/blur, scroll, and device info. Send batched events to the API to minimize network overhead.
 
 ```javascript
-const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
+const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
 const BATCH_SIZE = 20;
 const FLUSH_MS = 3000;
 
@@ -212,7 +224,7 @@ Hidden field for storing results:
 
 If you prefer server-to-server delivery, configure a webhook to your integration endpoint.
 
-- Endpoint (example): `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/webhooks/decipher`
+- Endpoint (example): `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/integrations/webhooks/decipher`
 - Payload contains `session_id`, survey identifiers, and the analysis result.
 
 Example server-to-server POST (what our API expects):
@@ -241,29 +253,39 @@ Use curl to verify the backend (all endpoints verified operational):
 
 ```bash
 # Health Check ✅ VERIFIED
-curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/health
+curl -s https://bot-backend-119522247395.northamerica-northeast2.run.app/health
 # Response: {"status":"healthy","service":"bot-detection-api"}
 
 # Metrics Endpoint ✅ VERIFIED
-curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+curl -s https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
 # Response: Prometheus-compatible metrics
 
-# Create session ✅ VERIFIED
+# Create session (basic) ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions
+  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions
+# Response: {"session_id":"uuid","created_at":"timestamp","status":"active"}
+
+# Create session with survey metadata (recommended) ✅ VERIFIED
+curl -s -X POST \
+  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions?survey_id=decipher_survey_123&respondent_id=resp_789&platform_id=decipher"
 # Response: {"session_id":"uuid","created_at":"timestamp","status":"active"}
 
 # Ingest example events ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/events \
+  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/events \
   -H "Content-Type: application/json" \
   -d '[{"event_type":"keystroke","timestamp":"2025-01-01T00:00:00Z","key":"a","element_id":"q1"}]'
 # Response: {"session_id":"uuid","events_processed":1,"total_events":1,"status":"success"}
 
 # Analyze session ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
+  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
 # Response: {"session_id":"uuid","is_bot":false,"confidence_score":0.25,"risk_level":"high",...}
+
+# Get respondent details (hierarchical API) ✅ VERIFIED
+curl -s -X GET \
+  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/decipher_survey_123/platforms/decipher/respondents/resp_789"
+# Response: Aggregated metrics across all sessions for this respondent
 ```
 
 ---
@@ -285,7 +307,44 @@ curl -s -X POST \
 
 ---
 
-## 9) Contact
+## 9) Hierarchical API Access
+
+With `platform_id` included in session creation, you can access aggregated data through the hierarchical API:
+
+### Get Respondent Summary
+Aggregate all sessions for a respondent:
+```javascript
+const surveyId = 'decipher_survey_123';
+const platformId = 'decipher';
+const respondentId = 'resp_789';
+
+const url = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/summary`;
+const response = await fetch(url);
+const summary = await response.json();
+// Returns: total_sessions, bot_rate, avg_confidence, overall_risk, etc.
+```
+
+### List All Sessions for a Respondent
+```javascript
+const url = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions`;
+const response = await fetch(url);
+const sessions = await response.json();
+// Returns: Array of all sessions with detection results
+```
+
+### Get Survey-Level Aggregation
+```javascript
+const url = `${API_BASE}/surveys/${surveyId}`;
+const response = await fetch(url);
+const surveyData = await response.json();
+// Returns: Aggregated metrics for entire survey across all platforms and respondents
+```
+
+For complete hierarchical API documentation, see [API_V2.md](API_V2.md) or the main [API.md](API.md).
+
+---
+
+## 10) Contact
 
 For support or integration questions, contact your engineering liaison or submit an issue in the repository.
 

@@ -69,10 +69,11 @@ class TestTextAnalysisIntegration:
                     id=f"session-{i+1}",
                     survey_id="test-survey-1",
                     respondent_id=f"respondent-{i+1}",
+                    platform_id="test",
                     created_at=datetime.utcnow() - timedelta(days=i+1),
                     last_activity=datetime.utcnow() - timedelta(hours=i+1),
                     is_active=True,
-                    platform="test"
+                    platform="test"  # Keep for backward compatibility
                 )
                 db.add(session)
                 sessions.append(session)

@@ -94,8 +94,12 @@ class DecipherIntegration:
             # Extract bot detection related fields
             bot_detection_data = self._extract_bot_detection_data(response_data)
             
+            # Extract platform_id from system variables or use default
+            platform_id = response_data.get('systemVariables', {}).get('platform_id') or 'decipher'
+            
             processed_data = {
-                'platform': 'decipher',
+                'platform': 'decipher',  # Keep for backward compatibility
+                'platform_id': platform_id,  # New hierarchical field
                 'survey_id': survey_id,
                 'response_id': response_id,
                 'respondent_id': respondent_id,

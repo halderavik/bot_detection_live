@@ -10,6 +10,8 @@
 - **Text Analysis Health**: Real-time OpenAI service monitoring ✅
 - **Text Analysis Dashboard**: New dashboard endpoints deployed and operational ✅
 - **Enhanced Reporting**: Text quality metrics integrated into all reports ✅
+- **Hierarchical API**: Survey → Platform → Respondent → Session structure available ✅
+- **Database Migration**: `platform_id` column and composite indexes deployed ✅
 
 ## 1. Overall System Architecture
 

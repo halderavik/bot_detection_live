@@ -145,6 +145,10 @@ class TestReportService:
         mock_event_count_result2 = MagicMock()
         mock_event_count_result2.scalar.return_value = 2  # For second session
         
+        # Mock text responses query (for text quality)
+        mock_text_responses_result = MagicMock()
+        mock_text_responses_result.scalars.return_value.all.return_value = []
+        
         # Set up side effects for multiple execute calls
         mock_db.execute.side_effect = [
             mock_session_result,  # Session query
@@ -152,6 +156,7 @@ class TestReportService:
             mock_activity_result,  # Activity query
             mock_event_count_result,  # Event count for session 1
             mock_event_count_result2,  # Event count for session 2
+            mock_text_responses_result,  # Text responses query (for text quality)
         ]
         
         summary_report = await report_service.generate_summary_report(
@@ -292,6 +297,10 @@ class TestReportService:
         mock_event_count_result2 = MagicMock()
         mock_event_count_result2.scalar.return_value = 2  # For second session
         
+        # Mock text responses query (for text quality)
+        mock_text_responses_result = MagicMock()
+        mock_text_responses_result.scalars.return_value.all.return_value = []
+        
         # Set up side effects for multiple execute calls
         mock_db.execute.side_effect = [
             mock_session_result,  # Session query
@@ -299,6 +308,7 @@ class TestReportService:
             mock_activity_result,  # Activity query
             mock_event_count_result,  # Event count for session 1
             mock_event_count_result2,  # Event count for session 2
+            mock_text_responses_result,  # Text responses query (for text quality)
         ]
         
         request = ReportRequest(

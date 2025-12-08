@@ -6,6 +6,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 ## 2. Scope ✅
 - **Behavioral Data Capture**: Keystrokes, mouse movement, focus/blur, scroll, device fingerprint, network events.
 - **Text Quality Analysis**: OpenAI GPT-4o-mini powered analysis of open-ended survey responses ✅
+- **Hierarchical Data Structure**: Survey → Platform → Respondent → Session structure for aggregated data access ✅
 - **API**:
   - `POST /api/v1/detection/sessions` – start session ✅
   - `POST /api/v1/detection/sessions/{sessionId}/events` – ingest batched events, return classification + `processing_time_ms` and `event_count` ✅
@@ -16,9 +17,15 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
   - `POST /api/v1/text-analysis/questions` – capture survey questions ✅
   - `POST /api/v1/text-analysis/responses` – analyze responses with GPT-4o-mini ✅
   - `GET /api/v1/text-analysis/sessions/{sessionId}/summary` – text quality summary ✅
+  - `GET /api/v1/surveys` – list all surveys with aggregated stats ✅
+  - `GET /api/v1/surveys/{survey_id}` – survey details with aggregated metrics ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents` – list respondents ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}` – respondent details ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions` – list respondent sessions ✅
 - **Classification Engine**: Rule-based checks with thresholds, returns `is_bot`, `confidence_score`, `risk_level`, plus performance metadata ✅
 - **Text Quality Engine**: GPT-4o-mini powered analysis for gibberish, copy-paste, relevance, generic answers, and quality scoring ✅
 - **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results, survey_questions, survey_responses including extra columns for `processing_time_ms` and `event_count` ✅
+- **Hierarchical Database Schema**: Composite indexes on `survey_id`, `platform_id`, `respondent_id` for efficient hierarchical queries ✅
 - **Dashboard Metrics**:
   - Latency analysis (ms) ✅
   - Event volume per session ✅

@@ -21,6 +21,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Frontend Dashboard**: Complete React-based monitoring interface with real-time updates
 - **Integration Management**: Webhook testing, status monitoring, and setup guides
 - **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis
+- **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access
 - **Production Ready**: Fully deployed on GCP with health monitoring and metrics
 
 ## 🏗️ Architecture
@@ -181,13 +182,13 @@ docker-compose --profile production up -d
 - **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
 
 #### Production (GCP)
-- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **Backend API**: https://bot-backend-119522247395.northamerica-northeast2.run.app
 - **API Documentation**: Disabled in production (security)
 - **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20250929/
 - **Frontend Dashboard (Direct)**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
 - **Load Balancer IP**: http://34.95.104.61 (HTTP only, for testing)
-- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
-- **Metrics Endpoint**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+- **Metrics Endpoint**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
 
 ## 📚 Documentation
 
@@ -255,6 +256,15 @@ GET /api/v1/reports/summary/{survey_id}/pdf
 POST /api/v1/reports/generate
 ```
 
+#### Hierarchical API (V2)
+```http
+GET /api/v1/surveys
+GET /api/v1/surveys/{survey_id}
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions
+```
+
 #### Health & Monitoring
 ```http
 GET /health
@@ -277,7 +287,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 ```
 
@@ -296,7 +306,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/event
   ]'
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/events" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/events" \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -314,7 +324,7 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessi
 curl -X GET "http://localhost:8000/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 
 # Production
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 ```
 
 #### 4. Analyze Session
@@ -323,13 +333,13 @@ curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessio
 curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analyze"
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/analyze"
 ```
 
 #### 5. Text Quality Analysis
 ```bash
 # Capture a survey question
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/questions" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/questions" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -339,7 +349,7 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/q
   }'
 
 # Analyze a response
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/responses" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/responses" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -349,32 +359,32 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/r
   }'
 
 # Get text quality summary
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
 
 # Composite analysis (behavioral + text quality)
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
 ```
 
 #### 6. Generate Reports
 ```bash
 # Get available surveys
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/surveys"
 
 # Generate summary report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/summary/SURVEY_001"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/summary/SURVEY_001"
 
 # Generate detailed report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001"
 
 # Download CSV report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
   -o survey_report.csv
 
 # Get text analysis dashboard summary
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/summary?days=7"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/summary?days=7"
 
 # Get respondent-level text analysis
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
 ```
 
 ## 🔧 Configuration
@@ -428,7 +438,7 @@ VITE_FRONTEND_BASE_URL=http://localhost:3000
 VITE_APP_NAME=Bot Detection Dashboard
 
 # Production (.env.production)
-VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+VITE_API_BASE_URL=https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
 VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20250929
 VITE_APP_NAME=Bot Detection Dashboard
 ```
@@ -542,7 +552,7 @@ docker-compose --profile production --profile monitoring up -d
 The application is currently deployed on Google Cloud Platform:
 
 #### Backend (Cloud Run)
-- **URL**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app
 - **Database**: Cloud SQL PostgreSQL
 - **Secrets**: Secret Manager
 - **Networking**: VPC Connector
@@ -631,6 +641,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **Enhanced Report Service** - Text quality metrics integration in all reports
 - ✅ **Comprehensive Test Suite** - 14 passing tests for all new functionality
 - ✅ **Production Deployment** - All new features deployed and operational
+- ✅ **Hierarchical API Structure** - Survey → Platform → Respondent → Session hierarchy implemented
+- ✅ **Database Migration** - `platform_id` column and composite indexes deployed
+- ✅ **Respondent Aggregation** - All respondent endpoints tested and verified working
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models

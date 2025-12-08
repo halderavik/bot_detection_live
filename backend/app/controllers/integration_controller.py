@@ -69,7 +69,8 @@ class IntegrationController:
                     if session:
                         session.survey_id = processed_data.get('survey_id')
                         session.respondent_id = processed_data.get('respondent_id')
-                        session.platform = 'qualtrics'
+                        session.platform = 'qualtrics'  # Keep for backward compatibility
+                        session.platform_id = processed_data.get('platform_id') or 'qualtrics'  # New hierarchical field
                         session.is_completed = True
                         await db.commit()
                         
@@ -147,7 +148,8 @@ class IntegrationController:
                     if session:
                         session.survey_id = processed_data.get('survey_id')
                         session.respondent_id = processed_data.get('respondent_id')
-                        session.platform = 'decipher'
+                        session.platform = 'decipher'  # Keep for backward compatibility
+                        session.platform_id = processed_data.get('platform_id') or 'decipher'  # New hierarchical field
                         session.is_completed = True
                         await db.commit()
                         

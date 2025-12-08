@@ -35,7 +35,8 @@ class DetectionController:
         async def create_session(
             request: Request,
             survey_id: str = None,
-            platform: str = None,
+            platform: str = None,  # Kept for backward compatibility
+            platform_id: str = None,  # New hierarchical field
             respondent_id: str = None,
             db: AsyncSession = Depends(get_db)
         ):
@@ -51,13 +52,17 @@ class DetectionController:
                 if ip_address and not is_valid_ip_address(ip_address):
                     ip_address = None
                 
+                # Use platform_id if provided, otherwise fall back to platform for backward compatibility
+                final_platform_id = platform_id if platform_id else platform
+                
                 # Create session
                 session = Session(
                     user_agent=user_agent,
                     ip_address=ip_address,
                     referrer=referrer,
                     survey_id=survey_id,
-                    platform=platform,
+                    platform=platform,  # Keep for backward compatibility
+                    platform_id=final_platform_id,  # New hierarchical field
                     respondent_id=respondent_id
                 )
                 

@@ -1,0 +1,14 @@
+"Endpoint","Status","Description","Error"
+"POST /detection/sessions","FAILED","Create new session","The remote server returned an error: (500) Internal Server Error."
+"GET /dashboard/summary","FAILED","Get dashboard summary","The remote server returned an error: (404) Not Found."
+"GET /dashboard/sessions","FAILED","Get dashboard sessions","The remote server returned an error: (500) Internal Server Error."
+"GET /dashboard/stats","FAILED","Get dashboard statistics","The remote server returned an error: (404) Not Found."
+"GET /text-analysis/dashboard/summary?days=7","PASSED","Get text analysis dashboard summary",
+"GET /text-analysis/dashboard/respondents?days=30&page=1&limit=10","FAILED","Get respondent analysis","The remote server returned an error: (500) Internal Server Error."
+"POST /reports/generate","FAILED","Generate report","The remote server returned an error: (400) Bad Request."
+"GET /reports/surveys","PASSED","Get available surveys",
+"GET /surveys","PASSED","List all surveys",
+"GET /reports/surveys","PASSED","Get surveys for hierarchical testing",
+"GET /surveys/123/summary","FAILED","Get survey summary","The remote server returned an error: (500) Internal Server Error."
+"GET /surveys/123/platforms","FAILED","List platforms for survey","The remote server returned an error: (500) Internal Server Error."
+"GET /integrations/status","PASSED","Get integration status",

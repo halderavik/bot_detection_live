@@ -28,6 +28,7 @@ const Navigation = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { name: 'Surveys', href: '/surveys', icon: FileText },
     { name: 'Quick Start Guide', href: '/quick-start', icon: BookOpen },
     { name: 'API Playground', href: '/api-playground', icon: TerminalSquare },
     { name: 'Sessions', href: '/sessions', icon: Users },

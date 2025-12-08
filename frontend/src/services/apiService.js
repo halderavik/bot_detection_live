@@ -136,6 +136,84 @@ export const integrationService = {
   },
 };
 
+// Hierarchical Services (V2 API)
+export const hierarchicalService = {
+  // Survey level
+  getSurveys: async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.offset) params.append('offset', filters.offset);
+    return api.get(`/surveys?${params}`);
+  },
+
+  getSurveyDetails: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}?${params}`);
+  },
+
+  getSurveySummary: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/summary?${params}`);
+  },
+
+  // Platform level
+  getPlatforms: async (surveyId) => {
+    return api.get(`/surveys/${surveyId}/platforms`);
+  },
+
+  getPlatformDetails: async (surveyId, platformId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}?${params}`);
+  },
+
+  getPlatformSummary: async (surveyId, platformId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/summary?${params}`);
+  },
+
+  // Respondent level
+  getRespondents: async (surveyId, platformId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.offset) params.append('offset', filters.offset);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents?${params}`);
+  },
+
+  getRespondentDetails: async (surveyId, platformId, respondentId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}?${params}`);
+  },
+
+  getRespondentSummary: async (surveyId, platformId, respondentId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/summary?${params}`);
+  },
+
+  getRespondentSessions: async (surveyId, platformId, respondentId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.offset) params.append('offset', filters.offset);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions?${params}`);
+  },
+
+  // Session level (hierarchical path)
+  getSessionByHierarchy: async (surveyId, platformId, respondentId, sessionId) => {
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}`);
+  }
+};
+
 // Report Services
 export const reportService = {
   // Get available surveys for report generation

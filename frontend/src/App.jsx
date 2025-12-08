@@ -10,6 +10,10 @@ import ApiPlayground from './components/ApiPlayground'
 import QuickStartGuide from './components/QuickStartGuide'
 import ReportBuilder from './components/ReportBuilder'
 import TextAnalysis from './components/TextAnalysis'
+import SurveyList from './components/SurveyList'
+import SurveyDetails from './components/SurveyDetails'
+import PlatformDetails from './components/PlatformDetails'
+import RespondentDetails from './components/RespondentDetails'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/App.css'
@@ -31,6 +35,12 @@ function App() {
             <Route path="/api-playground" element={<ApiPlayground />} />
             <Route path="/quick-start" element={<QuickStartGuide />} />
             <Route path="/reports" element={<ReportBuilder />} />
+            {/* Hierarchical API Routes (V2) */}
+            <Route path="/surveys" element={<SurveyList />} />
+            <Route path="/surveys/:surveyId" element={<SurveyDetails />} />
+            <Route path="/surveys/:surveyId/platforms/:platformId" element={<PlatformDetails />} />
+            <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId" element={<RespondentDetails />} />
+            <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId/sessions/:sessionId" element={<SessionDetails />} />
           </Routes>
           <ToastContainer position="bottom-right" autoClose={3000} />
         </main>

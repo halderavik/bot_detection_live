@@ -5,7 +5,7 @@ This model stores session metadata including user agent, IP address,
 timestamps, and session status for bot detection analysis.
 """
 
-from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
@@ -35,9 +35,10 @@ class Session(Base):
     is_completed = Column(Boolean, default=False)
     
     # Integration metadata
-    survey_id = Column(String(255), nullable=True)
-    respondent_id = Column(String(255), nullable=True)
-    platform = Column(String(50), nullable=True)  # 'qualtrics', 'decipher', etc.
+    survey_id = Column(String(255), nullable=True, index=True)
+    respondent_id = Column(String(255), nullable=True, index=True)
+    platform = Column(String(50), nullable=True)  # 'qualtrics', 'decipher', etc. (kept for backward compatibility)
+    platform_id = Column(String(255), nullable=True, index=True)  # Platform identifier for hierarchical structure
     
     # Relationships
     behavior_data = relationship("BehaviorData", back_populates="session", cascade="all, delete-orphan")
@@ -45,8 +46,15 @@ class Session(Base):
     survey_questions = relationship("SurveyQuestion", back_populates="session", cascade="all, delete-orphan")
     survey_responses = relationship("SurveyResponse", back_populates="session", cascade="all, delete-orphan")
     
+    # Composite indexes for efficient hierarchical queries
+    __table_args__ = (
+        Index('idx_survey_platform_respondent_session', 'survey_id', 'platform_id', 'respondent_id', 'id'),
+        Index('idx_survey_platform', 'survey_id', 'platform_id'),
+        Index('idx_survey_platform_respondent', 'survey_id', 'platform_id', 'respondent_id'),
+    )
+    
     def __repr__(self):
-        return f"<Session(id={self.id}, platform={self.platform}, is_active={self.is_active})>"
+        return f"<Session(id={self.id}, platform_id={self.platform_id}, is_active={self.is_active})>"
     
     @property
     def event_count(self) -> int:

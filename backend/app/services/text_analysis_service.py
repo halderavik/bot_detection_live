@@ -203,7 +203,7 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
             flag_reasons["copy_paste"] = copy_paste_result
             is_flagged = True
         
-        if relevance_score > 0.7:  # High score means low relevance
+        if relevance_score >= 0.7:  # High score means low relevance
             flag_reasons["irrelevant"] = relevance_result
             is_flagged = True
         
