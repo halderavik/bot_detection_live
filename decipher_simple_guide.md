@@ -37,6 +37,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 **✅ Production Status**: OpenAI integration fully operational with 100% test accuracy achieved!
 **✅ Text Analysis Dashboard**: New dashboard endpoints deployed and operational!
 **✅ Enhanced Reporting**: Text quality metrics integrated into all reports!
+**✅ Hierarchical Text Analysis**: V2 endpoints available for querying text analysis at survey/platform/respondent/session levels!
 
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 
@@ -746,6 +747,8 @@ You can also test the bot detection system directly using our API Playground:
    - Click "Ingest Events" to simulate user behavior
    - Click "Analyze Session" to see the behavioral bot detection result
    - Click "Composite Analyze" to see the combined behavioral + text quality result
+   - Click "Get Survey Text Analysis Summary" to test hierarchical V2 text analysis
+   - Click "Get Session Text Analysis (Hierarchical)" to get text analysis via hierarchical path
 
 This helps you understand how the system works before integrating it into your survey.
 

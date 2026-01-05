@@ -109,12 +109,6 @@ const ApiPlayground = () => {
       }, null, 2),
       description: 'Submit a survey response for real-time text quality analysis'
     },
-    'Get Session Text Summary': {
-      method: 'GET',
-      url: '/api/v1/text-analysis/sessions/{sessionId}/summary',
-      body: '',
-      description: 'Get text quality summary for a specific session'
-    },
     'Get Text Analysis Stats': {
       method: 'GET',
       url: '/api/v1/text-analysis/stats',

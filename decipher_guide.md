@@ -14,6 +14,7 @@ This guide shows step-by-step how to integrate Bot Detection into a Decipher (Fo
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available
 - **OpenAI Integration**: GPT-4o-mini service fully operational ✅ (`openai_available: true`)
 - **Hierarchical Text Analysis**: New V2 endpoints for text analysis at survey/platform/respondent/session levels ✅
+- **API Playground**: Updated with hierarchical V2 text analysis endpoints (old flat endpoints removed) ✅
 
 Note: Replace example IDs/variables with those from your study. All examples use HTTPS and JSON.
 
@@ -353,7 +354,7 @@ const surveyData = await response.json();
 ```
 
 ### Get Text Analysis Summary (Hierarchical V2)
-Access text quality analysis at different hierarchy levels:
+Access text quality analysis at different hierarchy levels. **Note:** The old flat endpoint `/api/v1/text-analysis/sessions/{sessionId}/summary` has been replaced by the hierarchical V2 structure below:
 
 ```javascript
 // Survey-level text analysis summary
@@ -374,12 +375,14 @@ const respondentTextResponse = await fetch(respondentTextUrl);
 const respondentTextData = await respondentTextResponse.json();
 // Returns: Aggregated text quality metrics for respondent
 
-// Session-level text analysis
+// Session-level text analysis (hierarchical V2 - replaces old flat endpoint)
 const sessionTextUrl = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/text-analysis`;
 const sessionTextResponse = await fetch(sessionTextUrl);
 const sessionTextData = await sessionTextResponse.json();
 // Returns: Complete text analysis details for specific session
 ```
+
+**Important:** Always use the hierarchical V2 endpoints for querying text analysis summaries. The flat endpoint structure is deprecated.
 
 For complete hierarchical API documentation, see [API_V2.md](API_V2.md) or the main [API.md](API.md).
 
