@@ -335,6 +335,32 @@ export const textAnalysisService = {
   // Get text analysis health
   getHealth: async () => {
     return api.get('/text-analysis/health');
+  },
+
+  // Hierarchical text analysis methods (V2 API)
+  getTextAnalysisBySurvey: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/text-analysis/summary?${params}`);
+  },
+
+  getTextAnalysisByPlatform: async (surveyId, platformId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/text-analysis/summary?${params}`);
+  },
+
+  getTextAnalysisByRespondent: async (surveyId, platformId, respondentId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/text-analysis/summary?${params}`);
+  },
+
+  getTextAnalysisBySession: async (surveyId, platformId, respondentId, sessionId) => {
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/text-analysis`);
   }
 };
 

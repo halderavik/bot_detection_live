@@ -22,6 +22,11 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents` – list respondents ✅
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}` – respondent details ✅
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions` – list respondent sessions ✅
+  - `GET /api/v1/surveys/{survey_id}/text-analysis/summary` – text analysis summary at survey level (hierarchical V2) ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary` – text analysis summary at platform level (hierarchical V2) ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary` – text analysis summary at respondent level (hierarchical V2) ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis` – text analysis at session level (hierarchical V2) ✅
+  - `GET /api/v1/text-analysis/health` – OpenAI service health check ✅
 - **Classification Engine**: Rule-based checks with thresholds, returns `is_bot`, `confidence_score`, `risk_level`, plus performance metadata ✅
 - **Text Quality Engine**: GPT-4o-mini powered analysis for gibberish, copy-paste, relevance, generic answers, and quality scoring ✅
 - **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results, survey_questions, survey_responses including extra columns for `processing_time_ms` and `event_count` ✅

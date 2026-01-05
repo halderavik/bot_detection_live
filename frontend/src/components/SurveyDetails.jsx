@@ -9,7 +9,7 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
-  Platform,
+  Server,
   ChevronRight
 } from 'lucide-react';
 import { hierarchicalService } from '../services/apiService';
@@ -140,7 +140,7 @@ const SurveyDetails = () => {
       {platforms.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-            <Platform className="w-5 h-5 mr-2" />
+            <Server className="w-5 h-5 mr-2" />
             Platforms
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

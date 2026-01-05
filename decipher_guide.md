@@ -4,14 +4,16 @@ This guide shows step-by-step how to integrate Bot Detection into a Decipher (Fo
 
 ## Production System Status
 ✅ **FULLY OPERATIONAL** - All endpoints verified and working
-- **API Base URL**: `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1`
-- **Frontend Dashboard**: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
-- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
-- **Metrics**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
-- **API Documentation**: https://bot-backend-119522247395.northamerica-northeast2.run.app/docs
+- **API Base URL**: `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1`
+- **Frontend Dashboard**: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
+- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
+- **Metrics**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **API Documentation**: https://bot-backend-i56xopdg6q-pd.a.run.app/docs
 - **Database**: Connected and processing requests
 - **Analysis Pipeline**: End-to-end testing completed successfully
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available
+- **OpenAI Integration**: GPT-4o-mini service fully operational ✅ (`openai_available: true`)
+- **Hierarchical Text Analysis**: New V2 endpoints for text analysis at survey/platform/respondent/session levels ✅
 
 Note: Replace example IDs/variables with those from your study. All examples use HTTPS and JSON.
 
@@ -34,7 +36,7 @@ Create a session when the respondent starts your survey. Store the returned `ses
 Example (custom JavaScript, runs once at start):
 
 ```javascript
-const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
 // Get survey identifiers from Decipher
 const surveyId = getIdentifierValue('survey_id') || 'decipher_survey_123';
@@ -69,7 +71,7 @@ Hidden question HTML example (Decipher page):
 Capture keystrokes, mouse, focus/blur, scroll, and device info. Send batched events to the API to minimize network overhead.
 
 ```javascript
-const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 const BATCH_SIZE = 20;
 const FLUSH_MS = 3000;
 
@@ -224,7 +226,7 @@ Hidden field for storing results:
 
 If you prefer server-to-server delivery, configure a webhook to your integration endpoint.
 
-- Endpoint (example): `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/integrations/webhooks/decipher`
+- Endpoint (example): `https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/integrations/webhooks/decipher`
 - Payload contains `session_id`, survey identifiers, and the analysis result.
 
 Example server-to-server POST (what our API expects):
@@ -253,39 +255,49 @@ Use curl to verify the backend (all endpoints verified operational):
 
 ```bash
 # Health Check ✅ VERIFIED
-curl -s https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/health
 # Response: {"status":"healthy","service":"bot-detection-api"}
 
 # Metrics Endpoint ✅ VERIFIED
-curl -s https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
+curl -s https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
 # Response: Prometheus-compatible metrics
 
 # Create session (basic) ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions
+  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions
 # Response: {"session_id":"uuid","created_at":"timestamp","status":"active"}
 
 # Create session with survey metadata (recommended) ✅ VERIFIED
 curl -s -X POST \
-  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions?survey_id=decipher_survey_123&respondent_id=resp_789&platform_id=decipher"
+  "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions?survey_id=decipher_survey_123&respondent_id=resp_789&platform_id=decipher"
 # Response: {"session_id":"uuid","created_at":"timestamp","status":"active"}
 
 # Ingest example events ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/events \
+  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/events \
   -H "Content-Type: application/json" \
   -d '[{"event_type":"keystroke","timestamp":"2025-01-01T00:00:00Z","key":"a","element_id":"q1"}]'
 # Response: {"session_id":"uuid","events_processed":1,"total_events":1,"status":"success"}
 
 # Analyze session ✅ VERIFIED
 curl -s -X POST \
-  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
+  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
 # Response: {"session_id":"uuid","is_bot":false,"confidence_score":0.25,"risk_level":"high",...}
 
 # Get respondent details (hierarchical API) ✅ VERIFIED
 curl -s -X GET \
-  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/decipher_survey_123/platforms/decipher/respondents/resp_789"
+  "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/decipher_survey_123/platforms/decipher/respondents/resp_789"
 # Response: Aggregated metrics across all sessions for this respondent
+
+# Get text analysis summary (hierarchical V2) ✅ VERIFIED
+curl -s -X GET \
+  "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/decipher_survey_123/text-analysis/summary"
+# Response: Text quality summary aggregated at survey level
+
+# Get text analysis health ✅ VERIFIED
+curl -s -X GET \
+  https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/health
+# Response: {"status":"healthy","openai_available":true,"model":"gpt-4o-mini",...}
 ```
 
 ---
@@ -338,6 +350,35 @@ const url = `${API_BASE}/surveys/${surveyId}`;
 const response = await fetch(url);
 const surveyData = await response.json();
 // Returns: Aggregated metrics for entire survey across all platforms and respondents
+```
+
+### Get Text Analysis Summary (Hierarchical V2)
+Access text quality analysis at different hierarchy levels:
+
+```javascript
+// Survey-level text analysis summary
+const surveyTextUrl = `${API_BASE}/surveys/${surveyId}/text-analysis/summary`;
+const surveyTextResponse = await fetch(surveyTextUrl);
+const surveyTextData = await surveyTextResponse.json();
+// Returns: Aggregated text quality metrics for entire survey
+
+// Platform-level text analysis summary
+const platformTextUrl = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/text-analysis/summary`;
+const platformTextResponse = await fetch(platformTextUrl);
+const platformTextData = await platformTextResponse.json();
+// Returns: Aggregated text quality metrics for platform within survey
+
+// Respondent-level text analysis summary
+const respondentTextUrl = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/text-analysis/summary`;
+const respondentTextResponse = await fetch(respondentTextUrl);
+const respondentTextData = await respondentTextResponse.json();
+// Returns: Aggregated text quality metrics for respondent
+
+// Session-level text analysis
+const sessionTextUrl = `${API_BASE}/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/text-analysis`;
+const sessionTextResponse = await fetch(sessionTextUrl);
+const sessionTextData = await sessionTextResponse.json();
+// Returns: Complete text analysis details for specific session
 ```
 
 For complete hierarchical API documentation, see [API_V2.md](API_V2.md) or the main [API.md](API.md).

@@ -182,13 +182,12 @@ docker-compose --profile production up -d
 - **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
 
 #### Production (GCP)
-- **Backend API**: https://bot-backend-119522247395.northamerica-northeast2.run.app
-- **API Documentation**: Disabled in production (security)
-- **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20250929/
-- **Frontend Dashboard (Direct)**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
-- **Load Balancer IP**: http://34.95.104.61 (HTTP only, for testing)
-- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
-- **Metrics Endpoint**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
+- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **API Documentation**: https://bot-backend-i56xopdg6q-pd.a.run.app/docs
+- **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
+- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
+- **Metrics Endpoint**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
+- **Text Analysis Health**: https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/health
 
 ## 📚 Documentation
 
@@ -263,6 +262,10 @@ GET /api/v1/surveys/{survey_id}
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions
+GET /api/v1/surveys/{survey_id}/text-analysis/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis
 ```
 
 #### Health & Monitoring
@@ -287,7 +290,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 
 # Production
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions" \
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 ```
 
@@ -306,7 +309,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/event
   ]'
 
 # Production
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/events" \
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/events" \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -324,7 +327,7 @@ curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/a
 curl -X GET "http://localhost:8000/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 
 # Production
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 ```
 
 #### 4. Analyze Session
@@ -333,13 +336,13 @@ curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/ap
 curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analyze"
 
 # Production
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/analyze"
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
 ```
 
 #### 5. Text Quality Analysis
 ```bash
 # Capture a survey question
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/questions" \
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/questions" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -349,7 +352,7 @@ curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/a
   }'
 
 # Analyze a response
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/responses" \
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/responses" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -359,32 +362,38 @@ curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/a
   }'
 
 # Get text quality summary
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
 
 # Composite analysis (behavioral + text quality)
-curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
+
+# Hierarchical text analysis endpoints (V2)
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis"
 ```
 
 #### 6. Generate Reports
 ```bash
 # Get available surveys
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/surveys"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
 
 # Generate summary report
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/summary/SURVEY_001"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/summary/SURVEY_001"
 
 # Generate detailed report
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001"
 
 # Download CSV report
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
   -o survey_report.csv
 
 # Get text analysis dashboard summary
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/summary?days=7"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/summary?days=7"
 
 # Get respondent-level text analysis
-curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
 ```
 
 ## 🔧 Configuration
@@ -438,8 +447,8 @@ VITE_FRONTEND_BASE_URL=http://localhost:3000
 VITE_APP_NAME=Bot Detection Dashboard
 
 # Production (.env.production)
-VITE_API_BASE_URL=https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
-VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20250929
+VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20251208
 VITE_APP_NAME=Bot Detection Dashboard
 ```
 
@@ -552,13 +561,14 @@ docker-compose --profile production --profile monitoring up -d
 The application is currently deployed on Google Cloud Platform:
 
 #### Backend (Cloud Run)
-- **URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app
+- **URL**: https://bot-backend-i56xopdg6q-pd.a.run.app
 - **Database**: Cloud SQL PostgreSQL
-- **Secrets**: Secret Manager
+- **Secrets**: Secret Manager (including OPENAI_API_KEY)
 - **Networking**: VPC Connector
+- **OpenAI Integration**: Fully operational with `openai_available: true`
 
 #### Frontend (Cloud Storage)
-- **URL**: https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+- **URL**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 - **CDN**: Cloud CDN enabled
 - **Caching**: Optimized for static assets
 

@@ -74,7 +74,7 @@ gcloud run deploy $Service `
   --max-instances 10 `
   --add-cloudsql-instances ${ProjectId}:${Region}:${InstanceName} `
   --vpc-connector $ConnectorName `
-  --set-secrets "DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest" `
+  --set-secrets "DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" `
   --set-env-vars "DEBUG=false,LOG_LEVEL=INFO,ALLOWED_ORIGINS=$AllowedOrigins"
 
 Write-Host "Done. Retrieve URL:" -ForegroundColor Green

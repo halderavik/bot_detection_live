@@ -147,6 +147,36 @@ const ApiPlayground = () => {
       url: '/api/v1/text-analysis/dashboard/respondents?days=30&page=1&limit=50',
       body: '',
       description: 'Get respondent-level text analysis data with all findings'
+    },
+    'Get Text Analysis Health': {
+      method: 'GET',
+      url: '/api/v1/text-analysis/health',
+      body: '',
+      description: 'Check text analysis service health and OpenAI availability'
+    },
+    'Get Survey Text Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/text-analysis/summary',
+      body: '',
+      description: 'Get text analysis summary for a survey (hierarchical V2)'
+    },
+    'Get Platform Text Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/text-analysis/summary',
+      body: '',
+      description: 'Get text analysis summary for a platform within a survey (hierarchical V2)'
+    },
+    'Get Respondent Text Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/text-analysis/summary',
+      body: '',
+      description: 'Get text analysis summary for a respondent (hierarchical V2)'
+    },
+    'Get Session Text Analysis (Hierarchical)': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/sessions/{sessionId}/text-analysis',
+      body: '',
+      description: 'Get text analysis summary for a session via hierarchical path (V2)'
     }
   };
 
@@ -170,6 +200,15 @@ const ApiPlayground = () => {
       let finalUrl = requestUrl;
       if (finalUrl.includes('{sessionId}')) {
         finalUrl = finalUrl.replace('{sessionId}', 'test-session-123');
+      }
+      if (finalUrl.includes('{surveyId}')) {
+        finalUrl = finalUrl.replace('{surveyId}', 'SV_1234567890abcdef');
+      }
+      if (finalUrl.includes('{platformId}')) {
+        finalUrl = finalUrl.replace('{platformId}', 'qualtrics');
+      }
+      if (finalUrl.includes('{respondentId}')) {
+        finalUrl = finalUrl.replace('{respondentId}', 'RSP_1234567890abcdef');
       }
 
       // Use the deployed backend URL from config

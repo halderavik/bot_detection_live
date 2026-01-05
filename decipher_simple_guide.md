@@ -61,7 +61,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 
 ```javascript
 // Bot Detection Setup with Text Quality Analysis - Add this once at the start of your survey
-const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
 
 // Read identifiers (create these hidden fields in Step 2)
 function getIdentifierValue(id) {
@@ -739,7 +739,7 @@ bot_result: {"composite_score": 0.45, "behavioral_score": 0.25, "text_quality_sc
 
 You can also test the bot detection system directly using our API Playground:
 
-1. **Go to:** https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+1. **Go to:** https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 2. **Click:** "API Playground" in the navigation
 3. **Test endpoints:**
    - Click "Create Session" to create a test session

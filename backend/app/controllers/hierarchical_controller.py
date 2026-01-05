@@ -14,9 +14,11 @@ import logging
 
 from app.database import get_db
 from app.services.aggregation_service import AggregationService
-from app.models import Session, DetectionResult, BehaviorData
+from app.models import Session, DetectionResult, BehaviorData, SurveyResponse
 from app.utils.logger import setup_logger
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
+from typing import List, Dict, Any
+from datetime import datetime
 
 logger = setup_logger(__name__)
 
@@ -478,4 +480,312 @@ class HierarchicalController:
             except Exception as e:
                 logger.error(f"Error getting session by hierarchy: {e}")
                 raise HTTPException(status_code=500, detail="Failed to get session details")
+        
+        # Hierarchical Text Analysis Endpoints
+        
+        @self.router.get("/{survey_id}/text-analysis/summary")
+        async def get_survey_text_analysis_summary(
+            survey_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get text analysis summary for a survey."""
+            try:
+                # Build query conditions
+                conditions = [
+                    Session.survey_id == survey_id
+                ]
+                
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at >= date_from_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at <= date_to_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Query responses for this survey
+                query = (
+                    select(SurveyResponse)
+                    .join(Session, SurveyResponse.session_id == Session.id)
+                    .where(and_(*conditions))
+                )
+                
+                result = await db.execute(query)
+                responses = result.scalars().all()
+                
+                # Aggregate data
+                aggregated = await self._aggregate_text_analysis(responses)
+                
+                logger.info(f"Survey text analysis summary generated for {survey_id}: {aggregated['total_responses']} responses")
+                
+                return {
+                    "survey_id": survey_id,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting survey text analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get survey text analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/text-analysis/summary")
+        async def get_platform_text_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get text analysis summary for a platform within a survey."""
+            try:
+                # Build query conditions
+                conditions = [
+                    Session.survey_id == survey_id,
+                    Session.platform_id == platform_id
+                ]
+                
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at >= date_from_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at <= date_to_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Query responses for this platform
+                query = (
+                    select(SurveyResponse)
+                    .join(Session, SurveyResponse.session_id == Session.id)
+                    .where(and_(*conditions))
+                )
+                
+                result = await db.execute(query)
+                responses = result.scalars().all()
+                
+                # Aggregate data
+                aggregated = await self._aggregate_text_analysis(responses)
+                
+                logger.info(f"Platform text analysis summary generated for {survey_id}/{platform_id}: {aggregated['total_responses']} responses")
+                
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting platform text analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get platform text analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary")
+        async def get_respondent_text_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get text analysis summary for a respondent."""
+            try:
+                # Build query conditions
+                conditions = [
+                    Session.survey_id == survey_id,
+                    Session.platform_id == platform_id,
+                    Session.respondent_id == respondent_id
+                ]
+                
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at >= date_from_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                        conditions.append(SurveyResponse.analyzed_at <= date_to_dt)
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Query responses for this respondent
+                query = (
+                    select(SurveyResponse)
+                    .join(Session, SurveyResponse.session_id == Session.id)
+                    .where(and_(*conditions))
+                )
+                
+                result = await db.execute(query)
+                responses = result.scalars().all()
+                
+                # Aggregate data
+                aggregated = await self._aggregate_text_analysis(responses)
+                
+                # Get session count for this respondent
+                session_query = select(func.count(Session.id)).where(
+                    and_(
+                        Session.survey_id == survey_id,
+                        Session.platform_id == platform_id,
+                        Session.respondent_id == respondent_id
+                    )
+                )
+                session_result = await db.execute(session_query)
+                session_count = session_result.scalar() or 0
+                
+                logger.info(f"Respondent text analysis summary generated for {survey_id}/{platform_id}/{respondent_id}: {aggregated['total_responses']} responses")
+                
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    "session_count": session_count,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting respondent text analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get respondent text analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis")
+        async def get_session_text_analysis_hierarchical(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get text analysis summary for a session via hierarchical path."""
+            try:
+                # Verify session belongs to this hierarchy
+                session_query = select(Session).where(
+                    and_(
+                        Session.id == session_id,
+                        Session.survey_id == survey_id,
+                        Session.platform_id == platform_id,
+                        Session.respondent_id == respondent_id
+                    )
+                )
+                
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Session not found in the specified hierarchy"
+                    )
+                
+                # Get all responses for the session
+                responses_query = select(SurveyResponse).where(
+                    SurveyResponse.session_id == session_id
+                )
+                responses_result = await db.execute(responses_query)
+                responses = responses_result.scalars().all()
+                
+                # Aggregate data
+                aggregated = await self._aggregate_text_analysis(responses)
+                
+                # Format response data
+                response_data = []
+                for response in responses:
+                    response_data.append({
+                        "response_id": response.id,
+                        "question_id": response.question_id,
+                        "quality_score": response.quality_score,
+                        "is_flagged": response.is_flagged,
+                        "flag_reasons": response.flag_reasons or {},
+                        "analyzed_at": response.analyzed_at.isoformat() if response.analyzed_at else None,
+                        "truncated_text": response.truncated_response_text
+                    })
+                
+                logger.info(f"Session text analysis generated for {session_id}: {aggregated['total_responses']} responses")
+                
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    "session_id": session_id,
+                    **aggregated,
+                    "responses": response_data
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting session text analysis: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get session text analysis")
+    
+    async def _aggregate_text_analysis(self, responses: List[SurveyResponse]) -> Dict[str, Any]:
+        """Aggregate text analysis metrics from a list of responses."""
+        if not responses:
+            return {
+                "total_responses": 0,
+                "avg_quality_score": None,
+                "flagged_count": 0,
+                "flagged_percentage": 0.0,
+                "flag_type_counts": {},
+                "quality_distribution": {}
+            }
+        
+        total_responses = len(responses)
+        quality_scores = [r.quality_score for r in responses if r.quality_score is not None]
+        avg_quality_score = sum(quality_scores) / len(quality_scores) if quality_scores else None
+        flagged_count = sum(1 for r in responses if r.is_flagged)
+        flagged_percentage = (flagged_count / total_responses * 100) if total_responses > 0 else 0
+        
+        # Count flag types
+        flag_type_counts = {}
+        for response in responses:
+            if response.flag_reasons:
+                for flag_type in response.flag_reasons.keys():
+                    flag_type_counts[flag_type] = flag_type_counts.get(flag_type, 0) + 1
+        
+        # Calculate quality distribution (0-10, 10-20, ..., 90-100)
+        quality_distribution = {}
+        for i in range(10):
+            bucket_start = i * 10
+            bucket_end = (i + 1) * 10
+            count = sum(1 for score in quality_scores if bucket_start <= score < bucket_end)
+            quality_distribution[f"{bucket_start}-{bucket_end}"] = count
+        
+        return {
+            "total_responses": total_responses,
+            "avg_quality_score": round(avg_quality_score, 2) if avg_quality_score is not None else None,
+            "flagged_count": flagged_count,
+            "flagged_percentage": round(flagged_percentage, 2),
+            "flag_type_counts": flag_type_counts,
+            "quality_distribution": quality_distribution
+        }
 

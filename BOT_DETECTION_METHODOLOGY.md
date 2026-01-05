@@ -2,16 +2,18 @@
 
 ## Production System Status
 ✅ **FULLY OPERATIONAL** - All systems verified and working
-- **API Base URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
+- **API Base URL**: https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+- **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 - **Health Status**: All endpoints responding correctly
 - **Database**: Connected and processing requests with hierarchical structure ✅
 - **Analysis Pipeline**: End-to-end testing completed successfully
-- **OpenAI Integration**: GPT-4o-mini service fully operational ✅
+- **OpenAI Integration**: GPT-4o-mini service fully operational ✅ (`openai_available: true`)
 - **Text Quality Analysis**: 100% test accuracy achieved ✅
 - **Health Monitoring**: Real-time OpenAI service status tracking ✅
 - **Text Analysis Dashboard**: New dashboard endpoints deployed and operational ✅
 - **Enhanced Reporting**: Text quality metrics integrated into all reports ✅
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available ✅
+- **Hierarchical Text Analysis**: V2 endpoints for text analysis at all hierarchy levels ✅
 - **Database Migration**: `platform_id` column added with composite indexes ✅
 
 ## Table of Contents
@@ -164,7 +166,7 @@ Our JavaScript tracking client automatically captures user behavior events:
 ```javascript
 // Initialize the tracker
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1',
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     batchSize: 10,
     flushInterval: 5000,
     debug: false,
@@ -600,7 +602,7 @@ def determine_risk_level(confidence_score, is_bot):
 // Qualtrics embedded data
 Qualtrics.SurveyEngine.addOnload(function() {
     const tracker = new BotDetection.Tracker({
-        apiBaseUrl: 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1',
+        apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
         sessionId: '${e://Field/session_id}',
         trackTextQuality: true  // Enable text quality analysis
     });
@@ -648,7 +650,7 @@ fetch('https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/i
 ```javascript
 // Initialize tracking
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1',
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     trackTextQuality: true
 });
 
@@ -667,7 +669,7 @@ console.log('Composite bot detection result:', compositeResult);
 ```javascript
 // Custom configuration
 const tracker = new BotDetection.Tracker({
-    apiBaseUrl: 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1',
+    apiBaseUrl: 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1',
     batchSize: 5,
     flushInterval: 3000,
     debug: true,

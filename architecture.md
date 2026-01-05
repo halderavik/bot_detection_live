@@ -353,7 +353,15 @@ survey_questions (1) ──── (N) survey_responses
 │   ├── questions                   # Question capture
 │   ├── responses                   # Response analysis
 │   ├── sessions/{id}/summary       # Text quality summary
-│   └── stats                       # OpenAI usage stats
+│   ├── stats                       # OpenAI usage stats
+│   ├── health                      # OpenAI service health
+│   ├── dashboard/summary            # Dashboard summary
+│   └── dashboard/respondents       # Respondent-level analysis
+├── surveys/                        # Hierarchical API (V2)
+│   ├── {survey_id}/text-analysis/summary  # Survey-level text analysis
+│   ├── {survey_id}/platforms/{platform_id}/text-analysis/summary  # Platform-level text analysis
+│   ├── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary  # Respondent-level text analysis
+│   └── {survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis  # Session-level text analysis
 ├── dashboard/
 │   ├── overview                    # Dashboard overview
 │   ├── sessions                    # Session list
@@ -1160,10 +1168,12 @@ The Bot Detection System architecture is designed for scalability, maintainabili
 - **System Health**: Complete health verification with all endpoints operational
 - **Metrics Monitoring**: Prometheus metrics endpoint deployed and active
 - **Database Connectivity**: Verified PostgreSQL connection and data persistence
-- **OpenAI Integration**: GPT-4o-mini service fully operational with 100% test accuracy ✅
+- **OpenAI Integration**: GPT-4o-mini service fully operational with 100% test accuracy ✅ (`openai_available: true`)
 - **Text Quality Analysis**: Production-ready with comprehensive quality scoring and flagging ✅
 - **Health Monitoring**: Real-time OpenAI service status tracking with `/api/v1/text-analysis/health` ✅
 - **Test Infrastructure**: Enhanced testing with health checks and 100% classification accuracy ✅
+- **Hierarchical Text Analysis**: V2 endpoints for text analysis at survey/platform/respondent/session levels ✅
+- **Production URLs**: Backend: `https://bot-backend-i56xopdg6q-pd.a.run.app`, Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html` ✅
 
 This architecture provides a solid foundation for the current requirements while allowing for future growth and evolution of the system.
 
