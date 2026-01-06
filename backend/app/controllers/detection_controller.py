@@ -80,8 +80,20 @@ class DetectionController:
                 
             except Exception as e:
                 logger.error(f"Error creating session: {e}")
+                logger.error(f"Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 await db.rollback()
-                raise HTTPException(status_code=500, detail="Failed to create session")
+                
+                # In development/debug mode, return detailed error
+                from app.config import settings
+                if settings.DEBUG:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to create session: {type(e).__name__}: {str(e)}"
+                    )
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to create session")
         
         @self.router.post("/sessions/{session_id}/events")
         async def ingest_events(

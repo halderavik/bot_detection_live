@@ -1,0 +1,42 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: bot-backend
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '10'
+        autoscaling.knative.dev/minScale: '1'
+        run.googleapis.com/cloudsql-instances: 'survey-bot-detection:northamerica-northeast2:bot-db'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        run.googleapis.com/vpc-access-connector: serverless-connector
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 60
+      containers:
+      - image: northamerica-northeast2-docker.pkg.dev/survey-bot-detection/backend/bot-backend:fix-db-connection
+        resources:
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        env:
+        - name: DEBUG
+          value: 'false'
+        - name: LOG_LEVEL
+          value: INFO
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: DATABASE_URL
+              key: latest
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: SECRET_KEY
+              key: latest
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: OPENAI_API_KEY
+              key: latest

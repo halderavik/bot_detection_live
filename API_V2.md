@@ -489,6 +489,52 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 
 ---
 
+## Text Analysis (Hierarchical V2)
+
+These endpoints provide **aggregated text-quality metrics** at each hierarchy level.
+
+### Survey Text Analysis Summary
+
+```http
+GET /surveys/{survey_id}/text-analysis/summary
+```
+
+### Platform Text Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary
+```
+
+### Respondent Text Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary
+```
+
+### Session Text Analysis (Hierarchical)
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis
+```
+
+**Notes:**
+- These hierarchical endpoints are ideal for dashboards and reporting (survey/platform/respondent rollups).
+- You must have the correct hierarchy identifiers (`survey_id`, `platform_id`, `respondent_id`) for the session.
+
+---
+
+## Text Analysis (Flat / Session-Based Endpoints — Still Supported)
+
+While the V2 hierarchy introduces new aggregated endpoints, the **flat text-analysis endpoints remain available** under `/api/v1/text-analysis` for integrations that only have a `session_id` (or that submit questions/responses in real time):
+
+- **Submit question**: `POST /text-analysis/questions`
+- **Submit response**: `POST /text-analysis/responses`
+- **Session text summary (flat)**: `GET /text-analysis/sessions/{session_id}/summary`
+- **Health**: `GET /text-analysis/health`
+- **Stats**: `GET /text-analysis/stats`
+
+---
+
 ## Migration from V1 to V2
 
 ### Key Changes
@@ -611,8 +657,9 @@ For questions or issues with the hierarchical API:
 - **Documentation**: See `API.md` for V1 endpoints
 - **Frontend Integration**: Check `frontend/src/services/apiService.js` for service methods
 - **Backend Implementation**: See `backend/app/controllers/hierarchical_controller.py`
+- **Text Analysis (flat endpoints)**: See `backend/app/controllers/text_analysis_controller.py`
 
 ---
 
-*Last updated: January 2025*
+*Last updated: January 2026*
 

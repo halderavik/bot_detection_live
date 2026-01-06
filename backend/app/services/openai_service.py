@@ -310,11 +310,14 @@ class OpenAIService:
         # Make API request with retries
         for attempt in range(self.max_retries):
             try:
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": formatted_prompt}],
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature,
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": formatted_prompt}],
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                        response_format={"type": "json_object"}
+                    ),
                     timeout=self.timeout
                 )
                 

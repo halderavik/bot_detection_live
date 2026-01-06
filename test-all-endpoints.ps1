@@ -1,7 +1,7 @@
 # Comprehensive API Endpoint Testing Script
 # Tests all endpoints on the deployed backend
 
-$BASE_URL = "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1"
+$BASE_URL = "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1"
 $HEADERS = @{
     "Content-Type" = "application/json"
     "Accept" = "application/json"
@@ -46,6 +46,7 @@ function Test-Endpoint {
                 Endpoint = "$Method $Endpoint"
                 Status = "PASSED"
                 Description = $Description
+                Error = ""
             }
             return $response
         } else {
@@ -60,8 +61,21 @@ function Test-Endpoint {
             return $null
         }
     } catch {
-        $statusCode = $_.Exception.Response.StatusCode.value__
+        $statusCode = $null
         $errorMsg = $_.Exception.Message
+        if ($_.Exception.Response) {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+            try {
+                $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $responseBody = $reader.ReadToEnd()
+                $reader.Close()
+                if ($responseBody) {
+                    $errorMsg = "($statusCode) $errorMsg"
+                }
+            } catch {
+                $errorMsg = "($statusCode) $errorMsg"
+            }
+        }
         Write-Host "❌ FAILED - $errorMsg" -ForegroundColor Red
         $script:failed++
         $script:results += [PSCustomObject]@{
@@ -82,14 +96,31 @@ Write-Host "========================================" -ForegroundColor Yellow
 # 1. Health Check
 Write-Host "`n=== Health & Monitoring ===" -ForegroundColor Magenta
 # Health is at root level, not under /api/v1
-$healthUrl = "$BASE_URL/../health"
+$healthUrl = "https://bot-backend-i56xopdg6q-pd.a.run.app/health"
 try {
     $response = Invoke-RestMethod -Uri $healthUrl -Method GET -Headers $HEADERS
     Write-Host "✅ PASSED - Health check endpoint" -ForegroundColor Green
     $script:passed++
+    $script:results += [PSCustomObject]@{
+        Endpoint = "GET /health"
+        Status = "PASSED"
+        Description = "Health check"
+        Error = ""
+    }
 } catch {
-    Write-Host "❌ FAILED - Health check endpoint: $($_.Exception.Message)" -ForegroundColor Red
+    $errorMsg = $_.Exception.Message
+    if ($_.Exception.Response) {
+        $statusCode = $_.Exception.Response.StatusCode.value__
+        $errorMsg = "($statusCode) $errorMsg"
+    }
+    Write-Host "❌ FAILED - Health check endpoint: $errorMsg" -ForegroundColor Red
     $script:failed++
+    $script:results += [PSCustomObject]@{
+        Endpoint = "GET /health"
+        Status = "FAILED"
+        Description = "Health check"
+        Error = $errorMsg
+    }
 }
 
 # 2. Session Management
@@ -145,16 +176,16 @@ if ($sessionId) {
         Test-Endpoint -Method "POST" -Endpoint "/text-analysis/responses" -Body $responseBody -Description "Submit response for analysis"
     }
     
-    Test-Endpoint -Method "GET" -Endpoint "/text-analysis/sessions/$sessionId/summary" -Description "Get text analysis session summary"
+    # Note: Old flat endpoint removed, use hierarchical V2 endpoint instead
+    # Test-Endpoint -Method "GET" -Endpoint "/text-analysis/sessions/$sessionId/summary" -Description "Get text analysis session summary (DEPRECATED)"
     Test-Endpoint -Method "GET" -Endpoint "/text-analysis/stats" -Description "Get text analysis statistics"
     Test-Endpoint -Method "GET" -Endpoint "/text-analysis/health" -Description "Text analysis health check"
 }
 
 # 6. Dashboard
 Write-Host "`n=== Dashboard ===" -ForegroundColor Magenta
-Test-Endpoint -Method "GET" -Endpoint "/dashboard/summary" -Description "Get dashboard summary"
+Test-Endpoint -Method "GET" -Endpoint "/dashboard/overview" -Description "Get dashboard overview"
 Test-Endpoint -Method "GET" -Endpoint "/dashboard/sessions" -Description "Get dashboard sessions"
-Test-Endpoint -Method "GET" -Endpoint "/dashboard/stats" -Description "Get dashboard statistics"
 
 # 7. Text Analysis Dashboard
 Write-Host "`n=== Text Analysis Dashboard ===" -ForegroundColor Magenta
@@ -171,15 +202,59 @@ $reportBody = @{
 Test-Endpoint -Method "POST" -Endpoint "/reports/generate" -Body $reportBody -Description "Generate report"
 Test-Endpoint -Method "GET" -Endpoint "/reports/surveys" -Description "Get available surveys"
 
-# 9. Hierarchical API (V2) - Note: prefix is /surveys, not /hierarchy/surveys
+# 9. Hierarchical API (V2) - According to API_V2.md
 Write-Host "`n=== Hierarchical API (V2) ===" -ForegroundColor Magenta
 Test-Endpoint -Method "GET" -Endpoint "/surveys" -Description "List all surveys"
 # Test with actual survey ID from reports
 $surveys = Test-Endpoint -Method "GET" -Endpoint "/reports/surveys" -Description "Get surveys for hierarchical testing"
 if ($surveys -and $surveys.surveys -and $surveys.surveys.Count -gt 0) {
     $testSurveyId = $surveys.surveys[0].survey_id
-    Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/summary" -Description "Get survey summary"
-    Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms" -Description "List platforms for survey"
+    
+    # Survey Level Endpoints (API_V2.md)
+    Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId" -Description "Get survey details (V2)"
+    Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/summary" -Description "Get survey summary (V2)"
+    
+    # Platform Level Endpoints (API_V2.md)
+    $platforms = Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms" -Description "List platforms for survey (V2)"
+    if ($platforms -and $platforms.platforms -and $platforms.platforms.Count -gt 0) {
+        $testPlatformId = $platforms.platforms[0].platform_id
+        Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId" -Description "Get platform details (V2)"
+        Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/summary" -Description "Get platform summary (V2)"
+        
+        # Respondent Level Endpoints (API_V2.md)
+        $respondents = Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents?limit=1" -Description "List respondents for platform (V2)"
+        if ($respondents -and $respondents.respondents -and $respondents.respondents.Count -gt 0) {
+            $testRespondentId = $respondents.respondents[0].respondent_id
+            Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId" -Description "Get respondent details (V2)"
+            Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId/summary" -Description "Get respondent summary (V2)"
+            
+            # Session Level Endpoints (API_V2.md)
+            $sessions = Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId/sessions?limit=1" -Description "List sessions for respondent (V2)"
+            if ($sessions -and $sessions.sessions -and $sessions.sessions.Count -gt 0) {
+                $testSessionId = $sessions.sessions[0].session_id
+                Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId/sessions/$testSessionId" -Description "Get session by hierarchy (V2)"
+            }
+        }
+    }
+    
+    # Hierarchical Text Analysis Endpoints (V2)
+    Write-Host "`n=== Hierarchical Text Analysis (V2) ===" -ForegroundColor Magenta
+    Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/text-analysis/summary" -Description "Get survey text analysis summary (V2)"
+    
+    if ($platforms -and $platforms.platforms -and $platforms.platforms.Count -gt 0) {
+        $testPlatformId = $platforms.platforms[0].platform_id
+        Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/text-analysis/summary" -Description "Get platform text analysis summary (V2)"
+        
+        if ($respondents -and $respondents.respondents -and $respondents.respondents.Count -gt 0) {
+            $testRespondentId = $respondents.respondents[0].respondent_id
+            Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId/text-analysis/summary" -Description "Get respondent text analysis summary (V2)"
+            
+            if ($sessions -and $sessions.sessions -and $sessions.sessions.Count -gt 0) {
+                $testSessionId = $sessions.sessions[0].session_id
+                Test-Endpoint -Method "GET" -Endpoint "/surveys/$testSurveyId/platforms/$testPlatformId/respondents/$testRespondentId/sessions/$testSessionId/text-analysis" -Description "Get session text analysis (V2)"
+            }
+        }
+    }
 }
 
 # 10. Integration Endpoints

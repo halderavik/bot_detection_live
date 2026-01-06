@@ -93,6 +93,20 @@
 
 ## Discovered During Work
 
+### Production Test Script Endpoint Refresh (2026-01-06)
+- [x] Update `backend/test_production_text_analysis.py` to use the current production service URL + API base URL construction and send both `platform_id` and legacy `platform` params for compatibility.
+
+### Production OpenAI Secret CRLF Fix (2026-01-06)
+- [x] Strip whitespace/CRLF from `OPENAI_API_KEY` in `backend/app/config.py` to prevent `httpx.LocalProtocolError: Illegal header value ... \\r\\n` in Cloud Run.
+- [x] Redeploy `bot-backend` and verify OpenAI text-analysis works in production.
+
+### Decipher Guides Refresh (2026-01-06)
+- [x] Update `decipher_guide.md` to reflect current text-analysis endpoints (flat session summary still supported) and fix `ready-for-analysis` response usage (`is_ready`).
+- [x] Update `decipher_simple_guide.md` to always populate `platform_id` hidden field so event payloads match the session’s platform.
+
+### API_V2 Documentation Refresh (2026-01-06)
+- [x] Update `API_V2.md` to document hierarchical V2 text-analysis endpoints and clarify flat text-analysis endpoints are still supported.
+
 ### Documentation Simplification ✅
 - [x] Create simplified Decipher integration guide for new programmers
 - [x] Streamline complex technical documentation into step-by-step implementation guide

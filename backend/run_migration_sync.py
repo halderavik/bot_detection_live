@@ -108,7 +108,7 @@ def run_migration():
             # Add platform_id column
             cursor.execute("""
                 ALTER TABLE sessions 
-                ADD COLUMN platform_id VARCHAR(50)
+                ADD COLUMN platform_id VARCHAR(255)
             """)
             print("✅ platform_id column added successfully")
             

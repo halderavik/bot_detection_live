@@ -1,9 +1,9 @@
-version: '3.8'
+version: '3.9'
 
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: bot_detection_postgres
     environment:
       POSTGRES_DB: bot_detection
@@ -17,10 +17,15 @@ services:
     networks:
       - bot_detection_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bot_user -d bot_detection"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis for caching and session storage
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: bot_detection_redis
     ports:
       - "6379:6379"
@@ -29,12 +34,18 @@ services:
     networks:
       - bot_detection_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: runtime
     container_name: bot_detection_backend
     environment:
       - DATABASE_URL=postgresql+asyncpg://bot_user:bot_password@postgres:5432/bot_detection
@@ -43,65 +54,86 @@ services:
       - SECRET_KEY=your-super-secret-key-here-change-in-production
       - ALLOWED_HOSTS=["*"]
       - ALLOWED_ORIGINS=["http://localhost:3000", "http://localhost:5173", "http://frontend:3000"]
+      - PORT=8080
     ports:
-      - "8000:8000"
+      - "8000:8080"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - bot_detection_network
     restart: unless-stopped
     volumes:
       - ./backend:/app
       - /app/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Frontend React App
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://localhost:8000/api/v1
+        - VITE_APP_NAME=Bot Detection Dashboard
+        - VITE_FRONTEND_BASE_URL=http://localhost:3000
     container_name: bot_detection_frontend
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api/v1
-      - VITE_APP_NAME=Bot Detection Dashboard
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - bot_detection_network
     restart: unless-stopped
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Nginx Reverse Proxy (optional)
   nginx:
-    image: nginx:alpine
+    image: nginx:1.25-alpine
     container_name: bot_detection_nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - bot_detection_network
     restart: unless-stopped
     profiles:
       - production
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Monitoring stack (optional)
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.48.0
     container_name: bot_detection_prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -114,24 +146,36 @@ services:
       - bot_detection_network
     profiles:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:10.2.0
     container_name: bot_detection_grafana
     ports:
       - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
     networks:
       - bot_detection_network
     profiles:
       - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:

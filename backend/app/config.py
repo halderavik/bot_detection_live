@@ -6,7 +6,7 @@ and application configuration with validation and type safety.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from typing import List, Optional
 import os
 import json
@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     
     # Database settings
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/bot_detection"
+    
+    @field_validator('DATABASE_URL')
+    @classmethod
+    def strip_database_url(cls, v: str) -> str:
+        """Strip whitespace and carriage returns from DATABASE_URL."""
+        if v:
+            # Remove all whitespace including \r, \n, and spaces from ends
+            return v.strip().replace('\r', '').replace('\n', '')
+        return v
     
     # Security settings
     SECRET_KEY: str = "your-secret-key-here"
@@ -68,6 +77,27 @@ class Settings(BaseSettings):
     OPENAI_TEMPERATURE: float = 0.3
     OPENAI_TIMEOUT: int = 30
     OPENAI_MAX_RETRIES: int = 3
+
+    @field_validator("OPENAI_API_KEY")
+    @classmethod
+    def strip_openai_api_key(cls, v: Optional[str]) -> Optional[str]:
+        """Strip whitespace and carriage returns from OPENAI_API_KEY.
+
+        Reason:
+            Secrets from some systems (including Secret Manager via CLI piping)
+            can include a trailing newline/CRLF, which breaks HTTP header parsing
+            in the OpenAI client ("Illegal header value ... \\r\\n").
+
+        Args:
+            v (Optional[str]): Raw API key string.
+
+        Returns:
+            Optional[str]: Sanitized API key.
+        """
+        if v is None:
+            return None
+        # Remove leading/trailing whitespace and embedded CR/LF characters.
+        return v.strip().replace("\r", "").replace("\n", "")
     
     model_config = ConfigDict(
         env_file=".env",

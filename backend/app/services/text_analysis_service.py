@@ -152,12 +152,44 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
         try:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Process results
-            gibberish_result = results[0] if not isinstance(results[0], Exception) else {"is_gibberish": False, "confidence": 0.0, "reason": "Analysis failed"}
-            copy_paste_result = results[1] if not isinstance(results[1], Exception) else {"is_copypaste": False, "confidence": 0.0, "reason": "Analysis failed"}
-            relevance_result = results[2] if not isinstance(results[2], Exception) else {"is_relevant": True, "confidence": 0.5, "reason": "Analysis failed"}
-            generic_result = results[3] if not isinstance(results[3], Exception) else {"is_generic": False, "confidence": 0.0, "reason": "Analysis failed"}
-            quality_result = results[4] if not isinstance(results[4], Exception) else {"score": 50, "reasoning": "Analysis failed"}
+            # Process results with detailed error logging
+            def process_result(result, name, default_result):
+                """Process a single analysis result, handling exceptions."""
+                if isinstance(result, Exception):
+                    error_msg = str(result)
+                    logger.error(f"Text analysis failed for {name}: {error_msg}", exc_info=result)
+                    # Create a copy of default_result to avoid modifying the original
+                    error_result = default_result.copy() if isinstance(default_result, dict) else default_result
+                    # Include error details in the reason
+                    if isinstance(error_result, dict):
+                        if "reason" in error_result:
+                            error_result["reason"] = f"Analysis failed: {error_msg}"
+                        elif "reasoning" in error_result:
+                            error_result["reasoning"] = f"Analysis failed: {error_msg}"
+                    return error_result
+                return result
+            
+            # Process each result with appropriate defaults
+            gibberish_result = process_result(
+                results[0], "gibberish", 
+                {"is_gibberish": False, "confidence": 0.0, "reason": "Analysis failed"}
+            )
+            copy_paste_result = process_result(
+                results[1], "copy_paste",
+                {"is_copypaste": False, "confidence": 0.0, "reason": "Analysis failed"}
+            )
+            relevance_result = process_result(
+                results[2], "relevance",
+                {"is_relevant": True, "confidence": 0.5, "reason": "Analysis failed"}
+            )
+            generic_result = process_result(
+                results[3], "generic",
+                {"is_generic": False, "confidence": 0.0, "reason": "Analysis failed"}
+            )
+            quality_result = process_result(
+                results[4], "quality",
+                {"score": 50, "reasoning": "Analysis failed"}
+            )
             
         except Exception as e:
             logger.error(f"Text analysis failed: {e}")

@@ -93,6 +93,13 @@ async function setupBotDetection() {
     if (sessionField) {
       sessionField.value = data.session_id;
     }
+    
+    // Ensure platform_id is consistently available for event payloads
+    // (so events match the same platform used during session creation)
+    const platformField = document.getElementById('platform_id');
+    if (platformField) {
+      platformField.value = platformId;
+    }
 
     // Capture device/page metadata once at start for convenience
     const pageUrl = window.location.href;
@@ -120,7 +127,7 @@ async function setupBotDetection() {
       viewport_height: viewportHeight,
       survey_id: getIdentifierValue('survey_id'),
       respondent_id: getIdentifierValue('respondent_id'),
-      platform_id: getIdentifierValue('platform_id')
+      platform_id: platformId
     });
   } catch (error) {
     console.log('Bot detection setup failed:', error);

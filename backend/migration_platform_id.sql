@@ -12,7 +12,7 @@ BEGIN
     ) THEN
         -- Step 2: Add platform_id column
         ALTER TABLE sessions 
-        ADD COLUMN platform_id VARCHAR(50);
+        ADD COLUMN platform_id VARCHAR(255);
         
         -- Step 3: Populate platform_id from existing platform values
         UPDATE sessions 
