@@ -40,17 +40,22 @@ class Session(Base):
     platform = Column(String(50), nullable=True)  # 'qualtrics', 'decipher', etc. (kept for backward compatibility)
     platform_id = Column(String(255), nullable=True, index=True)  # Platform identifier for hierarchical structure
     
+    # Device fingerprinting (computed)
+    device_fingerprint = Column(Text, nullable=True)
+    
     # Relationships
     behavior_data = relationship("BehaviorData", back_populates="session", cascade="all, delete-orphan")
     detection_results = relationship("DetectionResult", back_populates="session", cascade="all, delete-orphan")
     survey_questions = relationship("SurveyQuestion", back_populates="session", cascade="all, delete-orphan")
     survey_responses = relationship("SurveyResponse", back_populates="session", cascade="all, delete-orphan")
+    fraud_indicators = relationship("FraudIndicator", back_populates="session", cascade="all, delete-orphan")
     
     # Composite indexes for efficient hierarchical queries
     __table_args__ = (
         Index('idx_survey_platform_respondent_session', 'survey_id', 'platform_id', 'respondent_id', 'id'),
         Index('idx_survey_platform', 'survey_id', 'platform_id'),
         Index('idx_survey_platform_respondent', 'survey_id', 'platform_id', 'respondent_id'),
+        Index('idx_session_fingerprint', 'device_fingerprint'),
     )
     
     def __repr__(self):

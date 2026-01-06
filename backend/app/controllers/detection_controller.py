@@ -12,7 +12,7 @@ from typing import List, Dict, Any
 import logging
 
 from app.database import get_db
-from app.models import Session, BehaviorData, DetectionResult
+from app.models import Session, BehaviorData, DetectionResult, FraudIndicator
 from app.services import BotDetectionEngine
 from app.utils.logger import setup_logger
 from app.utils.helpers import validate_event_data, sanitize_user_agent, is_valid_ip_address
@@ -288,7 +288,7 @@ class DetectionController:
             session_id: str,
             db: AsyncSession = Depends(get_db)
         ):
-            """Analyze a session with composite scoring (behavioral + text quality)."""
+            """Analyze a session with composite scoring (behavioral + text quality + fraud detection)."""
             try:
                 # Validate session exists
                 session_query = select(Session).where(Session.id == session_id)
@@ -298,10 +298,41 @@ class DetectionController:
                 if not session:
                     raise HTTPException(status_code=404, detail="Session not found")
                 
-                # Calculate composite score
+                # Get behavior data for fraud detection
+                behavior_query = select(BehaviorData).where(BehaviorData.session_id == session_id)
+                behavior_result = await db.execute(behavior_query)
+                behavior_data = behavior_result.scalars().all()
+                
+                # Run fraud detection analysis
+                from app.services.fraud_detection_service import FraudDetectionService
+                fraud_service = FraudDetectionService()
+                fraud_indicator = await fraud_service.analyze_session_fraud(session, behavior_data, db)
+                
+                # Save fraud indicator
+                db.add(fraud_indicator)
+                await db.commit()
+                
+                # Calculate composite score (includes fraud detection)
                 composite_result = await self.detection_engine.calculate_composite_score(session_id, db)
                 
-                logger.info(f"Composite analysis completed for session {session_id}: score={composite_result['composite_score']:.3f}")
+                # Update detection result with fraud score if it exists
+                if composite_result.get('fraud_details') and composite_result['fraud_details'].get('fraud_score') is not None:
+                    # Get or create detection result
+                    detection_query = (
+                        select(DetectionResult)
+                        .where(DetectionResult.session_id == session_id)
+                        .order_by(DetectionResult.created_at.desc())
+                        .limit(1)
+                    )
+                    detection_result_query = await db.execute(detection_query)
+                    latest_detection = detection_result_query.scalar_one_or_none()
+                    
+                    if latest_detection:
+                        latest_detection.fraud_score = composite_result['fraud_score']
+                        latest_detection.fraud_indicators = composite_result.get('fraud_details')
+                        await db.commit()
+                
+                logger.info(f"Composite analysis completed for session {session_id}: score={composite_result['composite_score']:.3f}, fraud_score={composite_result.get('fraud_score', 0):.3f}")
                 
                 return composite_result
                 

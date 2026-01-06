@@ -14,7 +14,7 @@ import logging
 
 from app.database import get_db
 from app.services.aggregation_service import AggregationService
-from app.models import Session, DetectionResult, BehaviorData, SurveyResponse
+from app.models import Session, DetectionResult, BehaviorData, SurveyResponse, FraudIndicator
 from app.utils.logger import setup_logger
 from sqlalchemy import select, func, and_
 from typing import List, Dict, Any
@@ -746,6 +746,382 @@ class HierarchicalController:
             except Exception as e:
                 logger.error(f"Error getting session text analysis: {e}")
                 raise HTTPException(status_code=500, detail="Failed to get session text analysis")
+        
+        # Hierarchical Fraud Detection Endpoints
+        
+        @self.router.get("/{survey_id}/fraud/summary")
+        async def get_survey_fraud_summary(
+            survey_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get fraud detection summary for a survey."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Aggregate fraud data using hierarchical parameters
+                aggregated = await self._aggregate_fraud_data(
+                    db, survey_id, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Survey fraud summary generated for {survey_id}")
+                
+                return {
+                    "survey_id": survey_id,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting survey fraud summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get survey fraud summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/fraud/summary")
+        async def get_platform_fraud_summary(
+            survey_id: str,
+            platform_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get fraud detection summary for a platform within a survey."""
+            try:
+                # Build query conditions
+                conditions = [
+                    Session.survey_id == survey_id,
+                    Session.platform_id == platform_id
+                ]
+                
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Aggregate fraud data using hierarchical parameters
+                aggregated = await self._aggregate_fraud_data(
+                    db, survey_id, platform_id=platform_id, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Platform fraud summary generated for {survey_id}/{platform_id}")
+                
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting platform fraud summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get platform fraud summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary")
+        async def get_respondent_fraud_summary(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get fraud detection summary for a respondent."""
+            try:
+                # Build query conditions
+                conditions = [
+                    Session.survey_id == survey_id,
+                    Session.platform_id == platform_id,
+                    Session.respondent_id == respondent_id
+                ]
+                
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Aggregate fraud data using hierarchical parameters
+                aggregated = await self._aggregate_fraud_data(
+                    db, survey_id, platform_id=platform_id, respondent_id=respondent_id,
+                    date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Respondent fraud summary generated for {survey_id}/{platform_id}/{respondent_id}")
+                
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    **aggregated
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting respondent fraud summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get respondent fraud summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud")
+        async def get_session_fraud_hierarchical(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get fraud detection data for a session via hierarchical path."""
+            try:
+                # Verify session belongs to this hierarchy
+                session_query = select(Session).where(
+                    and_(
+                        Session.id == session_id,
+                        Session.survey_id == survey_id,
+                        Session.platform_id == platform_id,
+                        Session.respondent_id == respondent_id
+                    )
+                )
+                
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Session not found in the specified hierarchy"
+                    )
+                
+                # Get latest fraud indicator
+                fraud_query = (
+                    select(FraudIndicator)
+                    .where(FraudIndicator.session_id == session_id)
+                    .order_by(FraudIndicator.created_at.desc())
+                    .limit(1)
+                )
+                fraud_result = await db.execute(fraud_query)
+                fraud_indicator = fraud_result.scalar_one_or_none()
+                
+                if not fraud_indicator:
+                    return {
+                        "survey_id": survey_id,
+                        "platform_id": platform_id,
+                        "respondent_id": respondent_id,
+                        "session_id": session_id,
+                        "fraud_analysis_available": False,
+                        "message": "No fraud analysis has been performed for this session"
+                    }
+                
+                # Format fraud indicator data
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    "session_id": session_id,
+                    "fraud_analysis_available": True,
+                    "overall_fraud_score": float(fraud_indicator.overall_fraud_score) if fraud_indicator.overall_fraud_score else None,
+                    "is_duplicate": fraud_indicator.is_duplicate,
+                    "fraud_confidence": float(fraud_indicator.fraud_confidence) if fraud_indicator.fraud_confidence else None,
+                    "risk_level": fraud_indicator.risk_level,
+                    "ip_analysis": {
+                        "ip_address": fraud_indicator.ip_address,
+                        "usage_count": fraud_indicator.ip_usage_count,
+                        "sessions_today": fraud_indicator.ip_sessions_today,
+                        "risk_score": float(fraud_indicator.ip_risk_score) if fraud_indicator.ip_risk_score else None
+                    },
+                    "device_fingerprint": {
+                        "fingerprint": fraud_indicator.device_fingerprint,
+                        "usage_count": fraud_indicator.fingerprint_usage_count,
+                        "risk_score": float(fraud_indicator.fingerprint_risk_score) if fraud_indicator.fingerprint_risk_score else None
+                    },
+                    "duplicate_responses": {
+                        "similarity_score": float(fraud_indicator.response_similarity_score) if fraud_indicator.response_similarity_score else None,
+                        "duplicate_count": fraud_indicator.duplicate_response_count
+                    },
+                    "geolocation": {
+                        "consistent": fraud_indicator.geolocation_consistent,
+                        "risk_score": float(fraud_indicator.geolocation_risk_score) if fraud_indicator.geolocation_risk_score else None
+                    },
+                    "velocity": {
+                        "responses_per_hour": float(fraud_indicator.responses_per_hour) if fraud_indicator.responses_per_hour else None,
+                        "risk_score": float(fraud_indicator.velocity_risk_score) if fraud_indicator.velocity_risk_score else None
+                    },
+                    "flag_reasons": fraud_indicator.flag_reasons,
+                    "created_at": fraud_indicator.created_at.isoformat() if fraud_indicator.created_at else None
+                }
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting session fraud data: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get session fraud data")
+    
+    async def _aggregate_fraud_data(
+        self,
+        db: AsyncSession,
+        survey_id: str,
+        platform_id: Optional[str] = None,
+        respondent_id: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Aggregate fraud detection metrics from fraud indicators.
+        
+        Uses denormalized hierarchical fields in fraud_indicators for efficient queries.
+        """
+        try:
+            # Build fraud indicator query using denormalized hierarchical fields
+            fraud_conditions = [FraudIndicator.survey_id == survey_id]
+            
+            if platform_id:
+                fraud_conditions.append(FraudIndicator.platform_id == platform_id)
+            
+            if respondent_id:
+                fraud_conditions.append(FraudIndicator.respondent_id == respondent_id)
+            
+            # Add date filters
+            if date_from:
+                fraud_conditions.append(FraudIndicator.created_at >= date_from)
+            if date_to:
+                fraud_conditions.append(FraudIndicator.created_at <= date_to)
+            
+            fraud_query = select(FraudIndicator).where(and_(*fraud_conditions))
+            fraud_result = await db.execute(fraud_query)
+            fraud_indicators = fraud_result.scalars().all()
+            
+            # Get total sessions count for this hierarchy (even without fraud analysis)
+            session_conditions = [Session.survey_id == survey_id]
+            if platform_id:
+                session_conditions.append(Session.platform_id == platform_id)
+            if respondent_id:
+                session_conditions.append(Session.respondent_id == respondent_id)
+            
+            session_count_query = select(func.count(Session.id)).where(and_(*session_conditions))
+            session_count_result = await db.execute(session_count_query)
+            total_sessions = session_count_result.scalar() or 0
+            
+            if not fraud_indicators:
+                return {
+                    "total_sessions_analyzed": 0,
+                    "total_sessions": total_sessions,
+                    "duplicate_sessions": 0,
+                    "high_risk_sessions": 0,
+                    "average_fraud_score": None,
+                    "duplicate_rate": 0.0,
+                    "high_risk_rate": 0.0,
+                    "risk_distribution": {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0},
+                    "fraud_methods": {
+                        "ip_high_risk": 0,
+                        "fingerprint_high_risk": 0,
+                        "duplicate_responses": 0,
+                        "geolocation_inconsistent": 0,
+                        "high_velocity": 0
+                    }
+                }
+            
+            # Calculate aggregate statistics
+            total_analyzed = len(fraud_indicators)
+            duplicate_count = sum(1 for fi in fraud_indicators if fi.is_duplicate)
+            
+            # Calculate risk distribution
+            risk_distribution = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0}
+            high_risk_count = 0
+            fraud_scores = []
+            
+            # Count fraud method flags
+            fraud_methods = {
+                "ip_high_risk": 0,
+                "fingerprint_high_risk": 0,
+                "duplicate_responses": 0,
+                "geolocation_inconsistent": 0,
+                "high_velocity": 0
+            }
+            
+            for fi in fraud_indicators:
+                # Risk level distribution
+                risk_level = fi.risk_level
+                if risk_level in risk_distribution:
+                    risk_distribution[risk_level] += 1
+                
+                # High risk count (score >= 0.7)
+                if fi.overall_fraud_score and float(fi.overall_fraud_score) >= 0.7:
+                    high_risk_count += 1
+                
+                # Collect fraud scores
+                if fi.overall_fraud_score:
+                    fraud_scores.append(float(fi.overall_fraud_score))
+                
+                # Count fraud method flags
+                if fi.flag_reasons:
+                    if "ip_reuse" in fi.flag_reasons:
+                        fraud_methods["ip_high_risk"] += 1
+                    if "device_reuse" in fi.flag_reasons:
+                        fraud_methods["fingerprint_high_risk"] += 1
+                    if "duplicate_responses" in fi.flag_reasons:
+                        fraud_methods["duplicate_responses"] += 1
+                    if "geolocation_inconsistency" in fi.flag_reasons:
+                        fraud_methods["geolocation_inconsistent"] += 1
+                    if "high_velocity" in fi.flag_reasons:
+                        fraud_methods["high_velocity"] += 1
+            
+            # Calculate average fraud score
+            avg_fraud_score = sum(fraud_scores) / len(fraud_scores) if fraud_scores else None
+            
+            # Calculate rates
+            duplicate_rate = (duplicate_count / total_analyzed * 100) if total_analyzed > 0 else 0.0
+            high_risk_rate = (high_risk_count / total_analyzed * 100) if total_analyzed > 0 else 0.0
+            
+            return {
+                "total_sessions_analyzed": total_analyzed,
+                "total_sessions": total_sessions,
+                "duplicate_sessions": duplicate_count,
+                "high_risk_sessions": high_risk_count,
+                "average_fraud_score": round(avg_fraud_score, 3) if avg_fraud_score else None,
+                "duplicate_rate": round(duplicate_rate, 2),
+                "high_risk_rate": round(high_risk_rate, 2),
+                "risk_distribution": risk_distribution,
+                "fraud_methods": fraud_methods
+            }
+            
+        except Exception as e:
+            logger.error(f"Error aggregating fraud data: {e}")
+            raise
     
     async def _aggregate_text_analysis(self, responses: List[SurveyResponse]) -> Dict[str, Any]:
         """Aggregate text analysis metrics from a list of responses."""

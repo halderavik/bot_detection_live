@@ -15,6 +15,7 @@ import {
 import { hierarchicalService } from '../services/apiService';
 import { toast } from 'react-toastify';
 import HierarchicalNavigation from './HierarchicalNavigation';
+import HierarchicalFraudWidget from './HierarchicalFraudWidget';
 
 const SurveyDetails = () => {
   const { surveyId } = useParams();
@@ -240,6 +241,9 @@ const SurveyDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Fraud Detection Summary */}
+      <HierarchicalFraudWidget surveyId={surveyId} />
     </div>
   );
 };

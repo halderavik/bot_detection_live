@@ -211,6 +211,32 @@ export const hierarchicalService = {
   // Session level (hierarchical path)
   getSessionByHierarchy: async (surveyId, platformId, respondentId, sessionId) => {
     return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}`);
+  },
+
+  // Hierarchical Fraud Detection Methods
+  getSurveyFraudSummary: async (surveyId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/fraud/summary?${params}`);
+  },
+
+  getPlatformFraudSummary: async (surveyId, platformId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/fraud/summary?${params}`);
+  },
+
+  getRespondentFraudSummary: async (surveyId, platformId, respondentId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/fraud/summary?${params}`);
+  },
+
+  getSessionFraudByHierarchy: async (surveyId, platformId, respondentId, sessionId) => {
+    return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/fraud`);
   }
 };
 
@@ -361,6 +387,43 @@ export const textAnalysisService = {
 
   getTextAnalysisBySession: async (surveyId, platformId, respondentId, sessionId) => {
     return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/text-analysis`);
+  }
+};
+
+// Fraud Detection Service
+export const fraudService = {
+  // Get fraud indicators for a session
+  getFraudIndicators: async (sessionId) => {
+    return api.get(`/fraud/sessions/${sessionId}`);
+  },
+
+  // Get sessions by IP address
+  getSessionsByIp: async (ipAddress) => {
+    return api.get(`/fraud/ip/${ipAddress}`);
+  },
+
+  // Get sessions by device fingerprint
+  getSessionsByFingerprint: async (fingerprint) => {
+    return api.get(`/fraud/fingerprint/${fingerprint}`);
+  },
+
+  // Get fraud dashboard summary
+  getFraudDashboardSummary: async (surveyId = null, days = 7) => {
+    const params = new URLSearchParams({ days: days.toString() });
+    if (surveyId) params.append('survey_id', surveyId);
+    return api.get(`/fraud/dashboard/summary?${params}`);
+  },
+
+  // Get duplicate sessions
+  getDuplicateSessions: async (surveyId = null, limit = 50) => {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (surveyId) params.append('survey_id', surveyId);
+    return api.get(`/fraud/dashboard/duplicates?${params}`);
+  },
+
+  // Analyze session fraud
+  analyzeSessionFraud: async (sessionId) => {
+    return api.post(`/fraud/analyze/${sessionId}`);
   }
 };
 

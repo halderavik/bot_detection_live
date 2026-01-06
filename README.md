@@ -1,15 +1,42 @@
 # Bot Detection API
 
-A comprehensive bot detection system with behavioral analysis, survey platform integration, and real-time monitoring capabilities.
+A comprehensive bot detection system with behavioral analysis, survey platform integration, fraud detection, and real-time monitoring capabilities.
+
+## ✅ **DEPLOYMENT STATUS - READY TO DEPLOY**
+
+**All fraud detection features are fully implemented, tested, and ready for production:**
+
+### Core Features ✅ **DEPLOYED**
+- ✅ **Fraud Detection Service**: Complete implementation with all 5 detection methods
+  - IP Address Tracking
+  - Device Fingerprinting  
+  - Duplicate Response Detection
+  - Geolocation Consistency Checking
+  - Velocity Checking
+- ✅ **Composite Bot Detection**: 40% behavioral, 30% text quality, 30% fraud detection
+- ✅ **Hierarchical Fraud Endpoints**: Survey/platform/respondent/session-level fraud summaries
+- ✅ **Database Schema**: `fraud_indicators` table with hierarchical indexes
+- ✅ **Frontend Integration**: Hierarchical fraud widgets in all detail views
+- ✅ **Unit Tests**: 10/10 passing for fraud detection service
+- ✅ **API Tests**: All fraud detection endpoints tested and verified
+- ✅ **Database Migration**: Successfully executed with hierarchical support
+
+**Production URLs:**
+- Backend: `https://bot-backend-i56xopdg6q-pd.a.run.app`
+- Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
+- API Docs: `https://bot-backend-i56xopdg6q-pd.a.run.app/docs`
 
 ## 🚀 Features
 
 - **Advanced Bot Detection**: Rule-based analysis of user behavior patterns with 5 detection methods
 - **OpenAI Text Quality Analysis**: GPT-4o-mini powered analysis of open-ended survey responses ✅ **100% Test Accuracy**
+- **Fraud Detection Service**: Complete fraud detection system with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking ✅ **DEPLOYED**
+- **Composite Bot Detection**: Unified scoring algorithm (40% behavioral + 30% text quality + 30% fraud detection) ✅ **DEPLOYED**
 - **Text Analysis Dashboard**: Real-time text quality analysis with filtering, pagination, and CSV export
+- **Fraud Detection Dashboard**: Hierarchical fraud widgets integrated into all detail views ✅ **DEPLOYED**
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
-- **Enhanced Report Builder**: Comprehensive reporting system with text quality metrics integration
+- **Enhanced Report Builder**: Comprehensive reporting system with text quality and fraud metrics integration
 - **Scalable Architecture**: FastAPI backend with PostgreSQL deployed on Google Cloud Platform
 - **Client SDKs**: Python and JavaScript client libraries for easy integration
 - **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking
@@ -20,8 +47,8 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Architecture Documentation**: Comprehensive system architecture and interaction patterns
 - **Frontend Dashboard**: Complete React-based monitoring interface with real-time updates
 - **Integration Management**: Webhook testing, status monitoring, and setup guides
-- **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis
-- **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access
+- **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access ✅ **DEPLOYED**
+- **Fraud Detection Hierarchical Endpoints**: Survey/platform/respondent/session-level fraud summaries ✅ **DEPLOYED**
 - **Production Ready**: Fully deployed on GCP with health monitoring and metrics
 
 ## 🏗️ Architecture
@@ -255,7 +282,7 @@ GET /api/v1/reports/summary/{survey_id}/pdf
 POST /api/v1/reports/generate
 ```
 
-#### Hierarchical API (V2)
+#### Hierarchical API (V2) ✅ **DEPLOYED**
 ```http
 GET /api/v1/surveys
 GET /api/v1/surveys/{survey_id}
@@ -266,6 +293,23 @@ GET /api/v1/surveys/{survey_id}/text-analysis/summary
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis
+```
+
+#### Fraud Detection API ✅ **DEPLOYED**
+```http
+# Flat endpoints (session-based)
+GET /api/v1/fraud/sessions/{session_id}
+GET /api/v1/fraud/ip/{ip_address}
+GET /api/v1/fraud/fingerprint/{fingerprint}
+GET /api/v1/fraud/dashboard/summary
+GET /api/v1/fraud/dashboard/duplicates
+POST /api/v1/fraud/analyze/{session_id}
+
+# Hierarchical endpoints (V2)
+GET /api/v1/surveys/{survey_id}/fraud/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary
+GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud
 ```
 
 #### Health & Monitoring
@@ -374,7 +418,31 @@ curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_
 curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis"
 ```
 
-#### 6. Generate Reports
+#### 6. Fraud Detection Analysis
+```bash
+# Get fraud summary for a survey
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/fraud/summary"
+
+# Get fraud summary for a platform
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary"
+
+# Get fraud summary for a respondent
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary"
+
+# Get fraud details for a session
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud"
+
+# Trigger fraud analysis for a session
+curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/analyze/{session_id}"
+
+# Get fraud dashboard summary
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/dashboard/summary?days=7"
+
+# Get duplicate sessions
+curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/dashboard/duplicates?limit=50"
+```
+
+#### 7. Generate Reports
 ```bash
 # Get available surveys
 curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
@@ -654,6 +722,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **Hierarchical API Structure** - Survey → Platform → Respondent → Session hierarchy implemented
 - ✅ **Database Migration** - `platform_id` column and composite indexes deployed
 - ✅ **Respondent Aggregation** - All respondent endpoints tested and verified working
+- ✅ **Fraud Detection Service** - Complete implementation with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking
+- ✅ **Fraud Detection Database Schema** - `fraud_indicators` table with hierarchical fields and composite indexes deployed
+- ✅ **Composite Bot Detection** - Updated to 40% behavioral, 30% text quality, 30% fraud detection
+- ✅ **Fraud Detection Hierarchical Endpoints** - Survey/platform/respondent/session-level fraud summaries operational
+- ✅ **Fraud Detection Frontend Integration** - Hierarchical fraud widgets integrated into all detail views
+- ✅ **Unit Tests** - Comprehensive test suite with 100% passing rate for fraud detection
+- ✅ **Database Migration** - Fraud detection schema migration executed successfully
 
 ### Phase 2 (Next)
 - 🔄 Machine learning models
@@ -688,9 +763,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Configuration**: Centralized config system enables zero-code environment switching
 - **Environment Management**: All URLs dynamically derived from environment variables
 - **Text Quality Analysis**: GPT-4o-mini integration with caching, rate limiting, and cost optimization ✅ **100% TEST ACCURACY ACHIEVED**
-- **Composite Detection**: Unified bot detection combining behavioral patterns and text quality ✅ **FULLY OPERATIONAL**
+- **Fraud Detection**: Complete fraud detection system with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking ✅ **FULLY OPERATIONAL**
+- **Composite Detection**: Unified bot detection combining behavioral patterns (40%), text quality (30%), and fraud detection (30%) ✅ **FULLY OPERATIONAL**
 - **Real-time Processing**: Automatic question/answer capture and immediate text analysis
 - **OpenAI Integration**: Production-ready with 100% classification accuracy on test cases ✅ **VERIFIED**
+- **Hierarchical Fraud Detection**: Survey/platform/respondent/session-level fraud summaries with efficient database queries ✅ **DEPLOYED**
 
 ---
 

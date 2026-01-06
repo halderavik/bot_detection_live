@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { config } from '../config/config';
+import { fraudService } from '../services/apiService';
 import TextQualityWidget from './TextQualityWidget';
+import HierarchicalNavigation from './HierarchicalNavigation';
+import HierarchicalFraudWidget from './HierarchicalFraudWidget';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -18,24 +22,40 @@ function parseFlaggedPattern(str) {
   return obj;
 }
 
-function SessionDetails({ sessionId }) {
+function SessionDetails({ sessionId: propSessionId }) {
+  // Support both prop-based and route-based sessionId
+  const { surveyId, platformId, respondentId, sessionId: routeSessionId } = useParams();
+  const sessionId = propSessionId || routeSessionId;
+  
+  // Determine if we're in hierarchical context
+  const isHierarchical = !!(surveyId && platformId && respondentId && routeSessionId);
+  
   const [details, setDetails] = useState(null);
+  const [fraudIndicators, setFraudIndicators] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(config.dashboard.sessionDetails(sessionId))
-      .then(res => res.json())
-      .then(data => {
-        setDetails(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load session details');
-        setLoading(false);
-      });
+    loadSessionData();
   }, [sessionId]);
+
+  const loadSessionData = async () => {
+    try {
+      setLoading(true);
+      const [sessionData, fraudData] = await Promise.all([
+        fetch(config.dashboard.sessionDetails(sessionId)).then(res => res.json()),
+        fraudService.getFraudIndicators(sessionId).catch(() => null)
+      ]);
+      setDetails(sessionData);
+      setFraudIndicators(fraudData);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading session data:', err);
+      setError('Failed to load session details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) return <div>Loading session details...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
@@ -53,6 +73,16 @@ function SessionDetails({ sessionId }) {
 
   return (
     <div className="space-y-6">
+      {/* Hierarchical Navigation */}
+      {isHierarchical && (
+        <HierarchicalNavigation 
+          surveyId={surveyId}
+          platformId={platformId}
+          respondentId={respondentId}
+          sessionId={routeSessionId}
+        />
+      )}
+
       {/* Session Information */}
       <div>
         <h3 className="text-lg font-semibold mb-2">Session Information</h3>
@@ -172,6 +202,117 @@ function SessionDetails({ sessionId }) {
           </table>
         </div>
       </div>
+
+      {/* Fraud Detection - Use hierarchical widget if in hierarchical context, else use flat display */}
+      {isHierarchical ? (
+        <HierarchicalFraudWidget 
+          surveyId={surveyId}
+          platformId={platformId}
+          respondentId={respondentId}
+          sessionId={routeSessionId}
+        />
+      ) : (
+        fraudIndicators && fraudIndicators.fraud_analysis_available && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Fraud Detection Indicators</h3>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex flex-wrap gap-4 items-center mb-3">
+                {fraudIndicators.is_duplicate && (
+                  <span className="bg-red-100 text-red-700 px-3 py-1 rounded font-semibold">DUPLICATE</span>
+                )}
+                <span className="text-sm">
+                  <span className="font-semibold">Fraud Score:</span>{' '}
+                  {fraudIndicators.overall_fraud_score !== null ? (
+                    <span className={`font-semibold ${
+                      fraudIndicators.overall_fraud_score >= 0.8 ? 'text-red-600' :
+                      fraudIndicators.overall_fraud_score >= 0.6 ? 'text-orange-600' :
+                      'text-yellow-600'
+                    }`}>
+                      {(fraudIndicators.overall_fraud_score * 100).toFixed(1)}%
+                    </span>
+                  ) : '-'}
+                </span>
+                <span className="text-sm">
+                  <span className="font-semibold">Risk Level:</span> {fraudIndicators.risk_level || '-'}
+                </span>
+              </div>
+
+              {/* IP Analysis */}
+              {fraudIndicators.ip_analysis && (
+                <div className="mb-3">
+                  <span className="font-semibold">IP Address Analysis:</span>
+                  <div className="ml-4 text-sm">
+                    <div>IP: <span className="font-mono">{fraudIndicators.ip_analysis.ip_address || '-'}</span></div>
+                    <div>Usage Count: {fraudIndicators.ip_analysis.usage_count || 0}</div>
+                    <div>Sessions Today: {fraudIndicators.ip_analysis.sessions_today || 0}</div>
+                    <div>Risk Score: {fraudIndicators.ip_analysis.risk_score !== null ? `${(fraudIndicators.ip_analysis.risk_score * 100).toFixed(1)}%` : '-'}</div>
+                    {fraudIndicators.ip_analysis.country_code && (
+                      <div>Country: {fraudIndicators.ip_analysis.country_code}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Device Fingerprint */}
+              {fraudIndicators.device_fingerprint && (
+                <div className="mb-3">
+                  <span className="font-semibold">Device Fingerprint:</span>
+                  <div className="ml-4 text-sm">
+                    <div>Fingerprint: <span className="font-mono text-xs">{fraudIndicators.device_fingerprint.fingerprint?.substring(0, 16) || '-'}...</span></div>
+                    <div>Usage Count: {fraudIndicators.device_fingerprint.usage_count || 0}</div>
+                    <div>Risk Score: {fraudIndicators.device_fingerprint.risk_score !== null ? `${(fraudIndicators.device_fingerprint.risk_score * 100).toFixed(1)}%` : '-'}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Duplicate Responses */}
+              {fraudIndicators.duplicate_responses && (
+                <div className="mb-3">
+                  <span className="font-semibold">Duplicate Response Detection:</span>
+                  <div className="ml-4 text-sm">
+                    <div>Similarity Score: {fraudIndicators.duplicate_responses.similarity_score !== null ? `${(fraudIndicators.duplicate_responses.similarity_score * 100).toFixed(1)}%` : '-'}</div>
+                    <div>Duplicate Count: {fraudIndicators.duplicate_responses.duplicate_count || 0}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Velocity */}
+              {fraudIndicators.velocity && (
+                <div className="mb-3">
+                  <span className="font-semibold">Velocity Analysis:</span>
+                  <div className="ml-4 text-sm">
+                    <div>Responses per Hour: {fraudIndicators.velocity.responses_per_hour !== null ? fraudIndicators.velocity.responses_per_hour.toFixed(2) : '-'}</div>
+                    <div>Risk Score: {fraudIndicators.velocity.risk_score !== null ? `${(fraudIndicators.velocity.risk_score * 100).toFixed(1)}%` : '-'}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Flag Reasons */}
+              {fraudIndicators.flag_reasons && Object.keys(fraudIndicators.flag_reasons).length > 0 && (
+                <div className="mb-3">
+                  <span className="font-semibold">Flag Reasons:</span>
+                  <div className="ml-4 text-sm">
+                    {Object.entries(fraudIndicators.flag_reasons).map(([reason, details]) => (
+                      <div key={reason} className="mb-1">
+                        <span className="font-semibold">{reason}:</span>
+                        {typeof details === 'object' ? (
+                          <ul className="ml-2 list-disc">
+                            {Object.entries(details).map(([k, v]) => (
+                              <li key={k}><span className="font-semibold">{k}:</span> {v}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span> {details}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      )}
 
       {/* Text Quality Analysis */}
       <div className="mt-6">

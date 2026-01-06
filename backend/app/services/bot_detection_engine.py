@@ -103,7 +103,7 @@ class BotDetectionEngine:
     
     async def calculate_composite_score(self, session_id: str, db: AsyncSession) -> Dict[str, Any]:
         """
-        Calculate unified composite score combining behavioral and text quality analysis.
+        Calculate unified composite score combining behavioral, text quality, and fraud detection analysis.
         
         Args:
             session_id: Session ID to analyze
@@ -119,6 +119,9 @@ class BotDetectionEngine:
             # Get text quality analysis results
             text_quality_result = await self._get_text_quality_analysis(session_id, db)
             
+            # Get fraud detection results
+            fraud_result = await self._get_latest_fraud_analysis(session_id, db)
+            
             # Extract scores
             behavioral_score = behavior_result.get('confidence_score', 0.5) if behavior_result else 0.5
             avg_text_quality = text_quality_result.get('avg_quality_score', 50.0) if text_quality_result else 50.0
@@ -126,10 +129,14 @@ class BotDetectionEngine:
             # Normalize text quality score (0-100 -> 0-1, inverted so higher quality = lower risk)
             text_quality_normalized = 1.0 - (avg_text_quality / 100.0)
             
-            # Calculate composite score (weighted combination)
+            # Get fraud score (0.0-1.0)
+            fraud_score = fraud_result.get('fraud_score', 0.0) if fraud_result else 0.0
+            
+            # Calculate composite score (weighted combination: 40% behavioral, 30% text quality, 30% fraud)
             composite_score = (
-                0.6 * behavioral_score +  # 60% weight on behavioral analysis
-                0.4 * text_quality_normalized  # 40% weight on text quality (inverted)
+                0.4 * behavioral_score +  # 40% weight on behavioral analysis
+                0.3 * text_quality_normalized +  # 30% weight on text quality (inverted)
+                0.3 * fraud_score  # 30% weight on fraud detection
             )
             
             # Determine risk level based on composite score
@@ -153,10 +160,12 @@ class BotDetectionEngine:
                 'behavioral_score': behavioral_score,
                 'text_quality_score': avg_text_quality,
                 'text_quality_normalized': text_quality_normalized,
+                'fraud_score': fraud_score,
                 'risk_level': risk_level,
                 'is_bot': is_bot,
                 'behavioral_details': behavior_result,
-                'text_quality_details': text_quality_result
+                'text_quality_details': text_quality_result,
+                'fraud_details': fraud_result
             }
             
         except Exception as e:
@@ -171,10 +180,12 @@ class BotDetectionEngine:
                 'behavioral_score': behavioral_score,
                 'text_quality_score': None,
                 'text_quality_normalized': 0.5,
+                'fraud_score': None,
                 'risk_level': "HIGH" if behavioral_score >= 0.7 else "MEDIUM",
                 'is_bot': behavioral_score >= 0.7,
                 'behavioral_details': behavior_result,
                 'text_quality_details': None,
+                'fraud_details': None,
                 'error': str(e)
             }
     
@@ -254,6 +265,38 @@ class BotDetectionEngine:
             
         except Exception as e:
             logger.error(f"Error getting text quality analysis: {e}")
+            return None
+    
+    async def _get_latest_fraud_analysis(self, session_id: str, db: AsyncSession) -> Optional[Dict]:
+        """Get the latest fraud detection analysis result for a session."""
+        try:
+            from app.models import FraudIndicator
+            
+            result = await db.execute(
+                select(FraudIndicator)
+                .where(FraudIndicator.session_id == session_id)
+                .order_by(FraudIndicator.created_at.desc())
+                .limit(1)
+            )
+            fraud_indicator = result.scalar_one_or_none()
+            
+            if fraud_indicator:
+                return {
+                    'fraud_score': float(fraud_indicator.overall_fraud_score) if fraud_indicator.overall_fraud_score else 0.0,
+                    'is_duplicate': fraud_indicator.is_duplicate,
+                    'risk_level': fraud_indicator.risk_level,
+                    'ip_risk_score': float(fraud_indicator.ip_risk_score) if fraud_indicator.ip_risk_score else 0.0,
+                    'fingerprint_risk_score': float(fraud_indicator.fingerprint_risk_score) if fraud_indicator.fingerprint_risk_score else 0.0,
+                    'duplicate_risk_score': float(fraud_indicator.response_similarity_score) if fraud_indicator.response_similarity_score else 0.0,
+                    'geolocation_risk_score': float(fraud_indicator.geolocation_risk_score) if fraud_indicator.geolocation_risk_score else 0.0,
+                    'velocity_risk_score': float(fraud_indicator.velocity_risk_score) if fraud_indicator.velocity_risk_score else 0.0,
+                    'flag_reasons': fraud_indicator.flag_reasons,
+                    'created_at': fraud_indicator.created_at
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting fraud analysis: {e}")
             return None
     
     def _analyze_keystrokes(self, behavior_data: List[BehaviorData]) -> float:

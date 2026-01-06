@@ -5,7 +5,7 @@ This model stores the results of bot detection analysis including
 confidence scores, detection methods used, and processing metrics.
 """
 
-from sqlalchemy import Column, String, DateTime, Float, Boolean, JSON, ForeignKey, Text, Integer
+from sqlalchemy import Column, String, DateTime, Float, Boolean, JSON, ForeignKey, Text, Integer, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
@@ -39,6 +39,10 @@ class DetectionResult(Base):
     # Analysis details
     analysis_summary = Column(Text, nullable=True)  # Human-readable summary
     flagged_patterns = Column(JSON, nullable=True)  # Specific patterns that triggered detection
+    
+    # Fraud detection integration
+    fraud_score = Column(Numeric(3, 2), nullable=True)  # Fraud detection score (0.0-1.0)
+    fraud_indicators = Column(JSON, nullable=True)  # Fraud detection details
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

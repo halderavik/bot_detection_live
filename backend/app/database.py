@@ -52,15 +52,16 @@ async def get_db() -> AsyncSession:
 async def init_db():
     """Initialize database tables."""
     async with engine.begin() as conn:
-        # Import all models to ensure they're registered
+        # Import all models to ensure they're registered with SQLAlchemy
         from app.models import (
             Session, BehaviorData, DetectionResult,
-            SurveyQuestion, SurveyResponse
+            SurveyQuestion, SurveyResponse, FraudIndicator
         )
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
+        logger.info("Tables created: sessions, behavior_data, detection_results, survey_questions, survey_responses, fraud_indicators")
 
 async def close_db():
     """Close database connections."""
