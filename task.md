@@ -498,16 +498,17 @@ Notes:
 - [x] **PRD.md** - Product requirements and specifications
 - [x] **Task.md** - Development progress and upcoming work
 
-## Current Project Status ✅ **DEPLOYMENT READY**
+## Current Project Status ✅ **IMPLEMENTATION COMPLETE**
 
-### ✅ **READY TO DEPLOY** - All Core Features Implemented
-- **Fraud Detection Service**: Complete with all 5 detection methods ✅
-- **Composite Scoring**: 40% behavioral, 30% text quality, 30% fraud detection ✅
-- **Hierarchical Fraud Endpoints**: All levels operational ✅
-- **Database Schema**: fraud_indicators table with hierarchical indexes ✅
-- **Frontend Integration**: Hierarchical fraud widgets in all detail views ✅
-- **Unit Tests**: 100% passing rate ✅
-- **Documentation**: Fully updated with deployment readiness markers ✅
+### ✅ **COMPLETED & READY TO DEPLOY** - All Core Features Implemented
+- **Fraud Detection Service**: Complete with all 5 detection methods ✅ **COMPLETED**
+- **Composite Scoring**: 40% behavioral, 30% text quality, 30% fraud detection ✅ **COMPLETED**
+- **Hierarchical Fraud Endpoints**: All levels implemented ✅ **COMPLETED**
+- **Database Schema**: fraud_indicators table with hierarchical indexes ✅ **COMPLETED**
+- **Frontend Integration**: Hierarchical fraud widgets in all detail views ✅ **COMPLETED**
+- **Unit Tests**: 100% passing rate ✅ **COMPLETED**
+- **Documentation**: Fully updated ✅ **COMPLETED**
+- **Status**: Implementation complete, ready for production deployment ⏳
 
 The project has achieved significant milestones with a fully functional bot detection system including:
 - ✅ Complete backend API with async operations
@@ -603,6 +604,54 @@ The system is ready for production deployment with the next phase focusing on se
 
 # Feature Development Tasks - Prioritized Stages (Using GPT-4o-mini)
 
+## ⚠️ **CRITICAL REQUIREMENT: Hierarchical Structure**
+
+**ALL future development MUST follow the hierarchical API structure:**
+
+### Hierarchy Pattern
+```
+Survey ID
+  └── Platform ID
+      └── Respondent ID
+          └── Session ID
+```
+
+### API Endpoint Pattern
+All endpoints must follow: `/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/...`
+
+### Database Requirements
+1. **All new tables MUST include hierarchical fields:**
+   - `survey_id VARCHAR(255)`
+   - `platform_id VARCHAR(255)`
+   - `respondent_id VARCHAR(255)`
+   - `session_id VARCHAR(36)` (where applicable)
+
+2. **All tables MUST have composite indexes:**
+   - `idx_{table}_survey ON {table}(survey_id)`
+   - `idx_{table}_survey_platform ON {table}(survey_id, platform_id)`
+   - `idx_{table}_survey_platform_respondent ON {table}(survey_id, platform_id, respondent_id)`
+   - `idx_{table}_survey_platform_respondent_session ON {table}(survey_id, platform_id, respondent_id, session_id)`
+
+3. **Date-filtered indexes for time-based queries:**
+   - `idx_{table}_survey_created ON {table}(survey_id, created_at)`
+   - `idx_{table}_survey_platform_created ON {table}(survey_id, platform_id, created_at)`
+
+4. **Migration Script Pattern:**
+   - Every feature requires: `add_{feature}_tables.sql`
+   - Must use `DO $$ BEGIN IF NOT EXISTS ... END $$;` blocks for idempotency
+   - Include rollback instructions
+
+### Frontend Requirements
+- All components must support hierarchical navigation
+- Use breadcrumb navigation: Survey → Platform → Respondent → Session
+- Integrate hierarchical widgets into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails
+- Support aggregated data display at each hierarchical level
+
+### Reference
+See `API_V2.md` for complete hierarchical API documentation and examples.
+
+---
+
 ## STAGE 1 — Critical Content Quality Foundation ✅ (COMPLETED)
 
 ### Backend Tasks ✅
@@ -652,13 +701,29 @@ The system is ready for production deployment with the next phase focusing on se
 
 ## STAGE 2 — Survey-Specific Detection (Weeks 4-5)
 
+**IMPORTANT**: All endpoints must follow hierarchical structure: `/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/...`
+
+### Database Modifications
+- [ ] **Database Schema Updates**
+  - [ ] Add `grid_responses` table with hierarchical fields (survey_id, platform_id, respondent_id, session_id)
+  - [ ] Add `timing_analysis` table with hierarchical fields
+  - [ ] Create composite indexes: `idx_grid_survey`, `idx_grid_survey_platform`, `idx_grid_survey_platform_respondent`, `idx_grid_survey_platform_respondent_session`
+  - [ ] Create composite indexes: `idx_timing_survey`, `idx_timing_survey_platform`, `idx_timing_survey_platform_respondent`, `idx_timing_survey_platform_respondent_session`
+  - [ ] Add date-filtered indexes for both tables
+  - [ ] Migration script: `add_grid_analysis_tables.sql`
+
 ### Backend Tasks
 - [ ] **Grid/Matrix Question Analysis**
   - [ ] Implement straight-lining detector (statistical)
   - [ ] Build pattern detection (diagonal, zigzag)
   - [ ] Create response variance calculator
   - [ ] Add satisficing behavior scorer
-  - [ ] Build API endpoints for grid analysis
+  - [ ] Build hierarchical API endpoints for grid analysis:
+    - `GET /surveys/{survey_id}/grid-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/grid-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/grid-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/grid-analysis`
+  - [ ] Store grid analysis results with hierarchical fields for efficient querying
 
 - [ ] **Enhanced Time-Based Analysis**
   - [ ] Add per-question timing tracker
@@ -666,13 +731,20 @@ The system is ready for production deployment with the next phase focusing on se
   - [ ] Create flatliner detection (> threshold)
   - [ ] Build adaptive timing thresholds
   - [ ] Add timing anomaly detection
+  - [ ] Build hierarchical API endpoints for timing analysis:
+    - `GET /surveys/{survey_id}/timing-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/timing-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/timing-analysis/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/timing-analysis`
+  - [ ] Store timing analysis results with hierarchical fields
 
 ### Frontend Tasks
-- [ ] **Survey Pattern Dashboard**
-  - [ ] Create grid question analysis widget
-  - [ ] Build timing distribution charts
-  - [ ] Add speeder/flatliner alerts
-  - [ ] Implement per-question timing table
+- [ ] **Survey Pattern Dashboard (Hierarchical)**
+  - [ ] Create hierarchical grid question analysis widget
+  - [ ] Build timing distribution charts at survey/platform/respondent/session levels
+  - [ ] Add speeder/flatliner alerts with hierarchical navigation
+  - [ ] Implement per-question timing table in SessionDetails component
+  - [ ] Integrate grid analysis widgets into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails
 
 ---
 
@@ -680,36 +752,56 @@ The system is ready for production deployment with the next phase focusing on se
 
 ### Backend Tasks ✅
 - [x] **Duplicate Detection Service**
-  - [x] Build IP address tracking and analysis ✅ **DEPLOYED**
-  - [x] Implement device fingerprint comparison ✅ **DEPLOYED**
-  - [x] Create duplicate response detector ✅ **DEPLOYED**
-  - [x] Add geolocation consistency checker ✅ **DEPLOYED**
-  - [x] Build velocity checking (responses per time) ✅ **DEPLOYED**
-  - [x] Create API endpoints for fraud detection ✅ **DEPLOYED**
-  - [x] Create hierarchical fraud detection endpoints ✅ **DEPLOYED**
-  - [x] Integrate fraud detection into composite scoring (40/30/30) ✅ **DEPLOYED**
-  - [x] Database migration with hierarchical support ✅ **DEPLOYED**
+  - [x] Build IP address tracking and analysis ✅ **COMPLETED**
+  - [x] Implement device fingerprint comparison ✅ **COMPLETED**
+  - [x] Create duplicate response detector ✅ **COMPLETED**
+  - [x] Add geolocation consistency checker ✅ **COMPLETED**
+  - [x] Build velocity checking (responses per time) ✅ **COMPLETED**
+  - [x] Create API endpoints for fraud detection ✅ **COMPLETED**
+  - [x] Create hierarchical fraud detection endpoints ✅ **COMPLETED**
+  - [x] Integrate fraud detection into composite scoring (40/30/30) ✅ **COMPLETED**
+  - [x] Database migration with hierarchical support ✅ **COMPLETED**
 
-- [ ] **Attention Check Validator**
+- [ ] **Attention Check Validator (Hierarchical)**
   - [ ] Implement trap question validation
   - [ ] Create attention failure scorer
   - [ ] Build consistency check validator
+  - [ ] Add `attention_checks` table with hierarchical fields (survey_id, platform_id, respondent_id, session_id)
+  - [ ] Create hierarchical API endpoints:
+    - `GET /surveys/{survey_id}/attention-checks/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/attention-checks/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/attention-checks/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/attention-checks`
+  - [ ] Create composite indexes for attention_checks table
 
 ### Frontend Tasks ✅
 - [x] **Fraud Detection Dashboard**
-  - [x] Create duplicate detection widget ✅ **DEPLOYED**
-  - [x] Build IP/device tracking table ✅ **DEPLOYED**
-  - [x] Add geolocation visualization ✅ **DEPLOYED**
-  - [x] Implement fraud alert system ✅ **DEPLOYED**
-  - [x] Create hierarchical fraud widgets for all detail views ✅ **DEPLOYED**
-  - [x] Integrate fraud detection into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails ✅ **DEPLOYED**
+  - [x] Create duplicate detection widget ✅ **COMPLETED**
+  - [x] Build IP/device tracking table ✅ **COMPLETED**
+  - [x] Add geolocation visualization ✅ **COMPLETED**
+  - [x] Implement fraud alert system ✅ **COMPLETED**
+  - [x] Create hierarchical fraud widgets for all detail views ✅ **COMPLETED**
+  - [x] Integrate fraud detection into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails ✅ **COMPLETED**
 
 ---
 
 ## STAGE 4 — Unified Quality Scoring (Weeks 8-9)
 
+**IMPORTANT**: All endpoints must follow hierarchical structure for aggregated quality scores at each level.
+
+### Database Modifications
+- [ ] **Database Schema Updates**
+  - [ ] Add `quality_scores` table with hierarchical fields (survey_id, platform_id, respondent_id, session_id)
+  - [ ] Add composite score fields: behavioral_score, text_quality_score, fraud_score, grid_score, timing_score, overall_score
+  - [ ] Add quality classification field (A-F or 0-100)
+  - [ ] Create composite indexes: `idx_quality_survey`, `idx_quality_survey_platform`, `idx_quality_survey_platform_respondent`, `idx_quality_survey_platform_respondent_session`
+  - [ ] Create `filtering_rules` table with hierarchical scope (survey_id, platform_id)
+  - [ ] Create `manual_review_queue` table with hierarchical fields
+  - [ ] Create `filtering_audit_log` table with hierarchical fields
+  - [ ] Migration script: `add_quality_scoring_tables.sql`
+
 ### Backend Tasks
-- [ ] **Composite Quality Score Service (R-Score)**
+- [ ] **Composite Quality Score Service (R-Score) - Hierarchical**
   - [ ] Build unified scoring algorithm combining:
     - Behavioral analysis (existing)
     - Text quality (GPT-based)
@@ -720,140 +812,225 @@ The system is ready for production deployment with the next phase focusing on se
   - [ ] Create quality classification (A-F or 0-100)
   - [ ] Add confidence intervals
   - [ ] Build score explanation generator (GPT-assisted)
+  - [ ] Store quality scores with hierarchical fields for efficient aggregation
+  - [ ] Build hierarchical API endpoints:
+    - `GET /surveys/{survey_id}/quality-scores/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/quality-scores/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/quality-scores/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/quality-score`
 
-- [ ] **Real-Time Filtering Service**
-  - [ ] Implement auto-flagging rules
-  - [ ] Build quality-based quotas
-  - [ ] Create manual review queue
-  - [ ] Add filtering audit trail
+- [ ] **Real-Time Filtering Service (Hierarchical)**
+  - [ ] Implement auto-flagging rules with hierarchical scope (survey/platform level)
+  - [ ] Build quality-based quotas with hierarchical tracking
+  - [ ] Create manual review queue with hierarchical organization
+  - [ ] Add filtering audit trail with hierarchical context
+  - [ ] Build hierarchical API endpoints:
+    - `GET /surveys/{survey_id}/filtering/rules`
+    - `GET /surveys/{survey_id}/filtering/review-queue`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/filtering/review-queue`
+    - `POST /surveys/{survey_id}/filtering/rules`
 
 ### Frontend Tasks
-- [ ] **Composite Score Dashboard**
-  - [ ] Create unified quality score widget
-  - [ ] Build score breakdown visualization
-  - [ ] Add quality distribution charts
-  - [ ] Implement filtering configuration UI
+- [ ] **Composite Score Dashboard (Hierarchical)**
+  - [ ] Create unified quality score widget for all hierarchical levels
+  - [ ] Build score breakdown visualization at survey/platform/respondent/session levels
+  - [ ] Add quality distribution charts with hierarchical filtering
+  - [ ] Implement filtering configuration UI with hierarchical scope
+  - [ ] Integrate quality score widgets into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails
 
 ---
 
 ## STAGE 5 — Enhanced Reporting System (Weeks 10-11)
 
+**IMPORTANT**: All reporting endpoints must support hierarchical data aggregation and filtering.
+
+### Database Modifications
+- [ ] **Database Schema Updates**
+  - [ ] Create `detailed_quality_reports` table with hierarchical fields (survey_id, platform_id, respondent_id)
+  - [ ] Add `report_templates` table with hierarchical scope (survey_id, platform_id, or global)
+  - [ ] Build `report_schedules` table with hierarchical scope
+  - [ ] Create composite indexes for all report tables following hierarchical pattern
+  - [ ] Add `report_generations` audit table with hierarchical fields
+  - [ ] Migration script: `add_reporting_tables.sql`
+
 ### Backend Tasks
-- [ ] **Enhanced Report Service**
-  - [ ] Add per-respondent quality breakdown
-  - [ ] Build aggregate quality metrics
-  - [ ] Create detailed explanations (GPT-generated)
-  - [ ] Implement comparative analysis
-  - [ ] Add CSV/Excel export with all metrics
-  - [ ] Create PDF report generation
-  - [ ] Build scheduled report system
+- [ ] **Enhanced Report Service (Hierarchical)**
+  - [ ] Add per-respondent quality breakdown (hierarchical aggregation)
+  - [ ] Build aggregate quality metrics at survey/platform/respondent levels
+  - [ ] Create detailed explanations (GPT-generated) with hierarchical context
+  - [ ] Implement comparative analysis across surveys/platforms
+  - [ ] Add CSV/Excel export with all metrics (hierarchical data)
+  - [ ] Create PDF report generation with hierarchical navigation
+  - [ ] Build scheduled report system with hierarchical scope
+  - [ ] Build hierarchical API endpoints:
+    - `GET /surveys/{survey_id}/reports/summary`
+    - `GET /surveys/{survey_id}/reports/detailed`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/reports/summary`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/reports/detailed`
+    - `POST /surveys/{survey_id}/reports/generate`
+    - `GET /surveys/{survey_id}/reports/templates`
+    - `GET /surveys/{survey_id}/reports/schedules`
 
-- [ ] **Report Data Models**
-  - [ ] Create `detailed_quality_reports` table
-  - [ ] Add `report_templates` table
-  - [ ] Build `report_schedules` table
+- [ ] **Report Data Models (Hierarchical)**
+  - [ ] Create `detailed_quality_reports` table with denormalized hierarchical fields
+  - [ ] Add `report_templates` table with hierarchical scope support
+  - [ ] Build `report_schedules` table with hierarchical filtering
 
-### Frontend Tasks (Admin Dashboard)
-- [ ] **Enhanced Report Builder**
-  - [ ] Add all quality metrics selection
-  - [ ] Build report template creator
-  - [ ] Create report scheduling UI
-  - [ ] Implement comparative analysis tools
-  - [ ] Add bulk export functionality
+### Frontend Tasks (Admin Dashboard - Hierarchical)
+- [ ] **Enhanced Report Builder (Hierarchical)**
+  - [ ] Add all quality metrics selection with hierarchical filtering
+  - [ ] Build report template creator with hierarchical scope selection
+  - [ ] Create report scheduling UI with survey/platform level scheduling
+  - [ ] Implement comparative analysis tools across hierarchical levels
+  - [ ] Add bulk export functionality with hierarchical data organization
+  - [ ] Integrate report builder into hierarchical navigation
 
 ---
 
 ## STAGE 6 — Client-Facing Dashboard (Weeks 12-14)
 
+**IMPORTANT**: Client API must use hierarchical structure with client-specific filtering at survey/platform levels.
+
+### Database Modifications
+- [ ] **Database Schema Updates**
+  - [ ] Create `clients` table with client metadata
+  - [ ] Create `client_survey_access` table linking clients to surveys with hierarchical scope
+  - [ ] Create `client_usage_tracking` table with hierarchical fields (client_id, survey_id, platform_id)
+  - [ ] Create `client_quotas` table with hierarchical scope (survey_id or platform_id)
+  - [ ] Create `client_audit_log` table with hierarchical context
+  - [ ] Add client_id foreign keys to existing hierarchical tables (optional, for multi-tenant)
+  - [ ] Create composite indexes: `idx_client_survey`, `idx_client_usage_survey`, etc.
+  - [ ] Migration script: `add_client_tables.sql`
+
 ### Backend Tasks
-- [ ] **Client API Layer**
+- [ ] **Client API Layer (Hierarchical)**
   - [ ] Create client authentication (JWT-based)
-  - [ ] Build client-specific data filtering
-  - [ ] Implement client session endpoints
-  - [ ] Add client report generation API
-  - [ ] Create client analytics endpoints
-  - [ ] Build usage tracking and quotas
+  - [ ] Build client-specific data filtering with hierarchical scope
+  - [ ] Implement client session endpoints with hierarchical access control:
+    - `GET /clients/{client_id}/surveys`
+    - `GET /clients/{client_id}/surveys/{survey_id}`
+    - `GET /clients/{client_id}/surveys/{survey_id}/platforms/{platform_id}/respondents`
+  - [ ] Add client report generation API with hierarchical filtering
+  - [ ] Create client analytics endpoints with hierarchical aggregation:
+    - `GET /clients/{client_id}/surveys/{survey_id}/analytics`
+    - `GET /clients/{client_id}/surveys/{survey_id}/platforms/{platform_id}/analytics`
+  - [ ] Build usage tracking and quotas with hierarchical monitoring
 
-- [ ] **Client Data Service**
-  - [ ] Implement client data isolation
-  - [ ] Add client-level caching
-  - [ ] Create client access control
-  - [ ] Build audit logging
+- [ ] **Client Data Service (Hierarchical)**
+  - [ ] Implement client data isolation using hierarchical fields
+  - [ ] Add client-level caching with hierarchical key structure
+  - [ ] Create client access control at survey/platform levels
+  - [ ] Build audit logging with hierarchical context
 
-### Frontend Tasks (New Client Dashboard)
-- [ ] **Core Dashboard**
-  - [ ] Create minimalist layout (single page app)
+### Frontend Tasks (New Client Dashboard - Hierarchical)
+- [ ] **Core Dashboard (Hierarchical Navigation)**
+  - [ ] Create minimalist layout (single page app) with hierarchical navigation
   - [ ] Build authentication flow
-  - [ ] Implement responsive navigation
-  - [ ] Add dashboard overview with key metrics
-  - [ ] Create profile/settings page
+  - [ ] Implement responsive navigation following Survey → Platform → Respondent → Session structure
+  - [ ] Add dashboard overview with key metrics aggregated hierarchically
+  - [ ] Create profile/settings page with hierarchical access management
 
-- [ ] **Live Monitoring**
-  - [ ] Build live session counter
-  - [ ] Create recent sessions widget
-  - [ ] Add bot/human ratio display
-  - [ ] Implement quality score gauge
-  - [ ] Create real-time alerts panel
+- [ ] **Live Monitoring (Hierarchical)**
+  - [ ] Build live session counter with survey/platform filtering
+  - [ ] Create recent sessions widget with hierarchical drill-down
+  - [ ] Add bot/human ratio display at survey/platform/respondent levels
+  - [ ] Implement quality score gauge with hierarchical aggregation
+  - [ ] Create real-time alerts panel with hierarchical filtering
 
-- [ ] **Simple Report Interface**
-  - [ ] Create report generation form (date range, survey selector)
-  - [ ] Build summary report view (key metrics, charts)
-  - [ ] Add detailed report table (respondent list with scores)
-  - [ ] Implement one-click download (CSV, PDF)
-  - [ ] Create report history viewer
+- [ ] **Simple Report Interface (Hierarchical)**
+  - [ ] Create report generation form (date range, survey/platform selector)
+  - [ ] Build summary report view (key metrics, charts) with hierarchical breakdown
+  - [ ] Add detailed report table (respondent list with scores) with hierarchical navigation
+  - [ ] Implement one-click download (CSV, PDF) with hierarchical data organization
+  - [ ] Create report history viewer with hierarchical filtering
 
-- [ ] **Minimal Analytics**
-  - [ ] Build trend charts (quality over time)
-  - [ ] Create detection performance widget
-  - [ ] Add usage statistics
-  - [ ] Implement simple comparison tools
+- [ ] **Minimal Analytics (Hierarchical)**
+  - [ ] Build trend charts (quality over time) at survey/platform levels
+  - [ ] Create detection performance widget with hierarchical comparison
+  - [ ] Add usage statistics with hierarchical breakdown
+  - [ ] Implement simple comparison tools across surveys/platforms
 
 ---
 
 ## STAGE 7 — Polish & Optimization (Weeks 15-16)
 
-### Backend Tasks
-- [ ] **Performance Optimization**
-  - [ ] Optimize GPT API calls (batching, caching)
-  - [ ] Add database query optimization
-  - [ ] Implement background job processing
-  - [ ] Add connection pooling improvements
+**IMPORTANT**: All optimizations must maintain hierarchical query performance.
 
-- [ ] **Testing & Documentation**
-  - [ ] Create unit tests for new services
-  - [ ] Build integration tests
-  - [ ] Add API documentation
-  - [ ] Create client dashboard user guide
+### Database Modifications
+- [ ] **Database Optimization**
+  - [ ] Review and optimize all hierarchical composite indexes
+  - [ ] Add materialized views for common hierarchical aggregations (survey-level, platform-level)
+  - [ ] Implement database partitioning by date for large hierarchical tables
+  - [ ] Add query performance monitoring for hierarchical queries
+  - [ ] Create index maintenance scripts
+
+### Backend Tasks
+- [ ] **Performance Optimization (Hierarchical)**
+  - [ ] Optimize GPT API calls (batching, caching) with hierarchical context
+  - [ ] Add database query optimization for hierarchical aggregations
+  - [ ] Implement background job processing for hierarchical data aggregation
+  - [ ] Add connection pooling improvements
+  - [ ] Optimize hierarchical endpoint response times (<100ms for aggregated queries)
+  - [ ] Implement caching layer for hierarchical aggregated data
+
+- [ ] **Testing & Documentation (Hierarchical)**
+  - [ ] Create unit tests for new services with hierarchical data
+  - [ ] Build integration tests for all hierarchical endpoints
+  - [ ] Add API documentation for all hierarchical endpoints
+  - [ ] Create client dashboard user guide with hierarchical navigation examples
 
 ### Frontend Tasks
-- [ ] **UX Improvements**
-  - [ ] Add loading states for GPT analysis
-  - [ ] Implement error boundaries
-  - [ ] Create onboarding tutorial
-  - [ ] Add contextual help tooltips
-  - [ ] Build feedback collection
+- [ ] **UX Improvements (Hierarchical Navigation)**
+  - [ ] Add loading states for GPT analysis with hierarchical context
+  - [ ] Implement error boundaries for hierarchical components
+  - [ ] Create onboarding tutorial covering hierarchical navigation
+  - [ ] Add contextual help tooltips for hierarchical features
+  - [ ] Build feedback collection with hierarchical context
 
-- [ ] **Testing**
-  - [ ] Create component tests
-  - [ ] Add E2E tests for critical flows
-  - [ ] Implement accessibility testing
-  - [ ] Add mobile responsiveness checks
+- [ ] **Testing (Hierarchical Components)**
+  - [ ] Create component tests for all hierarchical widgets
+  - [ ] Add E2E tests for hierarchical navigation flows
+  - [ ] Implement accessibility testing for hierarchical navigation
+  - [ ] Add mobile responsiveness checks for hierarchical views
 
 ---
 
 ## STAGE 8 — Advanced Features (Future - Weeks 17+)
 
-### Backend Tasks
-- [ ] **Advanced GPT Features**
-  - [ ] Implement response coherence analysis (cross-question)
-  - [ ] Add sentiment analysis
-  - [ ] Create automated insight generation
-  - [ ] Build custom GPT fine-tuning (if needed)
+**IMPORTANT**: All advanced features must support hierarchical structure and aggregation.
 
-- [ ] **Integration Expansion**
-  - [ ] Add SurveyMonkey integration
-  - [ ] Build Typeform integration
-  - [ ] Create webhook builder
+### Database Modifications
+- [ ] **Database Schema Updates**
+  - [ ] Create `advanced_insights` table with hierarchical fields
+  - [ ] Create `sentiment_analysis` table with hierarchical fields
+  - [ ] Create `coherence_scores` table with hierarchical fields
+  - [ ] Create `integration_configs` table with hierarchical scope
+  - [ ] Create composite indexes following hierarchical pattern
+  - [ ] Migration script: `add_advanced_features_tables.sql`
+
+### Backend Tasks
+- [ ] **Advanced GPT Features (Hierarchical)**
+  - [ ] Implement response coherence analysis (cross-question) with hierarchical aggregation
+  - [ ] Add sentiment analysis with hierarchical scoring
+  - [ ] Create automated insight generation with hierarchical context
+  - [ ] Build custom GPT fine-tuning (if needed)
+  - [ ] Build hierarchical API endpoints:
+    - `GET /surveys/{survey_id}/insights`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/sentiment-analysis`
+    - `GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/coherence`
+
+- [ ] **Integration Expansion (Hierarchical)**
+  - [ ] Add SurveyMonkey integration with hierarchical data mapping
+  - [ ] Build Typeform integration with hierarchical structure
+  - [ ] Create webhook builder with hierarchical endpoint configuration
+  - [ ] Store integration configs with hierarchical scope (survey_id, platform_id)
+
+### Frontend Tasks
+- [ ] **Advanced Features Dashboard (Hierarchical)**
+  - [ ] Create insights widget with hierarchical navigation
+  - [ ] Build sentiment analysis visualization at different hierarchical levels
+  - [ ] Add coherence score displays in respondent/session views
+  - [ ] Implement integration management UI with hierarchical scope selection
 
 ### Frontend Tasks
 - [ ] **Advanced Client Features**
@@ -866,6 +1043,23 @@ The system is ready for production deployment with the next phase focusing on se
 
 ## Implementation Notes
 
+### Hierarchical Structure Requirements ⚠️ **CRITICAL**
+**ALL future development MUST follow the hierarchical structure:**
+- **Pattern**: `/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/...`
+- **Database**: All new tables MUST include hierarchical fields (survey_id, platform_id, respondent_id, session_id) for efficient querying
+- **Indexes**: Create composite indexes following pattern: `idx_{table}_survey`, `idx_{table}_survey_platform`, `idx_{table}_survey_platform_respondent`, `idx_{table}_survey_platform_respondent_session`
+- **Aggregation**: Support aggregated metrics at each hierarchical level
+- **Frontend**: All components must support hierarchical navigation and data display
+- **Migration Scripts**: Every new feature requires a migration script with hierarchical support
+
+### Database Migration Pattern
+Each stage requires:
+1. Create migration script: `add_{feature}_tables.sql`
+2. Include hierarchical fields in all tables
+3. Create composite indexes for hierarchical queries
+4. Create date-filtered indexes for time-based queries
+5. Test migration script with rollback capability
+
 ### GPT-4o-mini Usage Strategy
 1. **Cost Control**: Cache responses, batch requests where possible
 2. **Prompt Engineering**: Create reusable, optimized prompts
@@ -873,14 +1067,14 @@ The system is ready for production deployment with the next phase focusing on se
 4. **Rate Limits**: Implement queue system for high volume
 
 ### Priority Rationale
-- **Stage 1**: Core value - text quality is what Redem excels at
-- **Stage 2**: Survey-specific detection completes the detection suite
-- **Stage 3**: Fraud prevention is critical for trust
-- **Stage 4**: Unified scoring provides clear actionable metrics
-- **Stage 5**: Better reporting delivers value to existing admin dashboard
-- **Stage 6**: Client dashboard creates new revenue stream
-- **Stage 7**: Polish ensures production readiness
-- **Stage 8**: Advanced features for differentiation
+- **Stage 1**: Core value - text quality is what Redem excels at ✅ **COMPLETED**
+- **Stage 2**: Survey-specific detection completes the detection suite (follow hierarchical structure)
+- **Stage 3**: Fraud prevention is critical for trust ✅ **COMPLETED** (hierarchical structure implemented)
+- **Stage 4**: Unified scoring provides clear actionable metrics (use hierarchical aggregation)
+- **Stage 5**: Better reporting delivers value to existing admin dashboard (hierarchical reports)
+- **Stage 6**: Client dashboard creates new revenue stream (hierarchical client access)
+- **Stage 7**: Polish ensures production readiness (optimize hierarchical queries)
+- **Stage 8**: Advanced features for differentiation (hierarchical insights)
 
 ### Success Metrics per Stage
 - **Stage 1**: Text analysis accuracy > 90%, API response < 3s
