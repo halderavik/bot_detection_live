@@ -546,6 +546,139 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 
 ---
 
+## Grid Analysis (Hierarchical V2) ✅ **DEPLOYED**
+
+These endpoints provide **aggregated grid/matrix question analysis** at each hierarchy level, detecting straight-lining patterns, response patterns (diagonal, zigzag), variance scores, and satisficing behavior.
+
+**Status**: ✅ **FULLY DEPLOYED** - All endpoints operational (February 2026)
+
+### Survey Grid Analysis Summary
+
+```http
+GET /surveys/{survey_id}/grid-analysis/summary
+```
+
+**Query Parameters:**
+- `date_from` (string, optional): Start date filter (ISO format)
+- `date_to` (string, optional): End date filter (ISO format)
+
+**Response:**
+```json
+{
+  "survey_id": "SV_1234567890abcdef",
+  "total_responses": 1000,
+  "straight_lined_count": 150,
+  "straight_lined_percentage": 15.0,
+  "pattern_distribution": {
+    "diagonal": 20,
+    "reverse_diagonal": 10,
+    "zigzag": 15,
+    "straight_line": 150,
+    "random": 805
+  },
+  "avg_variance_score": 0.65,
+  "avg_satisficing_score": 0.45,
+  "unique_questions": 25
+}
+```
+
+### Platform Grid Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/grid-analysis/summary
+```
+
+**Response:** Same structure as survey-level, but filtered by platform.
+
+### Respondent Grid Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/grid-analysis/summary
+```
+
+**Response:** Same structure as survey-level, but aggregated for a single respondent.
+
+### Session Grid Analysis (Hierarchical)
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/grid-analysis
+```
+
+**Response:** Detailed grid analysis for a specific session, including per-question breakdowns.
+
+**Notes:**
+- Grid analysis detects satisficing behavior in matrix/grid questions
+- Straight-lining detection identifies identical responses across rows (>80% threshold)
+- Pattern detection identifies systematic response patterns (diagonal, zigzag, etc.)
+- Variance and satisficing scores help identify low-effort responses
+
+---
+
+## Timing Analysis (Hierarchical V2) ✅ **DEPLOYED**
+
+These endpoints provide **aggregated timing analysis** at each hierarchy level, detecting speeders (too fast), flatliners (too slow), timing anomalies, and adaptive threshold violations.
+
+**Status**: ✅ **FULLY DEPLOYED** - All endpoints operational (February 2026)
+
+### Survey Timing Analysis Summary
+
+```http
+GET /surveys/{survey_id}/timing-analysis/summary
+```
+
+**Query Parameters:**
+- `date_from` (string, optional): Start date filter (ISO format)
+- `date_to` (string, optional): End date filter (ISO format)
+
+**Response:**
+```json
+{
+  "survey_id": "SV_1234567890abcdef",
+  "total_analyses": 500,
+  "speeders_count": 50,
+  "speeders_percentage": 10.0,
+  "flatliners_count": 15,
+  "flatliners_percentage": 3.0,
+  "anomalies_count": 25,
+  "anomalies_percentage": 5.0,
+  "avg_response_time_ms": 5000.0,
+  "median_response_time_ms": 4500.0,
+  "unique_questions": 20
+}
+```
+
+### Platform Timing Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/timing-analysis/summary
+```
+
+**Response:** Same structure as survey-level, but filtered by platform.
+
+### Respondent Timing Analysis Summary
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/timing-analysis/summary
+```
+
+**Response:** Same structure as survey-level, but aggregated for a single respondent.
+
+### Session Timing Analysis (Hierarchical)
+
+```http
+GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/timing-analysis
+```
+
+**Response:** Detailed timing analysis for a specific session, including per-question timing breakdowns.
+
+**Notes:**
+- Speeder detection: Responses faster than threshold (< 2000ms default)
+- Flatliner detection: Responses slower than threshold (> 300000ms default)
+- Anomaly detection: Statistical outliers using z-score analysis (|z-score| > 2.0)
+- Adaptive thresholds: Context-aware thresholds based on question complexity
+
+---
+
 ## Fraud Detection (Hierarchical V2) ✅ **COMPLETED & READY TO DEPLOY**
 
 These endpoints provide **aggregated fraud detection metrics** at each hierarchy level, including IP tracking, device fingerprinting, duplicate response detection, geolocation checks, and velocity analysis.
@@ -750,6 +883,18 @@ const surveyFraud = await hierarchicalService.getSurveyFraudSummary('SV_123');
 const platformFraud = await hierarchicalService.getPlatformFraudSummary('SV_123', 'qualtrics');
 const respondentFraud = await hierarchicalService.getRespondentFraudSummary('SV_123', 'qualtrics', 'RSP_123');
 const sessionFraud = await hierarchicalService.getSessionFraudByHierarchy('SV_123', 'qualtrics', 'RSP_123', 'session-id');
+
+// Get grid analysis summaries at different levels
+const surveyGrid = await hierarchicalService.getGridAnalysisSummary('SV_123');
+const platformGrid = await hierarchicalService.getGridAnalysisSummary('SV_123', 'qualtrics');
+const respondentGrid = await hierarchicalService.getGridAnalysisSummary('SV_123', 'qualtrics', 'RSP_123');
+const sessionGrid = await hierarchicalService.getGridAnalysisSummary('SV_123', 'qualtrics', 'RSP_123', 'session-id');
+
+// Get timing analysis summaries at different levels
+const surveyTiming = await hierarchicalService.getTimingAnalysisSummary('SV_123');
+const platformTiming = await hierarchicalService.getTimingAnalysisSummary('SV_123', 'qualtrics');
+const respondentTiming = await hierarchicalService.getTimingAnalysisSummary('SV_123', 'qualtrics', 'RSP_123');
+const sessionTiming = await hierarchicalService.getTimingAnalysisSummary('SV_123', 'qualtrics', 'RSP_123', 'session-id');
 ```
 
 ### Python
@@ -788,6 +933,20 @@ response = requests.get(
     f"{base_url}/surveys/SV_123/platforms/qualtrics/respondents/RSP_123/fraud/summary"
 )
 respondent_fraud = response.json()
+
+# Get grid analysis summaries at different levels
+response = requests.get(f"{base_url}/surveys/SV_123/grid-analysis/summary")
+survey_grid = response.json()
+
+response = requests.get(f"{base_url}/surveys/SV_123/platforms/qualtrics/grid-analysis/summary")
+platform_grid = response.json()
+
+# Get timing analysis summaries at different levels
+response = requests.get(f"{base_url}/surveys/SV_123/timing-analysis/summary")
+survey_timing = response.json()
+
+response = requests.get(f"{base_url}/surveys/SV_123/platforms/qualtrics/timing-analysis/summary")
+platform_timing = response.json()
 ```
 
 ---
@@ -867,4 +1026,10 @@ For questions or issues with the hierarchical API:
 - ✅ Data flow verification completed - Cloud SQL → Backend API → Frontend Dashboard
 - ✅ Updated production URLs in documentation
 - ✅ Hierarchical fraud detection widgets integrated into frontend dashboard
+- ✅ Stage 2 (Grid & Timing Analysis) fully implemented and deployed
+- ✅ Grid analysis endpoints: 4 hierarchical endpoints operational
+- ✅ Timing analysis endpoints: 4 hierarchical endpoints operational
+- ✅ Frontend widgets: GridAnalysisWidget, TimingAnalysisWidget, PerQuestionTimingTable integrated
+- ✅ Comprehensive test suite: 40 tests covering grid and timing analysis (100% passing)
+- ✅ Database migration: grid_responses and timing_analysis tables created
 

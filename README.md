@@ -38,9 +38,13 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 
 - **Advanced Bot Detection**: Rule-based analysis of user behavior patterns with 5 detection methods
 - **OpenAI Text Quality Analysis**: GPT-4o-mini powered analysis of open-ended survey responses ✅ **100% Test Accuracy**
+- **Grid/Matrix Question Analysis**: Straight-lining detection, pattern detection (diagonal, zigzag), variance scoring, and satisficing behavior analysis ✅ **DEPLOYED**
+- **Enhanced Timing Analysis**: Speeder/flatliner detection, timing anomaly detection, and adaptive threshold calculation ✅ **DEPLOYED**
 - **Fraud Detection Service**: Complete fraud detection system with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking ✅ **COMPLETED**
 - **Composite Bot Detection**: Unified scoring algorithm (40% behavioral + 30% text quality + 30% fraud detection) ✅ **COMPLETED**
 - **Text Analysis Dashboard**: Real-time text quality analysis with filtering, pagination, and CSV export
+- **Grid Analysis Dashboard**: Grid/matrix question analysis widgets with straight-lining and pattern detection ✅ **DEPLOYED**
+- **Timing Analysis Dashboard**: Response timing analysis widgets with speeder/flatliner alerts ✅ **DEPLOYED**
 - **Fraud Detection Dashboard**: Hierarchical fraud widgets integrated into all detail views ✅ **COMPLETED**
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
@@ -56,6 +60,8 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Frontend Dashboard**: Complete React-based monitoring interface with real-time updates
 - **Integration Management**: Webhook testing, status monitoring, and setup guides
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access ✅ **DEPLOYED**
+- **Grid Analysis Hierarchical Endpoints**: Survey/platform/respondent/session-level grid analysis summaries ✅ **DEPLOYED**
+- **Timing Analysis Hierarchical Endpoints**: Survey/platform/respondent/session-level timing analysis summaries ✅ **DEPLOYED**
 - **Fraud Detection Hierarchical Endpoints**: Survey/platform/respondent/session-level fraud summaries ✅ **COMPLETED**
 - **Production Ready**: Fully deployed on GCP with health monitoring and metrics
 

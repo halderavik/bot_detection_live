@@ -27,6 +27,14 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary` – text analysis summary at respondent level (hierarchical V2) ✅
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis` – text analysis at session level (hierarchical V2) ✅
   - `GET /api/v1/text-analysis/health` – OpenAI service health check ✅
+  - `GET /api/v1/surveys/{survey_id}/grid-analysis/summary` – grid analysis summary at survey level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/grid-analysis/summary` – grid analysis summary at platform level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/grid-analysis/summary` – grid analysis summary at respondent level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/grid-analysis` – grid analysis at session level ✅
+  - `GET /api/v1/surveys/{survey_id}/timing-analysis/summary` – timing analysis summary at survey level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/timing-analysis/summary` – timing analysis summary at platform level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/timing-analysis/summary` – timing analysis summary at respondent level ✅
+  - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/timing-analysis` – timing analysis at session level ✅
 - **Classification Engine**: Rule-based checks with thresholds, returns `is_bot`, `confidence_score`, `risk_level`, plus performance metadata ✅
 - **Text Quality Engine**: GPT-4o-mini powered analysis for gibberish, copy-paste, relevance, generic answers, and quality scoring ✅
 - **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results, survey_questions, survey_responses including extra columns for `processing_time_ms` and `event_count` ✅
@@ -54,6 +62,16 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
    - Topic relevance checking ✅
    - Generic answer detection ✅
    - Overall quality scoring (0-100) ✅
+4. **Grid/Matrix Question Analysis**:
+   - Straight-lining detection (identical responses across rows) ✅
+   - Pattern detection (diagonal, reverse diagonal, zigzag) ✅
+   - Response variance calculation ✅
+   - Satisficing behavior scoring ✅
+5. **Enhanced Timing Analysis**:
+   - Speeder detection (< threshold) ✅
+   - Flatliner detection (> threshold) ✅
+   - Adaptive timing thresholds ✅
+   - Timing anomaly detection (z-score based) ✅
 4. **Performance Metrics**: Capture and store per-request processing time and event counts ✅
 5. **Robust API**: 400/404 error handling, debug logging of raw payloads ✅
 6. **Dashboard**: Timeline charts + summary tables showing classification outcomes and system KPIs ✅
@@ -193,9 +211,12 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Hierarchical API V2**: Complete implementation of Survey → Platform → Respondent → Session structure with text analysis at all levels (January 2026)
 - **Database Migration**: Successfully deployed `platform_id` column with composite indexes for hierarchical queries (January 2026)
 - **Stage 3 Deployment**: Fraud & Duplicate Detection fully deployed and tested in production (February 2026)
+- **Stage 2 Deployment**: Grid & Timing Analysis fully deployed and tested in production (February 2026)
 - **Production Testing**: Comprehensive real example testing completed with all endpoints verified operational (February 2026)
 - **Frontend Deployment**: Frontend successfully deployed and verified pulling data from Cloud SQL (February 2026)
 - **Data Flow Verification**: Complete end-to-end verification of Cloud SQL → Backend API → Frontend Dashboard (February 2026)
+- **Grid & Timing Analysis**: Complete implementation with 8 new hierarchical endpoints and 3 frontend widgets (February 2026)
+- **Test Coverage**: 40 comprehensive tests covering grid and timing analysis (100% passing rate) (February 2026)
 
 ## 16. Production Deployment Status ✅
 - **Backend Service**: Deployed on Google Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`

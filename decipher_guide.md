@@ -14,6 +14,7 @@ This guide shows step-by-step how to integrate Bot Detection into a Decipher (Fo
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available
 - **OpenAI Integration**: GPT-4o-mini service fully operational ✅ (`openai_available: true`)
 - **Hierarchical Text Analysis**: New V2 endpoints for text analysis at survey/platform/respondent/session levels ✅
+- **Grid & Timing Analysis**: Stage 2 detection features deployed with hierarchical endpoints ✅
 - **API Playground**: Updated with hierarchical V2 text analysis endpoints ✅ (flat session-level text analysis endpoints are still supported)
 
 Note: Replace example IDs/variables with those from your study. All examples use HTTPS and JSON.

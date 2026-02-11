@@ -38,6 +38,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 **✅ Text Analysis Dashboard**: New dashboard endpoints deployed and operational!
 **✅ Enhanced Reporting**: Text quality metrics integrated into all reports!
 **✅ Hierarchical Text Analysis**: V2 endpoints available for querying text analysis at survey/platform/respondent/session levels!
+**✅ Grid & Timing Analysis**: Stage 2 detection features deployed - grid/matrix question analysis and enhanced timing analysis available!
 
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 
