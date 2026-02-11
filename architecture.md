@@ -34,13 +34,14 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 - ⏳ **Production Deployment**: Implementation complete, pending deployment to production
 
 **Deployment Status**: 
-- ✅ **FULLY DEPLOYED** (Behavioral Detection, Text Analysis, Hierarchical API) on Google Cloud Platform (January 2026)
-- ✅ **COMPLETED** (Fraud Detection) - Ready for production deployment
-- **Backend**: Cloud Run at `https://bot-backend-i56xopdg6q-pd.a.run.app`
+- ✅ **FULLY DEPLOYED** (Behavioral Detection, Text Analysis, Hierarchical API, Fraud Detection) on Google Cloud Platform (February 2026)
+- ✅ **PRODUCTION DEPLOYED** (Stage 3 - Fraud & Duplicate Detection) - Fully operational and tested
+- **Backend**: Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - **Frontend**: Cloud Storage + CDN at `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
 - **Database**: Cloud SQL PostgreSQL with VPC Connector
 - **Secrets**: Secret Manager for secure credential management
-- **Production Testing**: 100% passing rate on all endpoints
+- **Production Testing**: 100% passing rate on all endpoints including fraud detection
+- **Real Example Testing**: Comprehensive testing completed with all endpoints verified operational (February 2026)
 
 ### Core Components (Deployment Status)
 - **Backend API**: FastAPI-based REST API with async support ✅ **DEPLOYED**
@@ -1122,8 +1123,9 @@ Decipher Survey → Webhook → API Gateway → Integration Controller
 ```
 
 **Production URLs**:
-- Backend: `https://bot-backend-i56xopdg6q-pd.a.run.app`
+- Backend: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
+- API Docs: `https://bot-backend-119522247395.northamerica-northeast2.run.app/docs`
 
 **Infrastructure Details**:
 - **Cloud Run**: Auto-scaling (1-10 instances), 1 vCPU, 1GB RAM

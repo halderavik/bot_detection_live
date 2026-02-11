@@ -19,6 +19,7 @@ import { format } from 'date-fns'
 import { dashboardService, mockData, healthService, integrationService, textAnalysisService } from '../services/apiService'
 import SessionTable from './SessionTable'
 import SessionDetails from './SessionDetails'
+import FraudDetectionWidget from './FraudDetectionWidget'
 
 const SystemHealth = () => {
   const [health, setHealth] = useState({ backend: null, database: null, integrations: null });
@@ -414,6 +415,9 @@ const Dashboard = () => {
           )}
         </div>
       )}
+
+      {/* Fraud Detection Summary */}
+      <FraudDetectionWidget days={7} />
 
       {/* Recent Activity */}
       <div className="card">

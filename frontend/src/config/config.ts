@@ -4,8 +4,8 @@
  */
 
 // Environment variables with fallbacks
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
-const FRONTEND_BASE_URL = import.meta.env.VITE_FRONTEND_BASE_URL || 'https://storage.googleapis.com/bot-detection-frontend-20250929';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const FRONTEND_BASE_URL = import.meta.env.VITE_FRONTEND_BASE_URL || 'https://storage.googleapis.com/bot-detection-frontend-20251208';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'Bot Detection Dashboard';
 
 // Derived URLs

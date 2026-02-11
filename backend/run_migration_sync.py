@@ -80,7 +80,7 @@ def run_migration():
     """Run the migration to add platform_id and indexes."""
     database_url = os.getenv('DATABASE_URL')
     if not database_url:
-        print("❌ DATABASE_URL environment variable not set")
+        print("ERROR: DATABASE_URL environment variable not set")
         sys.exit(1)
     
     try:
@@ -93,7 +93,7 @@ def run_migration():
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
         
-        print("✅ Connected to database")
+        print("[OK] Connected to database")
         
         # Check if platform_id column already exists
         cursor.execute("""
@@ -110,7 +110,7 @@ def run_migration():
                 ALTER TABLE sessions 
                 ADD COLUMN platform_id VARCHAR(255)
             """)
-            print("✅ platform_id column added successfully")
+            print("[OK] platform_id column added successfully")
             
             # Populate platform_id from existing platform values
             print("Populating platform_id from existing platform values...")
@@ -120,9 +120,9 @@ def run_migration():
                 WHERE platform IS NOT NULL AND platform_id IS NULL
             """)
             rows_updated = cursor.rowcount
-            print(f"✅ platform_id populated from {rows_updated} existing platform values")
+            print(f"[OK] platform_id populated from {rows_updated} existing platform values")
         else:
-            print("ℹ️  platform_id column already exists, skipping creation")
+            print("[INFO] platform_id column already exists, skipping creation")
         
         # Create indexes
         print("Creating composite indexes...")
@@ -145,17 +145,17 @@ def run_migration():
         for index_name, index_sql in indexes:
             try:
                 cursor.execute(index_sql)
-                print(f"✅ Created index: {index_name}")
+                print(f"[OK] Created index: {index_name}")
             except Exception as e:
-                print(f"⚠️  Index {index_name} may already exist: {e}")
+                print(f"[WARN] Index {index_name} may already exist: {e}")
         
-        print("\n✅ Migration completed successfully!")
+        print("\n[OK] Migration completed successfully!")
         
         cursor.close()
         conn.close()
         
     except Exception as e:
-        print(f"❌ Migration failed: {e}")
+        print(f"ERROR: Migration failed: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

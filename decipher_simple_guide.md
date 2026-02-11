@@ -62,7 +62,7 @@ Our system watches how people interact with your survey (typing, mouse movements
 
 ```javascript
 // Bot Detection Setup with Text Quality Analysis - Add this once at the start of your survey
-const API_BASE = 'https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1';
+const API_BASE = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
 
 // Read identifiers (create these hidden fields in Step 2)
 function getIdentifierValue(id) {

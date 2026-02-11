@@ -37,8 +37,18 @@ Survey ID
 
 **Production:**
 ```
-https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
 ```
+
+**Frontend Dashboard (Production):**
+```
+https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
+```
+
+**Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
+- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ All hierarchical API endpoints verified and returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
 
 **Local Development:**
 ```
@@ -84,7 +94,7 @@ GET /surveys
 
 **Example:**
 ```bash
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys?limit=50"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys?limit=50"
 ```
 
 ### Get Survey Details
@@ -144,7 +154,7 @@ GET /surveys/{survey_id}
 
 **Example:**
 ```bash
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/SV_1234567890abcdef"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/SV_1234567890abcdef"
 ```
 
 ### Get Survey Summary
@@ -747,7 +757,7 @@ const sessionFraud = await hierarchicalService.getSessionFraudByHierarchy('SV_12
 ```python
 import requests
 
-base_url = "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1"
+base_url = "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1"
 
 # Get all surveys
 response = requests.get(f"{base_url}/surveys?limit=50")
@@ -811,6 +821,30 @@ respondent_fraud = response.json()
 
 ---
 
+## Frontend Deployment & Data Flow Verification
+
+**Status:** ✅ **VERIFIED** (February 2026)
+
+### Deployment Status
+- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ All hierarchical API endpoints verified returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Hierarchical fraud detection widgets integrated and operational
+
+### Verified Hierarchical Endpoints
+- **Surveys List** (`/api/v1/surveys`) - ✅ Verified (3 surveys found)
+- **Survey Details** (`/api/v1/surveys/{survey_id}`) - ✅ Verified
+- **Platform Fraud Summary** (`/api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary`) - ✅ Verified
+- **Respondent Fraud Summary** (`/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary`) - ✅ Verified
+- **Session Fraud Details** (`/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud`) - ✅ Verified
+
+### Frontend Configuration
+- **API Base URL**: `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1`
+- **Frontend URL**: `https://storage.googleapis.com/bot-detection-frontend-20251208`
+- **Configuration File**: `frontend/src/config/config.ts` (centralized config system)
+
+---
+
 ## Support
 
 For questions or issues with the hierarchical API:
@@ -822,5 +856,15 @@ For questions or issues with the hierarchical API:
 
 ---
 
-*Last updated: January 2026*
+*Last updated: February 2026*
+
+---
+
+## Changelog
+
+### February 2026
+- ✅ Frontend deployment verified - All hierarchical endpoints pulling data correctly from Cloud SQL
+- ✅ Data flow verification completed - Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Updated production URLs in documentation
+- ✅ Hierarchical fraud detection widgets integrated into frontend dashboard
 

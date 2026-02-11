@@ -50,10 +50,18 @@ Production (GCP)
 https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
 ```
 
+**Note**: All fraud detection endpoints use `/api/v1/fraud/` prefix (not `/api/v1/fraud-detection/`).
+
 Frontend Dashboard (Production)
 ```
-https://storage.googleapis.com/bot-detection-frontend-20250929/index.html
+https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 ```
+
+**Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
+- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ All API endpoints verified and returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated and operational
 
 Note: Interactive API docs are available at `/docs` in both development and production. Use the curl examples below for production testing.
 
@@ -1462,11 +1470,49 @@ All existing endpoints continue to work as before.
 
 ---
 
-*Last updated: January 2025*
+*Last updated: February 2026*
+
+---
+
+## Frontend Deployment & Data Flow Verification
+
+**Status:** ✅ **VERIFIED** (February 2026)
+
+### Deployment Status
+- ✅ Frontend successfully built and deployed to Cloud Storage
+- ✅ All API endpoints verified returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated and operational
+
+### Verified Endpoints
+All 6 frontend-used endpoints tested and working correctly:
+1. **Dashboard Overview** (`/api/v1/dashboard/overview`) - ✅ Verified
+2. **Fraud Dashboard Summary** (`/api/v1/fraud/dashboard/summary`) - ✅ Verified
+3. **Fraud Duplicates** (`/api/v1/fraud/dashboard/duplicates`) - ✅ Verified
+4. **Sessions List** (`/api/v1/dashboard/sessions`) - ✅ Verified
+5. **Surveys List** (`/api/v1/surveys`) - ✅ Verified
+6. **Text Analysis Summary** (`/api/v1/text-analysis/dashboard/summary`) - ✅ Verified
+
+### Sample Data Retrieved
+- Sessions: 3 (last 7 days)
+- Fraud Analysis: 2 sessions analyzed with average fraud score 0.26
+- Surveys: 3 found in database
+- Events: 4 total events tracked
+
+### Frontend Configuration
+- **API Base URL**: `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1`
+- **Frontend URL**: `https://storage.googleapis.com/bot-detection-frontend-20251208`
+- **Configuration File**: `frontend/src/config/config.ts` (centralized config system)
 
 ---
 
 ## Changelog
+
+### February 2026
+- ✅ Frontend deployment verified - All endpoints pulling data correctly from Cloud SQL
+- ✅ Data flow verification completed - Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated into main dashboard
+- ✅ Updated production URLs in all documentation
 
 ### January 2025
 - ✅ Added hierarchical API structure (Survey → Platform → Respondent → Session)

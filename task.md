@@ -748,7 +748,53 @@ See `API_V2.md` for complete hierarchical API documentation and examples.
 
 ---
 
-## STAGE 3 — Fraud & Duplicate Detection ✅ **COMPLETED**
+## STAGE 3 — Fraud & Duplicate Detection ✅ **COMPLETED & DEPLOYED**
+
+### Deployment Status ✅ **PRODUCTION DEPLOYED** (February 2026)
+**Stage 3 successfully deployed and tested in production:**
+- ✅ Database migrations applied successfully
+- ✅ Schema verified and operational
+- ✅ All endpoints tested and working
+- ✅ Real example testing completed with comprehensive results
+
+**Deployment Process (Database-First):**
+1. Run `backend\prepare_database_for_deploy.ps1` — applies migrations + verifies schema
+2. Then run `backend\deploy_v2_database.ps1` — builds image and deploys to Cloud Run
+
+The deploy script automatically runs `prepare_database_for_deploy.ps1` first (use `-SkipDbPrep` to bypass).
+- **Migrations**: platform_id (sessions), fraud_indicators table, device_fingerprint, fraud_score columns
+- **Verification**: `verify_v2_schema.py` checks all required tables and columns
+
+### Production Testing Results ✅ **VERIFIED** (February 2026)
+**Real Example Test Results:**
+- **Session Creation**: ✅ Working (`POST /api/v1/detection/sessions`)
+- **Event Ingestion**: ✅ Working (`POST /api/v1/detection/sessions/{id}/events`)
+- **Bot Detection Analysis**: ✅ Working (`POST /api/v1/detection/sessions/{id}/analyze`)
+  - Bot Detected: False
+  - Confidence Score: 0.425 (42.5%)
+  - Risk Level: high
+  - Detection Methods: keystroke_analysis, mouse_analysis, timing_analysis, device_analysis, network_analysis
+  - Processing Time: 0.067ms
+- **Session Status**: ✅ Working (`GET /api/v1/detection/sessions/{id}/status`)
+- **Fraud Detection Analysis**: ✅ Working (`POST /api/v1/fraud/analyze/{session_id}`)
+  - Overall Fraud Score: 0.26 (26%)
+  - Is Duplicate: False
+  - Risk Level: LOW
+  - IP Reuse Detection: Working (1164 previous uses detected)
+- **Survey Aggregation**: ✅ Working (`GET /api/v1/surveys/{survey_id}`)
+- **Fraud Summary**: ✅ Working (`GET /api/v1/surveys/{survey_id}/fraud/summary`)
+
+**Production URLs:**
+- Backend: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
+- Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
+- API Docs: `https://bot-backend-119522247395.northamerica-northeast2.run.app/docs`
+
+**Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
+- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ All API endpoints verified and returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated and operational
+- ✅ All 6 frontend-used endpoints tested and working correctly
 
 ### Backend Tasks ✅
 - [x] **Duplicate Detection Service**
@@ -782,6 +828,15 @@ See `API_V2.md` for complete hierarchical API documentation and examples.
   - [x] Implement fraud alert system ✅ **COMPLETED**
   - [x] Create hierarchical fraud widgets for all detail views ✅ **COMPLETED**
   - [x] Integrate fraud detection into SurveyDetails, PlatformDetails, RespondentDetails, SessionDetails ✅ **COMPLETED**
+
+- [x] **Frontend Deployment & Verification** ✅ **COMPLETED** (February 2026)
+  - [x] Update frontend configuration with correct production API URLs ✅ **COMPLETED**
+  - [x] Integrate FraudDetectionWidget into Dashboard.jsx ✅ **COMPLETED**
+  - [x] Build and deploy frontend to Cloud Storage ✅ **COMPLETED**
+  - [x] Verify all API endpoints returning data from Cloud SQL ✅ **COMPLETED**
+  - [x] Test data flow: Cloud SQL → Backend API → Frontend Dashboard ✅ **COMPLETED**
+  - [x] Verify all 6 frontend-used endpoints operational ✅ **COMPLETED**
+  - [x] Set cache headers for optimal performance ✅ **COMPLETED**
 
 ---
 

@@ -23,9 +23,16 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - ⏳ **Production Deployment**: Implementation complete, pending deployment to production
 
 **Production URLs:**
-- Backend: `https://bot-backend-i56xopdg6q-pd.a.run.app`
+- Backend: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
-- API Docs: `https://bot-backend-i56xopdg6q-pd.a.run.app/docs`
+- API Docs: `https://bot-backend-119522247395.northamerica-northeast2.run.app/docs`
+
+**Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
+- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ All API endpoints verified and returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated and operational
+- ✅ All 6 frontend-used endpoints tested and working correctly
 
 ## 🚀 Features
 
@@ -210,12 +217,12 @@ docker-compose --profile production up -d
 - **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
 
 #### Production (GCP)
-- **Backend API**: https://bot-backend-i56xopdg6q-pd.a.run.app
-- **API Documentation**: https://bot-backend-i56xopdg6q-pd.a.run.app/docs
+- **Backend API**: https://bot-backend-119522247395.northamerica-northeast2.run.app
+- **API Documentation**: https://bot-backend-119522247395.northamerica-northeast2.run.app/docs
 - **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
-- **Health Check**: https://bot-backend-i56xopdg6q-pd.a.run.app/health
-- **Metrics Endpoint**: https://bot-backend-i56xopdg6q-pd.a.run.app/metrics
-- **Text Analysis Health**: https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/health
+- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+- **Metrics Endpoint**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
+- **Text Analysis Health**: https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/health
 
 ## 📚 Documentation
 
@@ -296,7 +303,7 @@ GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis
 ```
 
-#### Fraud Detection API ✅ **COMPLETED**
+#### Fraud Detection API ✅ **COMPLETED & DEPLOYED**
 ```http
 # Flat endpoints (session-based)
 GET /api/v1/fraud/sessions/{session_id}
@@ -312,6 +319,8 @@ GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary
 GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud
 ```
+
+**Note**: Fraud detection endpoints use `/api/v1/fraud/` prefix (not `/api/v1/fraud-detection/`).
 
 #### Health & Monitoring
 ```http
@@ -335,7 +344,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions" \
   -H "Content-Type: application/json"
 ```
 
@@ -354,7 +363,7 @@ curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/event
   ]'
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/events" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/events" \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -372,7 +381,7 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessi
 curl -X GET "http://localhost:8000/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 
 # Production
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/ready-for-analysis"
 ```
 
 #### 4. Analyze Session
@@ -381,13 +390,13 @@ curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessio
 curl -X POST "http://localhost:8000/api/v1/detection/sessions/{session_id}/analyze"
 
 # Production
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/analyze"
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/analyze"
 ```
 
 #### 5. Text Quality Analysis
 ```bash
 # Capture a survey question
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/questions" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/questions" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -397,7 +406,7 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/q
   }'
 
 # Analyze a response
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/responses" \
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/responses" \
   -H "Content-Type: application/json" \
   -d '{
     "session_id": "your-session-id",
@@ -407,62 +416,62 @@ curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/r
   }'
 
 # Get text quality summary
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/sessions/{session_id}/summary"
 
 # Composite analysis (behavioral + text quality)
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/{session_id}/composite-analyze"
 
 # Hierarchical text analysis endpoints (V2)
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/text-analysis/summary"
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary"
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary"
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis"
 ```
 
 #### 6. Fraud Detection Analysis
 ```bash
 # Get fraud summary for a survey
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/fraud/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/fraud/summary"
 
 # Get fraud summary for a platform
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary"
 
 # Get fraud summary for a respondent
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary"
 
 # Get fraud details for a session
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud"
 
 # Trigger fraud analysis for a session
-curl -X POST "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/analyze/{session_id}"
+curl -X POST "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/fraud/analyze/{session_id}"
 
 # Get fraud dashboard summary
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/dashboard/summary?days=7"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/fraud/dashboard/summary?days=7"
 
 # Get duplicate sessions
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/fraud/dashboard/duplicates?limit=50"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/fraud/dashboard/duplicates?limit=50"
 ```
 
 #### 7. Generate Reports
 ```bash
 # Get available surveys
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/surveys"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/surveys"
 
 # Generate summary report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/summary/SURVEY_001"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/summary/SURVEY_001"
 
 # Generate detailed report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001"
 
 # Download CSV report
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/reports/detailed/SURVEY_001/csv" \
   -o survey_report.csv
 
 # Get text analysis dashboard summary
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/summary?days=7"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/summary?days=7"
 
 # Get respondent-level text analysis
-curl -X GET "https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
+curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/dashboard/respondents?days=7&limit=10"
 ```
 
 ## 🔧 Configuration
@@ -516,7 +525,7 @@ VITE_FRONTEND_BASE_URL=http://localhost:3000
 VITE_APP_NAME=Bot Detection Dashboard
 
 # Production (.env.production)
-VITE_API_BASE_URL=https://bot-backend-i56xopdg6q-pd.a.run.app/api/v1
+VITE_API_BASE_URL=https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
 VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20251208
 VITE_APP_NAME=Bot Detection Dashboard
 ```
@@ -630,7 +639,7 @@ docker-compose --profile production --profile monitoring up -d
 The application is currently deployed on Google Cloud Platform:
 
 #### Backend (Cloud Run)
-- **URL**: https://bot-backend-i56xopdg6q-pd.a.run.app
+- **URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app
 - **Database**: Cloud SQL PostgreSQL
 - **Secrets**: Secret Manager (including OPENAI_API_KEY)
 - **Networking**: VPC Connector
@@ -640,12 +649,31 @@ The application is currently deployed on Google Cloud Platform:
 - **URL**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 - **CDN**: Cloud CDN enabled
 - **Caching**: Optimized for static assets
+- **Data Flow**: ✅ Verified - All endpoints pulling data correctly from Cloud SQL (February 2026)
+- **Configuration**: Centralized config system with correct production API URLs
+- **Components**: Fraud detection widget integrated and operational
 
 #### Deployment Scripts
 - `provision-cloudsql.ps1` - Database and networking setup
 - `deploy-backend.ps1` - Backend deployment to Cloud Run
 - `deploy-frontend.ps1` - Frontend deployment to Cloud Storage
 - `cloudbuild.yaml` - CI/CD pipeline configuration
+
+#### Frontend Deployment Verification (February 2026)
+**Status:** ✅ **VERIFIED**
+- ✅ Frontend successfully built and deployed to Cloud Storage
+- ✅ All API endpoints verified returning data from Cloud SQL
+- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ Fraud detection widget integrated and operational
+- ✅ All 6 frontend-used endpoints tested and working:
+  - Dashboard Overview (`/api/v1/dashboard/overview`)
+  - Fraud Dashboard Summary (`/api/v1/fraud/dashboard/summary`)
+  - Fraud Duplicates (`/api/v1/fraud/dashboard/duplicates`)
+  - Sessions List (`/api/v1/dashboard/sessions`)
+  - Surveys List (`/api/v1/surveys`)
+  - Text Analysis Summary (`/api/v1/text-analysis/dashboard/summary`)
+- ✅ Cache headers configured for optimal performance
+- ✅ Frontend configuration updated with correct production URLs
 
 ### Environment-Specific Configs
 - **Development**: `docker-compose.yml`

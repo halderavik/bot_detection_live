@@ -12,7 +12,21 @@ import asyncio
 import asyncpg
 import os
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
+
+# Add parent for import when run from backend/
+sys.path.insert(0, str(Path(__file__).parent))
+
+
+def _get_tcp_params(database_url):
+    """Get TCP connection params for Cloud SQL (e.g. when running from Windows)."""
+    try:
+        from run_migration_sync import get_db_params_from_url
+        return get_db_params_from_url(database_url)
+    except Exception:
+        return None
+
 
 async def verify_schema():
     """Verify database schema."""
@@ -47,7 +61,24 @@ async def verify_schema():
     try:
         print(f"Connecting to database: {database}...")
         
-        if use_socket:
+        conn = None
+        # On Windows or when CLOUD_SQL_IP is set, use TCP (Unix socket not available)
+        cloud_sql_ip = os.getenv("CLOUD_SQL_IP")
+        is_windows = sys.platform == "win32"
+        if use_socket and (is_windows or cloud_sql_ip):
+            tcp_params = _get_tcp_params(database_url) or (
+                {"host": cloud_sql_ip or "localhost", "port": 5432, "database": database, "user": user, "password": password}
+            )
+            if tcp_params:
+                print("  Using TCP connection (Windows/CLOUD_SQL_IP)")
+                conn = await asyncpg.connect(
+                    host=tcp_params["host"],
+                    port=int(tcp_params.get("port", 5432)),
+                    user=tcp_params["user"],
+                    password=tcp_params["password"],
+                    database=tcp_params["database"]
+                )
+        elif use_socket:
             conn = await asyncpg.connect(
                 user=user,
                 password=password,
@@ -63,7 +94,7 @@ async def verify_schema():
                 database=database
             )
         
-        print("✓ Connected successfully\n")
+        print("[OK] Connected successfully\n")
         
         # Check tables
         tables_query = """
@@ -77,25 +108,26 @@ async def verify_schema():
         
         print(f"Found {len(table_names)} tables:")
         for table in table_names:
-            print(f"  ✓ {table}")
+            print(f"  [OK] {table}")
         
         required_tables = [
             'sessions',
             'behavior_data',
             'detection_results',
             'survey_questions',
-            'survey_responses'
+            'survey_responses',
+            'fraud_indicators'  # Stage 3 - Fraud & Duplicate Detection
         ]
         
         missing_tables = [t for t in required_tables if t not in table_names]
         if missing_tables:
-            print(f"\n✗ Missing tables: {', '.join(missing_tables)}")
+            print(f"\n[ERROR] Missing tables: {', '.join(missing_tables)}")
             print("  The backend should create these automatically on startup.")
             print("  Check Cloud Run logs for 'Database tables created successfully'")
             await conn.close()
             return False
         
-        print(f"\n✓ All {len(required_tables)} required tables exist")
+        print(f"\n[OK] All {len(required_tables)} required tables exist")
         
         # Check sessions table columns
         columns_query = """
@@ -110,15 +142,49 @@ async def verify_schema():
         print(f"\nSessions table has {len(column_names)} columns")
         
         if 'platform_id' not in column_names:
-            print("✗ platform_id column NOT found in sessions table")
+            print("[ERROR] platform_id column NOT found in sessions table")
             await conn.close()
             return False
         else:
             platform_id_col = next(c for c in columns if c['column_name'] == 'platform_id')
-            print(f"✓ platform_id column exists: {platform_id_col['data_type']}")
+            print(f"[OK] platform_id column exists: {platform_id_col['data_type']}")
             if platform_id_col['character_maximum_length']:
                 print(f"  Length: {platform_id_col['character_maximum_length']}")
-        
+
+        # Stage 3: Check device_fingerprint in sessions (fraud detection)
+        if 'device_fingerprint' not in column_names:
+            print("[ERROR] device_fingerprint column NOT found in sessions table (Stage 3 fraud detection)")
+            await conn.close()
+            return False
+        else:
+            print("[OK] device_fingerprint column exists in sessions (Stage 3 fraud detection)")
+
+        # Stage 3: Check fraud columns in detection_results
+        dr_columns = await conn.fetch("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'detection_results' ORDER BY column_name;
+        """)
+        dr_column_names = [r['column_name'] for r in dr_columns]
+        for fraud_col in ['fraud_score', 'fraud_indicators']:
+            if fraud_col not in dr_column_names:
+                print(f"[ERROR] {fraud_col} column NOT found in detection_results (Stage 3)")
+                await conn.close()
+                return False
+        print("[OK] fraud_score and fraud_indicators columns exist in detection_results")
+
+        # Stage 3: Check fraud_indicators table has hierarchical columns
+        fi_columns = await conn.fetch("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'fraud_indicators' ORDER BY column_name;
+        """)
+        fi_column_names = [r['column_name'] for r in fi_columns]
+        for hcol in ['survey_id', 'platform_id', 'respondent_id']:
+            if hcol not in fi_column_names:
+                print(f"[ERROR] {hcol} column NOT found in fraud_indicators")
+                await conn.close()
+                return False
+        print("[OK] fraud_indicators has hierarchical columns (survey_id, platform_id, respondent_id)")
+
         # Check indexes
         indexes_query = """
         SELECT indexname
@@ -132,22 +198,23 @@ async def verify_schema():
         
         print(f"\nSessions table has {len(index_names)} indexes:")
         for idx in index_names:
-            print(f"  ✓ {idx}")
+            print(f"  [OK] {idx}")
         
         required_indexes = [
             'idx_survey_platform_respondent_session',
             'idx_survey_platform',
             'idx_survey_platform_respondent',
-            'idx_sessions_platform_id'
+            'idx_sessions_platform_id',
+            'idx_session_fingerprint'  # Stage 3 - fraud detection
         ]
         
         missing_indexes = [idx for idx in required_indexes if idx not in index_names]
         if missing_indexes:
-            print(f"\n⚠ Missing indexes: {', '.join(missing_indexes)}")
+            print(f"\n[WARN] Missing indexes: {', '.join(missing_indexes)}")
             print("  These indexes are defined in the Session model and should be created automatically.")
             print("  If missing, they may need to be created manually or the model needs to be updated.")
         else:
-            print(f"\n✓ All {len(required_indexes)} required composite indexes exist")
+            print(f"\n[OK] All {len(required_indexes)} required composite indexes exist")
         
         # Check foreign keys
         fk_query = """
@@ -167,24 +234,24 @@ async def verify_schema():
         
         print(f"\nFound {len(fks)} foreign key constraints:")
         for fk in fks[:10]:  # Show first 10
-            print(f"  ✓ {fk['table_name']}.{fk['column_name']} -> {fk['foreign_table_name']}")
+            print(f"  [OK] {fk['table_name']}.{fk['column_name']} -> {fk['foreign_table_name']}")
         if len(fks) > 10:
             print(f"  ... and {len(fks) - 10} more")
         
         await conn.close()
         
         print("\n" + "="*60)
-        print("✓ Schema verification complete - All checks passed!")
+        print("[OK] Schema verification complete - All checks passed!")
         print("="*60)
         return True
         
     except FileNotFoundError as e:
-        print(f"\n✗ Connection error: Unix socket not found")
+        print(f"\n[ERROR] Connection error: Unix socket not found")
         print("  This usually means Cloud SQL Proxy is not running or configured correctly.")
         print("  The backend should handle this via Cloud Run's Cloud SQL connector.")
         return False
     except Exception as e:
-        print(f"\n✗ Error verifying schema: {e}")
+        print(f"\n[ERROR] Error verifying schema: {e}")
         import traceback
         traceback.print_exc()
         return False
