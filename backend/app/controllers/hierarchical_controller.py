@@ -990,6 +990,342 @@ class HierarchicalController:
             except Exception as e:
                 logger.error(f"Error getting session fraud data: {e}")
                 raise HTTPException(status_code=500, detail="Failed to get session fraud data")
+        
+        # Grid Analysis Endpoints
+        
+        @self.router.get("/{survey_id}/grid-analysis/summary")
+        async def get_survey_grid_analysis_summary(
+            survey_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get grid analysis summary for a survey."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get grid analysis summary
+                summary = await self.aggregation_service.get_grid_analysis_summary(
+                    survey_id, None, None, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Survey grid analysis summary generated for {survey_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting survey grid analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get survey grid analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/grid-analysis/summary")
+        async def get_platform_grid_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get grid analysis summary for a platform within a survey."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get grid analysis summary
+                summary = await self.aggregation_service.get_grid_analysis_summary(
+                    survey_id, platform_id, None, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Platform grid analysis summary generated for {survey_id}/{platform_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting platform grid analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get platform grid analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/grid-analysis/summary")
+        async def get_respondent_grid_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get grid analysis summary for a respondent within a platform."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get grid analysis summary
+                summary = await self.aggregation_service.get_grid_analysis_summary(
+                    survey_id, platform_id, respondent_id, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Respondent grid analysis summary generated for {survey_id}/{platform_id}/{respondent_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting respondent grid analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get respondent grid analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/grid-analysis")
+        async def get_session_grid_analysis(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get grid analysis for a specific session."""
+            try:
+                # Verify session belongs to hierarchy
+                session_query = select(Session).where(
+                    and_(
+                        Session.id == session_id,
+                        Session.survey_id == survey_id,
+                        Session.platform_id == platform_id,
+                        Session.respondent_id == respondent_id
+                    )
+                )
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Session not found in the specified hierarchy"
+                    )
+                
+                # Get grid analysis summary for this session
+                summary = await self.aggregation_service.get_grid_analysis_summary(
+                    survey_id, platform_id, respondent_id, session_id, db
+                )
+                
+                logger.info(f"Session grid analysis generated for {session_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting session grid analysis: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get session grid analysis")
+        
+        # Timing Analysis Endpoints
+        
+        @self.router.get("/{survey_id}/timing-analysis/summary")
+        async def get_survey_timing_analysis_summary(
+            survey_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get timing analysis summary for a survey."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get timing analysis summary
+                summary = await self.aggregation_service.get_timing_analysis_summary(
+                    survey_id, None, None, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Survey timing analysis summary generated for {survey_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting survey timing analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get survey timing analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/timing-analysis/summary")
+        async def get_platform_timing_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get timing analysis summary for a platform within a survey."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get timing analysis summary
+                summary = await self.aggregation_service.get_timing_analysis_summary(
+                    survey_id, platform_id, None, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Platform timing analysis summary generated for {survey_id}/{platform_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting platform timing analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get platform timing analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/timing-analysis/summary")
+        async def get_respondent_timing_analysis_summary(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            date_from: Optional[str] = Query(None, description="Start date (ISO format)"),
+            date_to: Optional[str] = Query(None, description="End date (ISO format)"),
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get timing analysis summary for a respondent within a platform."""
+            try:
+                # Parse dates if provided
+                date_from_dt = None
+                date_to_dt = None
+                
+                if date_from:
+                    try:
+                        date_from_dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_from format")
+                
+                if date_to:
+                    try:
+                        date_to_dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                    except ValueError:
+                        raise HTTPException(status_code=400, detail="Invalid date_to format")
+                
+                # Get timing analysis summary
+                summary = await self.aggregation_service.get_timing_analysis_summary(
+                    survey_id, platform_id, respondent_id, None, db, date_from=date_from_dt, date_to=date_to_dt
+                )
+                
+                logger.info(f"Respondent timing analysis summary generated for {survey_id}/{platform_id}/{respondent_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting respondent timing analysis summary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get respondent timing analysis summary")
+        
+        @self.router.get("/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/timing-analysis")
+        async def get_session_timing_analysis(
+            survey_id: str,
+            platform_id: str,
+            respondent_id: str,
+            session_id: str,
+            db: AsyncSession = Depends(get_db)
+        ):
+            """Get timing analysis for a specific session."""
+            try:
+                # Verify session belongs to hierarchy
+                session_query = select(Session).where(
+                    and_(
+                        Session.id == session_id,
+                        Session.survey_id == survey_id,
+                        Session.platform_id == platform_id,
+                        Session.respondent_id == respondent_id
+                    )
+                )
+                session_result = await db.execute(session_query)
+                session = session_result.scalar_one_or_none()
+                
+                if not session:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Session not found in the specified hierarchy"
+                    )
+                
+                # Get timing analysis summary for this session
+                summary = await self.aggregation_service.get_timing_analysis_summary(
+                    survey_id, platform_id, respondent_id, session_id, db
+                )
+                
+                logger.info(f"Session timing analysis generated for {session_id}")
+                
+                return summary
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting session timing analysis: {e}")
+                raise HTTPException(status_code=500, detail="Failed to get session timing analysis")
     
     async def _aggregate_fraud_data(
         self,

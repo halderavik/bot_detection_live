@@ -55,13 +55,14 @@ async def init_db():
         # Import all models to ensure they're registered with SQLAlchemy
         from app.models import (
             Session, BehaviorData, DetectionResult,
-            SurveyQuestion, SurveyResponse, FraudIndicator
+            SurveyQuestion, SurveyResponse, FraudIndicator,
+            GridResponse, TimingAnalysis
         )
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
-        logger.info("Tables created: sessions, behavior_data, detection_results, survey_questions, survey_responses, fraud_indicators")
+        logger.info("Tables created: sessions, behavior_data, detection_results, survey_questions, survey_responses, fraud_indicators, grid_responses, timing_analysis")
 
 async def close_db():
     """Close database connections."""

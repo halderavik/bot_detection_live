@@ -5,6 +5,9 @@ import { fraudService } from '../services/apiService';
 import TextQualityWidget from './TextQualityWidget';
 import HierarchicalNavigation from './HierarchicalNavigation';
 import HierarchicalFraudWidget from './HierarchicalFraudWidget';
+import GridAnalysisWidget from './GridAnalysisWidget';
+import TimingAnalysisWidget from './TimingAnalysisWidget';
+import PerQuestionTimingTable from './PerQuestionTimingTable';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -324,6 +327,42 @@ function SessionDetails({ sessionId: propSessionId }) {
           }}
         />
       </div>
+
+      {/* Grid Analysis Summary */}
+      {isHierarchical && (
+        <div className="mt-6">
+          <GridAnalysisWidget 
+            surveyId={surveyId}
+            platformId={platformId}
+            respondentId={respondentId}
+            sessionId={routeSessionId}
+          />
+        </div>
+      )}
+
+      {/* Timing Analysis Summary */}
+      {isHierarchical && (
+        <div className="mt-6">
+          <TimingAnalysisWidget 
+            surveyId={surveyId}
+            platformId={platformId}
+            respondentId={respondentId}
+            sessionId={routeSessionId}
+          />
+        </div>
+      )}
+
+      {/* Per-Question Timing Table */}
+      {isHierarchical && (
+        <div className="mt-6">
+          <PerQuestionTimingTable 
+            surveyId={surveyId}
+            platformId={platformId}
+            respondentId={respondentId}
+            sessionId={routeSessionId}
+          />
+        </div>
+      )}
     </div>
   );
 }

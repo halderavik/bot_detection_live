@@ -13,6 +13,8 @@ import { hierarchicalService } from '../services/apiService';
 import { toast } from 'react-toastify';
 import HierarchicalNavigation from './HierarchicalNavigation';
 import HierarchicalFraudWidget from './HierarchicalFraudWidget';
+import GridAnalysisWidget from './GridAnalysisWidget';
+import TimingAnalysisWidget from './TimingAnalysisWidget';
 
 const RespondentDetails = () => {
   const { surveyId, platformId, respondentId } = useParams();
@@ -247,6 +249,20 @@ const RespondentDetails = () => {
 
       {/* Fraud Detection Summary */}
       <HierarchicalFraudWidget 
+        surveyId={surveyId} 
+        platformId={platformId} 
+        respondentId={respondentId} 
+      />
+
+      {/* Grid Analysis Summary */}
+      <GridAnalysisWidget 
+        surveyId={surveyId} 
+        platformId={platformId} 
+        respondentId={respondentId} 
+      />
+
+      {/* Timing Analysis Summary */}
+      <TimingAnalysisWidget 
         surveyId={surveyId} 
         platformId={platformId} 
         respondentId={respondentId} 

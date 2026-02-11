@@ -49,6 +49,8 @@ class Session(Base):
     survey_questions = relationship("SurveyQuestion", back_populates="session", cascade="all, delete-orphan")
     survey_responses = relationship("SurveyResponse", back_populates="session", cascade="all, delete-orphan")
     fraud_indicators = relationship("FraudIndicator", back_populates="session", cascade="all, delete-orphan")
+    grid_responses = relationship("GridResponse", back_populates="session", cascade="all, delete-orphan")
+    timing_analyses = relationship("TimingAnalysis", back_populates="session", cascade="all, delete-orphan")
     
     # Composite indexes for efficient hierarchical queries
     __table_args__ = (

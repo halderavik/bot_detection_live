@@ -13,8 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.orm import selectinload
 import logging
+import statistics
 
-from app.models import Session, BehaviorData, DetectionResult, SurveyResponse
+from app.models import Session, BehaviorData, DetectionResult, SurveyResponse, GridResponse, TimingAnalysis
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -684,5 +685,249 @@ class AggregationService:
             
         except Exception as e:
             self.logger.error(f"Error listing respondents: {e}")
+            raise
+    
+    async def get_grid_analysis_summary(
+        self,
+        survey_id: str,
+        platform_id: Optional[str] = None,
+        respondent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        db: AsyncSession = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Get grid analysis summary at specified hierarchy level.
+        
+        Args:
+            survey_id: Survey identifier
+            platform_id: Optional platform identifier
+            respondent_id: Optional respondent identifier
+            session_id: Optional session identifier
+            db: Database session
+            date_from: Optional start date filter
+            date_to: Optional end date filter
+            
+        Returns:
+            Dictionary with grid analysis summary statistics
+        """
+        try:
+            # Build query conditions
+            conditions = [GridResponse.survey_id == survey_id]
+            
+            if platform_id:
+                conditions.append(GridResponse.platform_id == platform_id)
+            if respondent_id:
+                conditions.append(GridResponse.respondent_id == respondent_id)
+            if session_id:
+                conditions.append(GridResponse.session_id == session_id)
+            if date_from:
+                conditions.append(GridResponse.created_at >= date_from)
+            if date_to:
+                conditions.append(GridResponse.created_at <= date_to)
+            
+            # Get total grid responses
+            total_query = select(func.count(GridResponse.id)).where(and_(*conditions))
+            result = await db.execute(total_query)
+            total_responses = result.scalar() or 0
+            
+            if total_responses == 0:
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    "session_id": session_id,
+                    "total_responses": 0,
+                    "straight_lined_count": 0,
+                    "straight_lined_percentage": 0.0,
+                    "pattern_distribution": {},
+                    "avg_variance_score": 0.0,
+                    "avg_satisficing_score": 0.0,
+                    "unique_questions": 0
+                }
+            
+            # Get straight-lining count
+            straight_lined_query = select(func.count(GridResponse.id)).where(
+                and_(*conditions, GridResponse.is_straight_lined == True)
+            )
+            result = await db.execute(straight_lined_query)
+            straight_lined_count = result.scalar() or 0
+            
+            # Get pattern distribution
+            pattern_query = (
+                select(
+                    GridResponse.pattern_type,
+                    func.count(GridResponse.id).label('count')
+                )
+                .where(and_(*conditions, GridResponse.pattern_type.isnot(None)))
+                .group_by(GridResponse.pattern_type)
+            )
+            result = await db.execute(pattern_query)
+            pattern_distribution = {row.pattern_type: row.count for row in result}
+            
+            # Get average variance and satisficing scores
+            avg_scores_query = (
+                select(
+                    func.avg(GridResponse.variance_score).label('avg_variance'),
+                    func.avg(GridResponse.satisficing_score).label('avg_satisficing')
+                )
+                .where(and_(*conditions))
+            )
+            result = await db.execute(avg_scores_query)
+            avg_row = result.first()
+            avg_variance = float(avg_row.avg_variance) if avg_row.avg_variance else 0.0
+            avg_satisficing = float(avg_row.avg_satisficing) if avg_row.avg_satisficing else 0.0
+            
+            # Get unique questions count
+            unique_questions_query = (
+                select(func.count(func.distinct(GridResponse.question_id)))
+                .where(and_(*conditions))
+            )
+            result = await db.execute(unique_questions_query)
+            unique_questions = result.scalar() or 0
+            
+            return {
+                "survey_id": survey_id,
+                "platform_id": platform_id,
+                "respondent_id": respondent_id,
+                "session_id": session_id,
+                "total_responses": total_responses,
+                "straight_lined_count": straight_lined_count,
+                "straight_lined_percentage": (straight_lined_count / total_responses * 100) if total_responses > 0 else 0.0,
+                "pattern_distribution": pattern_distribution,
+                "avg_variance_score": avg_variance,
+                "avg_satisficing_score": avg_satisficing,
+                "unique_questions": unique_questions
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting grid analysis summary: {e}")
+            raise
+    
+    async def get_timing_analysis_summary(
+        self,
+        survey_id: str,
+        platform_id: Optional[str] = None,
+        respondent_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        db: AsyncSession = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Get timing analysis summary at specified hierarchy level.
+        
+        Args:
+            survey_id: Survey identifier
+            platform_id: Optional platform identifier
+            respondent_id: Optional respondent identifier
+            session_id: Optional session identifier
+            db: Database session
+            date_from: Optional start date filter
+            date_to: Optional end date filter
+            
+        Returns:
+            Dictionary with timing analysis summary statistics
+        """
+        try:
+            # Build query conditions
+            conditions = [TimingAnalysis.survey_id == survey_id]
+            
+            if platform_id:
+                conditions.append(TimingAnalysis.platform_id == platform_id)
+            if respondent_id:
+                conditions.append(TimingAnalysis.respondent_id == respondent_id)
+            if session_id:
+                conditions.append(TimingAnalysis.session_id == session_id)
+            if date_from:
+                conditions.append(TimingAnalysis.created_at >= date_from)
+            if date_to:
+                conditions.append(TimingAnalysis.created_at <= date_to)
+            
+            # Get total timing analyses
+            total_query = select(func.count(TimingAnalysis.id)).where(and_(*conditions))
+            result = await db.execute(total_query)
+            total_analyses = result.scalar() or 0
+            
+            if total_analyses == 0:
+                return {
+                    "survey_id": survey_id,
+                    "platform_id": platform_id,
+                    "respondent_id": respondent_id,
+                    "session_id": session_id,
+                    "total_analyses": 0,
+                    "speeders_count": 0,
+                    "speeders_percentage": 0.0,
+                    "flatliners_count": 0,
+                    "flatliners_percentage": 0.0,
+                    "anomalies_count": 0,
+                    "avg_response_time_ms": 0.0,
+                    "median_response_time_ms": 0.0,
+                    "unique_questions": 0
+                }
+            
+            # Get speeders count
+            speeders_query = select(func.count(TimingAnalysis.id)).where(
+                and_(*conditions, TimingAnalysis.is_speeder == True)
+            )
+            result = await db.execute(speeders_query)
+            speeders_count = result.scalar() or 0
+            
+            # Get flatliners count
+            flatliners_query = select(func.count(TimingAnalysis.id)).where(
+                and_(*conditions, TimingAnalysis.is_flatliner == True)
+            )
+            result = await db.execute(flatliners_query)
+            flatliners_count = result.scalar() or 0
+            
+            # Get anomalies count (z-score > 2.5)
+            anomalies_query = select(func.count(TimingAnalysis.id)).where(
+                and_(*conditions, func.abs(TimingAnalysis.anomaly_score) > 2.5)
+            )
+            result = await db.execute(anomalies_query)
+            anomalies_count = result.scalar() or 0
+            
+            # Get average response time
+            avg_time_query = (
+                select(func.avg(TimingAnalysis.question_time_ms).label('avg_time'))
+                .where(and_(*conditions))
+            )
+            result = await db.execute(avg_time_query)
+            avg_time = float(result.scalar()) if result.scalar() else 0.0
+            
+            # Get median response time (fetch all times and calculate in Python for simplicity)
+            median_query = select(TimingAnalysis.question_time_ms).where(and_(*conditions))
+            result = await db.execute(median_query)
+            times = [row[0] for row in result if row[0] is not None]
+            median_time = statistics.median(times) if times else 0.0
+            
+            # Get unique questions count
+            unique_questions_query = (
+                select(func.count(func.distinct(TimingAnalysis.question_id)))
+                .where(and_(*conditions))
+            )
+            result = await db.execute(unique_questions_query)
+            unique_questions = result.scalar() or 0
+            
+            return {
+                "survey_id": survey_id,
+                "platform_id": platform_id,
+                "respondent_id": respondent_id,
+                "session_id": session_id,
+                "total_analyses": total_analyses,
+                "speeders_count": speeders_count,
+                "speeders_percentage": (speeders_count / total_analyses * 100) if total_analyses > 0 else 0.0,
+                "flatliners_count": flatliners_count,
+                "flatliners_percentage": (flatliners_count / total_analyses * 100) if total_analyses > 0 else 0.0,
+                "anomalies_count": anomalies_count,
+                "anomalies_percentage": (anomalies_count / total_analyses * 100) if total_analyses > 0 else 0.0,
+                "avg_response_time_ms": avg_time,
+                "median_response_time_ms": median_time,
+                "unique_questions": unique_questions
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting timing analysis summary: {e}")
             raise
 

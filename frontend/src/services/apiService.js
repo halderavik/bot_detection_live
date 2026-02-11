@@ -237,6 +237,54 @@ export const hierarchicalService = {
 
   getSessionFraudByHierarchy: async (surveyId, platformId, respondentId, sessionId) => {
     return api.get(`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/fraud`);
+  },
+
+  // Hierarchical Grid Analysis Methods
+  getGridAnalysisSummary: async (surveyId, platformId = null, respondentId = null, sessionId = null, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    let url;
+    if (sessionId && respondentId && platformId) {
+      // Session level
+      url = `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/grid-analysis`;
+    } else if (respondentId && platformId) {
+      // Respondent level
+      url = `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/grid-analysis/summary`;
+    } else if (platformId) {
+      // Platform level
+      url = `/surveys/${surveyId}/platforms/${platformId}/grid-analysis/summary`;
+    } else {
+      // Survey level
+      url = `/surveys/${surveyId}/grid-analysis/summary`;
+    }
+    
+    return api.get(`${url}${params.toString() ? '?' + params.toString() : ''}`);
+  },
+
+  // Hierarchical Timing Analysis Methods
+  getTimingAnalysisSummary: async (surveyId, platformId = null, respondentId = null, sessionId = null, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    
+    let url;
+    if (sessionId && respondentId && platformId) {
+      // Session level
+      url = `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}/timing-analysis`;
+    } else if (respondentId && platformId) {
+      // Respondent level
+      url = `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/timing-analysis/summary`;
+    } else if (platformId) {
+      // Platform level
+      url = `/surveys/${surveyId}/platforms/${platformId}/timing-analysis/summary`;
+    } else {
+      // Survey level
+      url = `/surveys/${surveyId}/timing-analysis/summary`;
+    }
+    
+    return api.get(`${url}${params.toString() ? '?' + params.toString() : ''}`);
   }
 };
 

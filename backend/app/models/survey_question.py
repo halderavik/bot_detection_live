@@ -38,6 +38,8 @@ class SurveyQuestion(Base):
     # Relationships
     session = relationship("Session", back_populates="survey_questions")
     survey_response = relationship("SurveyResponse", back_populates="survey_question", uselist=False)
+    grid_responses = relationship("GridResponse", back_populates="survey_question", cascade="all, delete-orphan")
+    timing_analyses = relationship("TimingAnalysis", back_populates="survey_question", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<SurveyQuestion(id={self.id}, session={self.session_id}, type={self.question_type})>"
