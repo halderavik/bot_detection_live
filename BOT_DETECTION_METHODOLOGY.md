@@ -978,12 +978,109 @@ Grid analysis is integrated into the hierarchical API structure:
 - Respondent-level grid analysis summaries
 - Session-level grid analysis details
 
+### Grid/Matrix Analysis for Fraud Detection
+
+**How Grid Analysis Identifies Fraudulent Behavior**:
+
+Grid/matrix question analysis detects patterns that indicate fraudulent or low-quality responses, which are strong indicators of bot activity or satisficing behavior:
+
+1. **Straight-lining Detection** (`detect_straight_lining()`):
+   - **Algorithm**: Counts occurrences of each response value in the grid. If any single value appears in **80% or more** of responses (threshold: `straight_line_threshold = 0.8`), the grid is flagged as straight-lined.
+   - **Confidence Calculation**: `confidence = min(percentage, 1.0) * min(len(values) / 10.0, 1.0)` - confidence increases with both the percentage of identical values and the total number of responses (capped at 10 responses).
+   - **Fraud Indicator**: Straight-lining suggests the respondent is not reading questions and is providing mechanical responses, which is a strong indicator of fraudulent or low-quality participation.
+
+2. **Pattern Detection** (`detect_patterns()`):
+   - **Diagonal Pattern**: Checks if values are strictly increasing (1, 2, 3, 4...). Requires at least 3 responses.
+   - **Reverse Diagonal Pattern**: Checks if values are strictly decreasing. Requires at least 3 responses.
+   - **Zigzag Pattern**: Checks if values alternate between increasing and decreasing. Requires at least 4 responses.
+   - **Straight Line Pattern**: All values are identical (detected separately from straight-lining check).
+   - **Fraud Indicator**: Mechanical patterns indicate automated or scripted responses rather than genuine human consideration.
+
+3. **Variance Scoring** (`calculate_variance()`):
+   - **Algorithm**: Calculates standard deviation of response values, then normalizes using coefficient of variation: `cv = std_dev / abs(mean_val)`, capped at 1.0. Returns 0.0 for no variance, 1.0 for high variance.
+   - **Fraud Indicator**: Low variance (score < 0.3) indicates responses lack diversity and may be fraudulent or satisficing.
+
+4. **Satisficing Scoring** (`calculate_satisficing_score()`):
+   - **Algorithm**: Combines three factors with weights:
+     - **Low variance** (40% weight): Inverted variance score (1.0 - variance) - low variance = high satisficing
+     - **Fast response times** (30% weight): Normalized based on average response time (< 2 seconds = high satisficing, > 10 seconds = low satisficing)
+     - **Pattern consistency** (30% weight): Confidence score from pattern detection if pattern is straight_line, diagonal, or reverse_diagonal
+   - **Formula**: `satisficing_score = (variance_score * 0.4) + (time_score * 0.3) + (pattern_score * 0.3)`, capped between 0.0 and 1.0
+   - **Fraud Indicator**: High satisficing scores (≥ 0.7) indicate low-effort, fraudulent responses.
+
+**Storage and Integration**:
+- Grid analysis results are stored in `grid_responses` table with hierarchical fields (`survey_id`, `platform_id`, `respondent_id`, `session_id`) for efficient aggregation.
+- Each grid response record includes: `is_straight_lined`, `pattern_type`, `variance_score`, `satisficing_score`.
+- Results are aggregated at survey/platform/respondent/session levels using hierarchical queries.
+- While grid analysis is not directly included in the fraud score calculation, it provides complementary fraud indicators that are displayed alongside fraud detection results in reports and dashboards.
+
 ### Timing Analysis Integration
 Timing analysis is integrated into the hierarchical API structure:
 - Survey-level timing analysis summaries
 - Platform-level timing analysis summaries
 - Respondent-level timing analysis summaries
 - Session-level timing analysis details with per-question breakdowns
+
+### Hierarchical Structure Data for Fraud Detection
+
+**How Hierarchical Structure Enables Fraud Detection**:
+
+The hierarchical structure (Survey → Platform → Respondent → Session) is essential for fraud detection algorithms. The system uses denormalized hierarchical fields stored in fraud detection tables to efficiently identify fraudulent patterns:
+
+1. **Duplicate Response Detection** (`_analyze_duplicate_responses()`):
+   - **Hierarchical Scope**: Compares responses **only within the same `survey_id`** to avoid false positives from legitimate similar responses across different surveys.
+   - **Algorithm**: 
+     - Retrieves all responses for the current session where `SurveyResponse.session_id == session.id`
+     - Retrieves responses from other sessions where `Session.survey_id == session.survey_id AND Session.id != session.id`
+     - Calculates text similarity using `calculate_text_similarity()` (difflib-based sequence matching)
+     - Flags duplicates when similarity ≥ 70% (`similarity_threshold = 0.70`)
+   - **Why Hierarchical**: Without `survey_id`, the system would compare responses across different surveys, leading to false positives. The hierarchical structure ensures comparisons are contextually appropriate.
+
+2. **Velocity Analysis** (`_analyze_velocity()`):
+   - **Hierarchical Tracking**: Calculates responses per hour using three identifiers:
+     - **By IP address**: Counts sessions with same `ip_address` created in the last hour
+     - **By device fingerprint**: Counts sessions with same `device_fingerprint` created in the last hour  
+     - **By respondent_id**: Counts sessions with same `respondent_id` created in the last hour
+   - **Algorithm**: Uses maximum of the three counts as the velocity metric: `responses_per_hour = max(ip_sessions_per_hour, fp_sessions_per_hour, resp_sessions_per_hour)`
+   - **Why Hierarchical**: The `respondent_id` allows tracking the same person across multiple sessions, while `ip_address` and `device_fingerprint` catch cases where the same person uses different accounts or where multiple people share devices/IPs.
+
+3. **Geolocation Consistency Checking** (`_analyze_geolocation()`):
+   - **Hierarchical Scope**: Checks consistency for the same `respondent_id` across sessions within a 1-hour window.
+   - **Algorithm**:
+     - Extracts country code from IP using `extract_geolocation_from_ip()`
+     - Finds other sessions where `Session.respondent_id == session.respondent_id AND Session.created_at >= session.created_at - timedelta(hours=1)`
+     - If country codes differ within 1 hour, flags as inconsistent (risk_score = 0.9)
+   - **Why Hierarchical**: Using `respondent_id` ensures we're checking if the same person appears to be in multiple countries simultaneously, which is physically impossible and indicates fraud.
+
+4. **Efficient Fraud Aggregation** (`_aggregate_fraud_data()`):
+   - **Denormalized Fields**: Fraud indicators are stored with denormalized hierarchical fields (`survey_id`, `platform_id`, `respondent_id`) copied from the session at analysis time.
+   - **Efficient Queries**: Instead of joining `fraud_indicators` → `sessions` → filtering by hierarchy, queries directly filter `fraud_indicators` by hierarchical fields:
+     ```python
+     fraud_conditions = [FraudIndicator.survey_id == survey_id]
+     if platform_id:
+         fraud_conditions.append(FraudIndicator.platform_id == platform_id)
+     if respondent_id:
+         fraud_conditions.append(FraudIndicator.respondent_id == respondent_id)
+     ```
+   - **Aggregation Levels**: Enables efficient aggregation at:
+     - Survey level: All fraud indicators for a survey
+     - Platform level: All fraud indicators for a platform within a survey
+     - Respondent level: All fraud indicators for a respondent within a platform
+     - Session level: Individual fraud indicator for a session
+   - **Why Denormalized**: Denormalization eliminates expensive JOINs and enables fast aggregation queries using composite indexes (`idx_fraud_survey`, `idx_fraud_survey_platform`, `idx_fraud_survey_platform_respondent`, `idx_fraud_survey_platform_respondent_session`).
+
+5. **IP and Device Fingerprint Tracking**:
+   - **IP Analysis** (`_analyze_ip_address()`): Counts total sessions and sessions today with the same `ip_address` across all surveys, then calculates risk score based on usage frequency.
+   - **Device Fingerprint Analysis** (`_analyze_device_fingerprint()`): Generates SHA256 hash from `user_agent + screen_width + screen_height + viewport_width + viewport_height + platform_id`, then counts sessions with the same fingerprint across all surveys.
+   - **Why Hierarchical**: While IP/device tracking is global (not limited to one survey), the hierarchical structure allows filtering results by `survey_id`, `platform_id`, or `respondent_id` when needed for reporting.
+
+**Database Schema**:
+- `fraud_indicators` table includes: `survey_id`, `platform_id`, `respondent_id` (denormalized from sessions)
+- `grid_responses` table includes: `survey_id`, `platform_id`, `respondent_id`, `session_id` (denormalized for efficient queries)
+- `timing_analysis` table includes: `survey_id`, `platform_id`, `respondent_id`, `session_id` (denormalized for efficient queries)
+- Composite indexes enable fast hierarchical queries without JOINs
+
+**Summary**: The hierarchical structure enables fraud detection by providing contextual scope (e.g., comparing duplicates within the same survey), enabling efficient aggregation (denormalized fields with composite indexes), and allowing multi-level analysis (survey/platform/respondent/session) for comprehensive fraud monitoring.
 
 ### API Endpoints
 ```http
