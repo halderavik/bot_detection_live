@@ -15,6 +15,7 @@
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available ✅
 - **Hierarchical Text Analysis**: V2 endpoints for text analysis at all hierarchy levels ✅
 - **Database Migration**: `platform_id` column added with composite indexes ✅
+- **Dashboard (February 2026)**: API Playground includes fraud, grid, and timing endpoint templates; Report Builder includes fraud, grid, and timing in summary and detailed reports ✅
 
 ## Table of Contents
 1. [Overview](#overview)

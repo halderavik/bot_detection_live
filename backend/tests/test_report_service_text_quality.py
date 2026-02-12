@@ -12,6 +12,10 @@ from sqlalchemy import select
 from unittest.mock import AsyncMock, patch, Mock
 import json
 
+# Minimal grid/timing summaries for report service tests (fraud/grid/timing integration)
+GRID_SUMMARY_MOCK = {"survey_id": "", "total_responses": 0, "straight_lined_count": 0, "straight_lined_percentage": 0.0, "pattern_distribution": {}, "avg_variance_score": 0.0, "avg_satisficing_score": 0.0, "unique_questions": 0}
+TIMING_SUMMARY_MOCK = {"survey_id": "", "total_analyses": 0, "speeders_count": 0, "speeders_percentage": 0.0, "flatliners_count": 0, "flatliners_percentage": 0.0, "anomalies_count": 0, "anomalies_percentage": 0.0, "avg_response_time_ms": 0.0, "median_response_time_ms": 0.0, "unique_questions": 0}
+
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,6 +37,20 @@ class TestReportServiceTextQuality:
     def mock_db_session(self):
         """Create mock database session."""
         return AsyncMock(spec=AsyncSession)
+
+    @pytest.fixture
+    def patch_aggregation_for_report(self, report_service):
+        """Patch aggregation service so summary report fraud/grid/timing calls do not hit DB."""
+        with patch.object(report_service.aggregation_service, "get_grid_analysis_summary", new_callable=AsyncMock, return_value=GRID_SUMMARY_MOCK), \
+             patch.object(report_service.aggregation_service, "get_timing_analysis_summary", new_callable=AsyncMock, return_value=TIMING_SUMMARY_MOCK):
+            yield
+
+    @pytest.fixture
+    def mock_fraud_result_empty(self):
+        """Mock execute result for fraud query (no indicators)."""
+        m = Mock()
+        m.scalars.return_value.all.return_value = []
+        return m
 
     @pytest.fixture
     def sample_sessions(self):
@@ -207,7 +225,8 @@ class TestReportServiceTextQuality:
     @pytest.mark.asyncio
     async def test_generate_summary_report_with_text_quality(self, report_service, mock_db_session, 
                                                            sample_sessions, sample_detection_results, 
-                                                           sample_survey_responses):
+                                                           sample_survey_responses, patch_aggregation_for_report,
+                                                           mock_fraud_result_empty):
         """Test summary report generation includes text quality data."""
         # Setup session query mock - fix async mock setup
         mock_session_result = Mock()
@@ -246,7 +265,9 @@ class TestReportServiceTextQuality:
             # Sixth call for event count (session 3)
             mock_event_count_result3,
             # Seventh call for text responses
-            mock_text_responses_result
+            mock_text_responses_result,
+            # Eighth call for fraud aggregation
+            mock_fraud_result_empty,
         ]
         
         result = await report_service.generate_summary_report(
@@ -280,7 +301,8 @@ class TestReportServiceTextQuality:
 
     @pytest.mark.asyncio
     async def test_generate_summary_report_no_text_responses(self, report_service, mock_db_session, 
-                                                           sample_sessions, sample_detection_results):
+                                                           sample_sessions, sample_detection_results,
+                                                           patch_aggregation_for_report, mock_fraud_result_empty):
         """Test summary report when no text responses exist."""
         # Setup mocks - fix async mock setup
         mock_session_result = Mock()
@@ -313,7 +335,9 @@ class TestReportServiceTextQuality:
             mock_event_results[1],
             mock_event_results[2],
             # Text responses (empty)
-            mock_empty_text_result
+            mock_empty_text_result,
+            # Fraud aggregation
+            mock_fraud_result_empty,
         ]
         
         result = await report_service.generate_summary_report(
@@ -327,7 +351,8 @@ class TestReportServiceTextQuality:
     @pytest.mark.asyncio
     async def test_generate_summary_report_filtered_survey(self, report_service, mock_db_session, 
                                                           sample_sessions, sample_detection_results, 
-                                                          sample_survey_responses):
+                                                          sample_survey_responses, patch_aggregation_for_report,
+                                                          mock_fraud_result_empty):
         """Test summary report with survey filtering includes only relevant text responses."""
         # Filter to survey-1 sessions only
         survey1_sessions = [s for s in sample_sessions if s.survey_id == "survey-1"]
@@ -362,7 +387,9 @@ class TestReportServiceTextQuality:
             mock_event_results[0],
             mock_event_results[1],
             # Text responses for survey-1 only
-            mock_text_responses_result
+            mock_text_responses_result,
+            # Fraud aggregation
+            mock_fraud_result_empty,
         ]
         
         result = await report_service.generate_summary_report(
@@ -405,7 +432,18 @@ class TestReportServiceTextQuality:
         
         mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = [session_with_data]
-        mock_db_session.execute.return_value = mock_result
+        mock_text = Mock()
+        mock_text.scalars.return_value.all.return_value = []
+        mock_fraud_first = Mock()
+        mock_fraud_first.scalars.return_value.first.return_value = None
+        mock_grid = Mock()
+        mock_grid.scalars.return_value.all.return_value = []
+        mock_timing = Mock()
+        mock_timing.scalar.return_value = 0
+        mock_db_session.execute.side_effect = [
+            mock_result,
+            mock_text, mock_fraud_first, mock_grid, mock_timing, mock_timing, mock_timing,
+        ]
         
         result = await report_service.generate_detailed_report(
             survey_id="survey-1",
@@ -598,6 +636,9 @@ class TestReportServiceTextQuality:
         mock_test_responses_result = Mock()
         mock_test_responses_result.scalars.return_value.all.return_value = test_responses
         
+        mock_fraud_empty = Mock()
+        mock_fraud_empty.scalars.return_value.all.return_value = []
+        
         mock_db_session.execute.side_effect = [
             # Sessions
             mock_session_result,
@@ -610,13 +651,17 @@ class TestReportServiceTextQuality:
             mock_empty_event_results[1],
             mock_empty_event_results[2],
             # Text responses
-            mock_test_responses_result
+            mock_test_responses_result,
+            # Fraud aggregation
+            mock_fraud_empty,
         ]
         
-        result = await report_service.generate_summary_report(
-            survey_id="survey-1",
-            db=mock_db_session
-        )
+        with patch.object(report_service.aggregation_service, "get_grid_analysis_summary", new_callable=AsyncMock, return_value=GRID_SUMMARY_MOCK), \
+             patch.object(report_service.aggregation_service, "get_timing_analysis_summary", new_callable=AsyncMock, return_value=TIMING_SUMMARY_MOCK):
+            result = await report_service.generate_summary_report(
+                survey_id="survey-1",
+                db=mock_db_session
+            )
         
         # Verify quality distribution
         quality_dist = result.text_quality_summary["quality_distribution"]

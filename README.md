@@ -20,7 +20,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - ✅ **Unit Tests**: 10/10 passing for fraud detection service ✅ **COMPLETED**
 - ✅ **API Tests**: All fraud detection endpoints tested and verified ✅ **COMPLETED**
 - ✅ **Database Migration**: Migration script created and ready ✅ **COMPLETED**
-- ⏳ **Production Deployment**: Implementation complete, pending deployment to production
+- ✅ **Production Deployment**: Dashboard redeployed February 2026 with fraud/grid/timing in API Playground and Report Builder
 
 **Production URLs:**
 - Backend: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
@@ -28,10 +28,12 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - API Docs: `https://bot-backend-119522247395.northamerica-northeast2.run.app/docs`
 
 **Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
-- ✅ Frontend successfully deployed to Cloud Storage
+- ✅ Frontend successfully deployed to Cloud Storage (`bot-detection-frontend-20251208`)
 - ✅ All API endpoints verified and returning data from Cloud SQL
 - ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
 - ✅ Fraud detection widget integrated and operational
+- ✅ API Playground: Endpoint templates for fraud (flat + hierarchical), grid analysis, and timing analysis
+- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV)
 - ✅ All 6 frontend-used endpoints tested and working correctly
 
 ## 🚀 Features
@@ -48,7 +50,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Fraud Detection Dashboard**: Hierarchical fraud widgets integrated into all detail views ✅ **COMPLETED**
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
-- **Enhanced Report Builder**: Comprehensive reporting system with text quality and fraud metrics integration
+- **Enhanced Report Builder**: Comprehensive reporting system with text quality, fraud & duplicate detection, grid/matrix analysis, and timing analysis metrics in summary and detailed reports
 - **Scalable Architecture**: FastAPI backend with PostgreSQL deployed on Google Cloud Platform
 - **Client SDKs**: Python and JavaScript client libraries for easy integration
 - **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking
@@ -751,7 +753,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ✅ **100% Test Classification Accuracy** - All test cases passing with perfect accuracy
 - ✅ **Text Analysis Health Monitoring** - Real-time OpenAI service status tracking
 - ✅ **Text Analysis Dashboard Integration** - Complete backend and frontend implementation
-- ✅ **Enhanced Report Service** - Text quality metrics integration in all reports
+- ✅ **Enhanced Report Service** - Text quality, fraud, grid, and timing metrics in summary/detailed reports and CSV export
 - ✅ **Comprehensive Test Suite** - 14 passing tests for all new functionality
 - ✅ **Production Deployment** - All new features deployed and operational
 - ✅ **Hierarchical API Structure** - Survey → Platform → Respondent → Session hierarchy implemented

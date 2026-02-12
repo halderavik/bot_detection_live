@@ -148,7 +148,9 @@
 - **Icon Library Integration** - Fixed Lucide React icon imports
 - **Component Architecture** - Modular, maintainable UI components
 - **Integration Management** - Complete webhook testing and monitoring
-- **API Playground** - Interactive API testing interface
+- **API Playground** - Interactive API testing interface; fraud, grid, and timing endpoint templates (February 2026)
+- **Report Builder** - Fraud, grid, and timing in summary and detailed reports/CSV (February 2026)
+- **Dashboard Deployment (February 2026)** - Frontend redeployed to GCS with API Playground and Report Builder fraud/grid/timing features
 - **Quick Start Guide** - Comprehensive onboarding documentation
 
 ## Next Steps

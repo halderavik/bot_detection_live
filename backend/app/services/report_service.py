@@ -15,11 +15,12 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 import logging
 
-from app.models import Session, BehaviorData, DetectionResult, SurveyResponse
+from app.models import Session, BehaviorData, DetectionResult, SurveyResponse, FraudIndicator, GridResponse, TimingAnalysis
 from app.models.report_models import (
     SurveySummaryReport, DetailedReport, RespondentDetail,
     ReportRequest, ReportResponse, ReportType, ReportFormat
 )
+from app.services.aggregation_service import AggregationService
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -30,6 +31,7 @@ class ReportService:
     def __init__(self):
         """Initialize the report service."""
         self.logger = logger
+        self.aggregation_service = AggregationService()
     
     async def get_available_surveys(self, db: AsyncSession) -> List[Dict[str, Any]]:
         """
@@ -144,7 +146,10 @@ class ReportService:
                     date_range={
                         "from": date_from.isoformat() if date_from else None,
                         "to": date_to.isoformat() if date_to else None
-                    }
+                    },
+                    fraud_summary=None,
+                    grid_analysis_summary=None,
+                    timing_analysis_summary=None
                 )
             
             # Get detection results for these sessions
@@ -264,6 +269,32 @@ class ReportService:
                         "quality_distribution": quality_distribution
                     }
             
+            # Fraud summary: aggregate fraud_indicators for sessions in scope
+            session_ids = [s.id for s in sessions]
+            fraud_summary = await self._aggregate_fraud_for_sessions(db, survey_id, session_ids)
+            
+            # Grid analysis summary: use aggregation service at survey level with date filter
+            grid_analysis_summary = await self.aggregation_service.get_grid_analysis_summary(
+                survey_id=survey_id,
+                platform_id=None,
+                respondent_id=None,
+                session_id=None,
+                db=db,
+                date_from=date_from,
+                date_to=date_to
+            )
+            
+            # Timing analysis summary: use aggregation service at survey level with date filter
+            timing_analysis_summary = await self.aggregation_service.get_timing_analysis_summary(
+                survey_id=survey_id,
+                platform_id=None,
+                respondent_id=None,
+                session_id=None,
+                db=db,
+                date_from=date_from,
+                date_to=date_to
+            )
+            
             return SurveySummaryReport(
                 survey_id=survey_id,
                 total_respondents=total_sessions,
@@ -277,7 +308,10 @@ class ReportService:
                 date_range=date_range,
                 average_session_duration=average_session_duration,
                 average_events_per_session=average_events_per_session,
-                text_quality_summary=text_quality_summary
+                text_quality_summary=text_quality_summary,
+                fraud_summary=fraud_summary,
+                grid_analysis_summary=grid_analysis_summary,
+                timing_analysis_summary=timing_analysis_summary
             )
             
         except Exception as e:
@@ -338,7 +372,7 @@ class ReportService:
             # Generate respondent details
             respondents = []
             for session in sessions:
-                respondent_detail = await self._create_respondent_detail(session)
+                respondent_detail = await self._create_respondent_detail(session, db)
                 respondents.append(respondent_detail)
             
             return DetailedReport(
@@ -389,8 +423,95 @@ class ReportService:
             "activity_distribution": activity_distribution
         }
     
-    async def _create_respondent_detail(self, session: Session) -> RespondentDetail:
-        """Create respondent detail from session data."""
+    async def _aggregate_fraud_for_sessions(
+        self, db: AsyncSession, survey_id: str, session_ids: List[str]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Aggregate fraud detection metrics for a set of session IDs.
+        Returns the same structure as hierarchical fraud summary, or None if no indicators.
+        """
+        if not session_ids:
+            return None
+        try:
+            fraud_query = (
+                select(FraudIndicator)
+                .where(
+                    and_(
+                        FraudIndicator.survey_id == survey_id,
+                        FraudIndicator.session_id.in_(session_ids)
+                    )
+                )
+            )
+            fraud_result = await db.execute(fraud_query)
+            fraud_indicators = fraud_result.scalars().all()
+            if not fraud_indicators:
+                return {
+                    "total_sessions_analyzed": 0,
+                    "total_sessions": len(session_ids),
+                    "duplicate_sessions": 0,
+                    "high_risk_sessions": 0,
+                    "average_fraud_score": None,
+                    "duplicate_rate": 0.0,
+                    "high_risk_rate": 0.0,
+                    "risk_distribution": {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0},
+                    "fraud_methods": {
+                        "ip_high_risk": 0,
+                        "fingerprint_high_risk": 0,
+                        "duplicate_responses": 0,
+                        "geolocation_inconsistent": 0,
+                        "high_velocity": 0
+                    }
+                }
+            total_analyzed = len(fraud_indicators)
+            duplicate_count = sum(1 for fi in fraud_indicators if fi.is_duplicate)
+            risk_distribution = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0}
+            high_risk_count = 0
+            fraud_scores = []
+            fraud_methods = {
+                "ip_high_risk": 0,
+                "fingerprint_high_risk": 0,
+                "duplicate_responses": 0,
+                "geolocation_inconsistent": 0,
+                "high_velocity": 0
+            }
+            for fi in fraud_indicators:
+                if fi.risk_level in risk_distribution:
+                    risk_distribution[fi.risk_level] += 1
+                if fi.overall_fraud_score and float(fi.overall_fraud_score) >= 0.7:
+                    high_risk_count += 1
+                if fi.overall_fraud_score:
+                    fraud_scores.append(float(fi.overall_fraud_score))
+                if fi.flag_reasons:
+                    if "ip_reuse" in fi.flag_reasons:
+                        fraud_methods["ip_high_risk"] += 1
+                    if "device_reuse" in fi.flag_reasons:
+                        fraud_methods["fingerprint_high_risk"] += 1
+                    if "duplicate_responses" in fi.flag_reasons:
+                        fraud_methods["duplicate_responses"] += 1
+                    if "geolocation_inconsistency" in fi.flag_reasons:
+                        fraud_methods["geolocation_inconsistent"] += 1
+                    if "high_velocity" in fi.flag_reasons:
+                        fraud_methods["high_velocity"] += 1
+            avg_fraud_score = sum(fraud_scores) / len(fraud_scores) if fraud_scores else None
+            duplicate_rate = (duplicate_count / total_analyzed * 100) if total_analyzed > 0 else 0.0
+            high_risk_rate = (high_risk_count / total_analyzed * 100) if total_analyzed > 0 else 0.0
+            return {
+                "total_sessions_analyzed": total_analyzed,
+                "total_sessions": len(session_ids),
+                "duplicate_sessions": duplicate_count,
+                "high_risk_sessions": high_risk_count,
+                "average_fraud_score": round(avg_fraud_score, 3) if avg_fraud_score else None,
+                "duplicate_rate": round(duplicate_rate, 2),
+                "high_risk_rate": round(high_risk_rate, 2),
+                "risk_distribution": risk_distribution,
+                "fraud_methods": fraud_methods
+            }
+        except Exception as e:
+            self.logger.warning(f"Error aggregating fraud for report: {e}")
+            return None
+    
+    async def _create_respondent_detail(self, session: Session, db: AsyncSession) -> RespondentDetail:
+        """Create respondent detail from session data including fraud, grid, and timing."""
         # Get latest detection result
         latest_detection = None
         if session.detection_results:
@@ -426,9 +547,75 @@ class ReportService:
         avg_text_quality_score = None
         flagged_text_responses = None
         text_quality_percentage = None
+        try:
+            text_query = select(SurveyResponse).where(SurveyResponse.session_id == session.id)
+            text_result = await db.execute(text_query)
+            text_responses = text_result.scalars().all()
+            if text_responses:
+                text_response_count = len(text_responses)
+                scores = [r.quality_score for r in text_responses if r.quality_score is not None]
+                avg_text_quality_score = sum(scores) / len(scores) if scores else None
+                flagged_text_responses = sum(1 for r in text_responses if r.is_flagged)
+                text_quality_percentage = (flagged_text_responses / text_response_count * 100) if text_response_count else None
+        except Exception:
+            pass
         
-        # This would need to be passed from the calling method or queried here
-        # For now, we'll add the fields but they'll be None until we implement the query
+        # Fraud: latest fraud indicator for this session
+        fraud_score = None
+        is_duplicate = None
+        fraud_risk_level = None
+        try:
+            fraud_query = (
+                select(FraudIndicator)
+                .where(FraudIndicator.session_id == session.id)
+                .order_by(FraudIndicator.created_at.desc())
+            )
+            fraud_row = await db.execute(fraud_query)
+            fi = fraud_row.scalars().first()
+            if fi:
+                fraud_score = float(fi.overall_fraud_score) if fi.overall_fraud_score else None
+                is_duplicate = fi.is_duplicate
+                rl = getattr(fi, "risk_level", None)
+                fraud_risk_level = rl if isinstance(rl, str) else None
+        except Exception:
+            pass
+        
+        # Grid: any straight-lining, avg variance for this session
+        grid_straight_lining = None
+        grid_variance_score = None
+        try:
+            grid_query = select(GridResponse).where(GridResponse.session_id == session.id)
+            grid_result = await db.execute(grid_query)
+            grid_rows = grid_result.scalars().all()
+            if grid_rows:
+                grid_straight_lining = any(gr.is_straight_lined for gr in grid_rows)
+                variances = [gr.variance_score for gr in grid_rows if gr.variance_score is not None]
+                grid_variance_score = sum(variances) / len(variances) if variances else None
+        except Exception:
+            pass
+        
+        # Timing: any speeder/flatliner, anomaly count for this session
+        timing_speeder = None
+        timing_flatliner = None
+        timing_anomaly_count = None
+        try:
+            timing_speeder_query = select(func.count(TimingAnalysis.id)).where(
+                and_(TimingAnalysis.session_id == session.id, TimingAnalysis.is_speeder == True)
+            )
+            timing_flatliner_query = select(func.count(TimingAnalysis.id)).where(
+                and_(TimingAnalysis.session_id == session.id, TimingAnalysis.is_flatliner == True)
+            )
+            timing_anom_query = select(func.count(TimingAnalysis.id)).where(
+                and_(TimingAnalysis.session_id == session.id, func.abs(TimingAnalysis.anomaly_score) > 2.5)
+            )
+            sr = await db.execute(timing_speeder_query)
+            flr = await db.execute(timing_flatliner_query)
+            ar = await db.execute(timing_anom_query)
+            timing_anomaly_count = ar.scalar() or 0
+            timing_speeder = (sr.scalar() or 0) > 0
+            timing_flatliner = (flr.scalar() or 0) > 0
+        except Exception:
+            pass
         
         return RespondentDetail(
             session_id=session.id,
@@ -448,7 +635,15 @@ class ReportService:
             text_response_count=text_response_count,
             avg_text_quality_score=avg_text_quality_score,
             flagged_text_responses=flagged_text_responses,
-            text_quality_percentage=text_quality_percentage
+            text_quality_percentage=text_quality_percentage,
+            fraud_score=fraud_score,
+            is_duplicate=is_duplicate,
+            fraud_risk_level=fraud_risk_level,
+            grid_straight_lining=grid_straight_lining,
+            grid_variance_score=float(grid_variance_score) if grid_variance_score is not None else None,
+            timing_speeder=timing_speeder,
+            timing_flatliner=timing_flatliner,
+            timing_anomaly_count=timing_anomaly_count
         )
     
     def _generate_bot_explanation(self, detection: DetectionResult) -> str:
@@ -497,7 +692,10 @@ class ReportService:
                 "Is Bot", "Confidence Score", "Risk Level", "Total Events",
                 "Session Duration (min)", "Event Breakdown", "Method Scores",
                 "Flagged Patterns", "Analysis Summary", "Bot Explanation",
-                "Text Response Count", "Avg Text Quality Score", "Flagged Text Responses", "Text Quality Percentage"
+                "Text Response Count", "Avg Text Quality Score", "Flagged Text Responses", "Text Quality Percentage",
+                "Fraud Score", "Is Duplicate", "Fraud Risk Level",
+                "Grid Straight Lining", "Grid Variance Score",
+                "Timing Speeder", "Timing Flatliner", "Timing Anomaly Count"
             ]
             writer.writerow(header)
             
@@ -521,7 +719,15 @@ class ReportService:
                     respondent.text_response_count or 0,
                     f"{respondent.avg_text_quality_score:.1f}" if respondent.avg_text_quality_score else "N/A",
                     respondent.flagged_text_responses or 0,
-                    f"{respondent.text_quality_percentage:.1f}%" if respondent.text_quality_percentage else "N/A"
+                    f"{respondent.text_quality_percentage:.1f}%" if respondent.text_quality_percentage else "N/A",
+                    f"{respondent.fraud_score:.3f}" if respondent.fraud_score is not None else "",
+                    "Yes" if respondent.is_duplicate else ("No" if respondent.is_duplicate is False else ""),
+                    respondent.fraud_risk_level or "",
+                    "Yes" if respondent.grid_straight_lining else ("No" if respondent.grid_straight_lining is False else ""),
+                    f"{respondent.grid_variance_score:.3f}" if respondent.grid_variance_score is not None else "",
+                    "Yes" if respondent.timing_speeder else ("No" if respondent.timing_speeder is False else ""),
+                    "Yes" if respondent.timing_flatliner else ("No" if respondent.timing_flatliner is False else ""),
+                    respondent.timing_anomaly_count if respondent.timing_anomaly_count is not None else ""
                 ]
                 writer.writerow(row)
             

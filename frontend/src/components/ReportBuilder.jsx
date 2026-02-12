@@ -13,7 +13,9 @@ import {
   CheckCircle,
   Clock,
   MessageSquare,
-  TrendingUp
+  TrendingUp,
+  ShieldAlert,
+  LayoutGrid
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { reportService, textAnalysisService } from '../services/apiService';
@@ -424,6 +426,140 @@ const ReportBuilder = () => {
             </div>
           )}
 
+          {/* Fraud & Duplicate Detection Section */}
+          {summaryReport.fraud_summary && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <ShieldAlert className="w-5 h-5 mr-2 text-amber-600" />
+                Fraud & Duplicate Detection
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="bg-amber-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-900">
+                    {summaryReport.fraud_summary.duplicate_sessions ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-amber-600">Duplicate Sessions</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-900">
+                    {summaryReport.fraud_summary.high_risk_sessions ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-red-600">High Risk Sessions</div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {summaryReport.fraud_summary.average_fraud_score != null
+                      ? (summaryReport.fraud_summary.average_fraud_score * 100).toFixed(1)
+                      : 'N/A'}%
+                  </div>
+                  <div className="text-sm font-medium text-gray-600">Avg Fraud Score</div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-900">
+                    {(summaryReport.fraud_summary.duplicate_rate ?? 0).toFixed(1)}%
+                  </div>
+                  <div className="text-sm font-medium text-amber-600">Duplicate Rate</div>
+                </div>
+              </div>
+              {summaryReport.fraud_summary.fraud_methods && (
+                <div>
+                  <h4 className="text-md font-medium text-gray-900 mb-3">Fraud Method Breakdown</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(summaryReport.fraud_summary.fraud_methods).map(([method, count]) => (
+                      <span
+                        key={method}
+                        className="px-3 py-1 bg-gray-100 rounded-full text-sm"
+                        title={method}
+                      >
+                        {method.replace(/_/g, ' ')}: <strong>{count}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Grid Analysis Section */}
+          {summaryReport.grid_analysis_summary && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <LayoutGrid className="w-5 h-5 mr-2 text-indigo-600" />
+                Grid / Matrix Analysis
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="bg-indigo-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-indigo-900">
+                    {summaryReport.grid_analysis_summary.total_responses ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-indigo-600">Total Grid Responses</div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-900">
+                    {summaryReport.grid_analysis_summary.straight_lined_count ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-amber-600">Straight-Lined</div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {(summaryReport.grid_analysis_summary.straight_lined_percentage ?? 0).toFixed(1)}%
+                  </div>
+                  <div className="text-sm font-medium text-gray-600">Straight-Line Rate</div>
+                </div>
+                <div className="bg-indigo-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-indigo-900">
+                    {(summaryReport.grid_analysis_summary.avg_variance_score ?? 0).toFixed(2)}
+                  </div>
+                  <div className="text-sm font-medium text-indigo-600">Avg Variance Score</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Timing Analysis Section */}
+          {summaryReport.timing_analysis_summary && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-teal-600" />
+                Timing Analysis
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="bg-teal-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-teal-900">
+                    {summaryReport.timing_analysis_summary.total_analyses ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-teal-600">Total Timing Analyses</div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-900">
+                    {summaryReport.timing_analysis_summary.speeders_count ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-amber-600">Speeders</div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-amber-900">
+                    {summaryReport.timing_analysis_summary.flatliners_count ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-amber-600">Flatliners</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-red-900">
+                    {summaryReport.timing_analysis_summary.anomalies_count ?? 0}
+                  </div>
+                  <div className="text-sm font-medium text-red-600">Timing Anomalies</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-sm text-gray-600">
+                  Speeder rate: <strong>{(summaryReport.timing_analysis_summary.speeders_percentage ?? 0).toFixed(1)}%</strong>
+                </div>
+                <div className="text-sm text-gray-600">
+                  Flatliner rate: <strong>{(summaryReport.timing_analysis_summary.flatliners_percentage ?? 0).toFixed(1)}%</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Date Range */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
@@ -508,6 +644,15 @@ const ReportBuilder = () => {
                     Text Quality
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fraud
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grid
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Timing
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                 </tr>
@@ -564,6 +709,53 @@ const ReportBuilder = () => {
                       ) : (
                         <span className="text-gray-400 text-sm">No text data</span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="space-y-0.5">
+                        {respondent.fraud_score != null && (
+                          <div>Score: {(respondent.fraud_score * 100).toFixed(0)}%</div>
+                        )}
+                        {respondent.is_duplicate === true && (
+                          <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">Duplicate</span>
+                        )}
+                        {respondent.fraud_risk_level && (
+                          <div className="text-xs text-gray-500">{respondent.fraud_risk_level}</div>
+                        )}
+                        {respondent.fraud_score == null && respondent.is_duplicate != true && !respondent.fraud_risk_level && (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="space-y-0.5">
+                        {respondent.grid_straight_lining === true && (
+                          <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">Straight-line</span>
+                        )}
+                        {respondent.grid_variance_score != null && (
+                          <div className="text-xs">Variance: {respondent.grid_variance_score.toFixed(2)}</div>
+                        )}
+                        {respondent.grid_straight_lining !== true && respondent.grid_variance_score == null && (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex flex-wrap gap-1">
+                        {respondent.timing_speeder && (
+                          <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded">Speeder</span>
+                        )}
+                        {respondent.timing_flatliner && (
+                          <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded">Flatliner</span>
+                        )}
+                        {respondent.timing_anomaly_count > 0 && (
+                          <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">
+                            {respondent.timing_anomaly_count} anomalies
+                          </span>
+                        )}
+                        {!respondent.timing_speeder && !respondent.timing_flatliner && (respondent.timing_anomaly_count == null || respondent.timing_anomaly_count === 0) && (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(respondent.created_at)}

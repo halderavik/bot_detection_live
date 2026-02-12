@@ -171,6 +171,106 @@ const ApiPlayground = () => {
       url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/sessions/{sessionId}/text-analysis',
       body: '',
       description: 'Get text analysis summary for a session via hierarchical path (V2)'
+    },
+    // Fraud (flat)
+    'Get Fraud Indicators for Session': {
+      method: 'GET',
+      url: '/api/v1/fraud/sessions/{sessionId}',
+      body: '',
+      description: 'Get fraud indicators for a session (flat)'
+    },
+    'Fraud Dashboard Summary': {
+      method: 'GET',
+      url: '/api/v1/fraud/dashboard/summary?days=7',
+      body: '',
+      description: 'Get fraud dashboard summary (flat)'
+    },
+    'Get Duplicate Sessions': {
+      method: 'GET',
+      url: '/api/v1/fraud/dashboard/duplicates?limit=50',
+      body: '',
+      description: 'Get duplicate sessions list (flat)'
+    },
+    'Analyze Session Fraud': {
+      method: 'POST',
+      url: '/api/v1/fraud/analyze/{sessionId}',
+      body: '',
+      description: 'Trigger fraud analysis for a session (flat)'
+    },
+    // Fraud (hierarchical)
+    'Get Survey Fraud Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/fraud/summary',
+      body: '',
+      description: 'Get fraud summary for a survey (hierarchical)'
+    },
+    'Get Platform Fraud Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/fraud/summary',
+      body: '',
+      description: 'Get fraud summary for a platform (hierarchical)'
+    },
+    'Get Respondent Fraud Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/fraud/summary',
+      body: '',
+      description: 'Get fraud summary for a respondent (hierarchical)'
+    },
+    'Get Session Fraud (Hierarchical)': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/sessions/{sessionId}/fraud',
+      body: '',
+      description: 'Get fraud details for a session via hierarchical path'
+    },
+    // Grid analysis (hierarchical)
+    'Get Survey Grid Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/grid-analysis/summary',
+      body: '',
+      description: 'Get grid/matrix analysis summary for a survey'
+    },
+    'Get Platform Grid Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/grid-analysis/summary',
+      body: '',
+      description: 'Get grid analysis summary for a platform'
+    },
+    'Get Respondent Grid Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/grid-analysis/summary',
+      body: '',
+      description: 'Get grid analysis summary for a respondent'
+    },
+    'Get Session Grid Analysis': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/sessions/{sessionId}/grid-analysis',
+      body: '',
+      description: 'Get detailed grid analysis for a session'
+    },
+    // Timing analysis (hierarchical)
+    'Get Survey Timing Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/timing-analysis/summary',
+      body: '',
+      description: 'Get timing analysis summary for a survey'
+    },
+    'Get Platform Timing Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/timing-analysis/summary',
+      body: '',
+      description: 'Get timing analysis summary for a platform'
+    },
+    'Get Respondent Timing Analysis Summary': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/timing-analysis/summary',
+      body: '',
+      description: 'Get timing analysis summary for a respondent'
+    },
+    'Get Session Timing Analysis': {
+      method: 'GET',
+      url: '/api/v1/surveys/{surveyId}/platforms/{platformId}/respondents/{respondentId}/sessions/{sessionId}/timing-analysis',
+      body: '',
+      description: 'Get detailed timing analysis for a session'
     }
   };
 

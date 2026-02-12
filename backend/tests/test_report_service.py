@@ -2,12 +2,12 @@
 Tests for the report service functionality.
 
 This module contains unit tests for the report generation service
-including summary and detailed report generation.
+including summary and detailed report generation, and fraud/grid/timing integration.
 """
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.report_service import ReportService
@@ -149,6 +149,10 @@ class TestReportService:
         mock_text_responses_result = MagicMock()
         mock_text_responses_result.scalars.return_value.all.return_value = []
         
+        # Mock fraud query (no indicators)
+        mock_fraud_result = MagicMock()
+        mock_fraud_result.scalars.return_value.all.return_value = []
+        
         # Set up side effects for multiple execute calls
         mock_db.execute.side_effect = [
             mock_session_result,  # Session query
@@ -157,11 +161,38 @@ class TestReportService:
             mock_event_count_result,  # Event count for session 1
             mock_event_count_result2,  # Event count for session 2
             mock_text_responses_result,  # Text responses query (for text quality)
+            mock_fraud_result,  # Fraud aggregation query
         ]
         
-        summary_report = await report_service.generate_summary_report(
-            "SV_123456", mock_db
-        )
+        # Patch aggregation service so grid/timing summaries return without extra DB calls
+        grid_summary = {
+            "survey_id": "SV_123456",
+            "total_responses": 0,
+            "straight_lined_count": 0,
+            "straight_lined_percentage": 0.0,
+            "pattern_distribution": {},
+            "avg_variance_score": 0.0,
+            "avg_satisficing_score": 0.0,
+            "unique_questions": 0,
+        }
+        timing_summary = {
+            "survey_id": "SV_123456",
+            "total_analyses": 0,
+            "speeders_count": 0,
+            "speeders_percentage": 0.0,
+            "flatliners_count": 0,
+            "flatliners_percentage": 0.0,
+            "anomalies_count": 0,
+            "anomalies_percentage": 0.0,
+            "avg_response_time_ms": 0.0,
+            "median_response_time_ms": 0.0,
+            "unique_questions": 0,
+        }
+        with patch.object(report_service.aggregation_service, "get_grid_analysis_summary", new_callable=AsyncMock, return_value=grid_summary), \
+             patch.object(report_service.aggregation_service, "get_timing_analysis_summary", new_callable=AsyncMock, return_value=timing_summary):
+            summary_report = await report_service.generate_summary_report(
+                "SV_123456", mock_db
+            )
         
         assert summary_report.survey_id == "SV_123456"
         assert summary_report.total_respondents == 2
@@ -181,7 +212,20 @@ class TestReportService:
         # Mock database query to return sample sessions
         mock_session_result = MagicMock()
         mock_session_result.scalars.return_value.all.return_value = sample_sessions
-        mock_db.execute.return_value = mock_session_result
+        # Per-session queries: text, fraud, grid, timing (x3) for each of 2 sessions
+        mock_text = MagicMock()
+        mock_text.scalars.return_value.all.return_value = []
+        mock_fraud_first = MagicMock()
+        mock_fraud_first.scalars.return_value.first.return_value = None
+        mock_grid = MagicMock()
+        mock_grid.scalars.return_value.all.return_value = []
+        mock_timing_scalar = MagicMock()
+        mock_timing_scalar.scalar.return_value = 0
+        mock_db.execute.side_effect = [
+            mock_session_result,
+            mock_text, mock_fraud_first, mock_grid, mock_timing_scalar, mock_timing_scalar, mock_timing_scalar,
+            mock_text, mock_fraud_first, mock_grid, mock_timing_scalar, mock_timing_scalar, mock_timing_scalar,
+        ]
         
         detailed_report = await report_service.generate_detailed_report(
             "SV_123456", mock_db
@@ -301,23 +345,30 @@ class TestReportService:
         mock_text_responses_result = MagicMock()
         mock_text_responses_result.scalars.return_value.all.return_value = []
         
-        # Set up side effects for multiple execute calls
+        # Mock fraud query
+        mock_fraud_result = MagicMock()
+        mock_fraud_result.scalars.return_value.all.return_value = []
+        
         mock_db.execute.side_effect = [
-            mock_session_result,  # Session query
-            mock_detection_result,  # Detection query
-            mock_activity_result,  # Activity query
-            mock_event_count_result,  # Event count for session 1
-            mock_event_count_result2,  # Event count for session 2
-            mock_text_responses_result,  # Text responses query (for text quality)
+            mock_session_result,
+            mock_detection_result,
+            mock_activity_result,
+            mock_event_count_result,
+            mock_event_count_result2,
+            mock_text_responses_result,
+            mock_fraud_result,
         ]
         
-        request = ReportRequest(
-            survey_id="SV_123456",
-            report_type=ReportType.SUMMARY,
-            format=ReportFormat.JSON
-        )
-        
-        response = await report_service.generate_report(request, mock_db)
+        grid_summary = {"survey_id": "SV_123456", "total_responses": 0, "straight_lined_count": 0, "straight_lined_percentage": 0.0, "pattern_distribution": {}, "avg_variance_score": 0.0, "avg_satisficing_score": 0.0, "unique_questions": 0}
+        timing_summary = {"survey_id": "SV_123456", "total_analyses": 0, "speeders_count": 0, "speeders_percentage": 0.0, "flatliners_count": 0, "flatliners_percentage": 0.0, "anomalies_count": 0, "anomalies_percentage": 0.0, "avg_response_time_ms": 0.0, "median_response_time_ms": 0.0, "unique_questions": 0}
+        with patch.object(report_service.aggregation_service, "get_grid_analysis_summary", new_callable=AsyncMock, return_value=grid_summary), \
+             patch.object(report_service.aggregation_service, "get_timing_analysis_summary", new_callable=AsyncMock, return_value=timing_summary):
+            request = ReportRequest(
+                survey_id="SV_123456",
+                report_type=ReportType.SUMMARY,
+                format=ReportFormat.JSON
+            )
+            response = await report_service.generate_report(request, mock_db)
         
         assert response.success is True
         assert response.report_type == ReportType.SUMMARY
@@ -349,3 +400,117 @@ class TestReportService:
         assert response.detailed_data.survey_id == "SV_123456"
         assert response.summary_data is None
         assert response.file_size is not None
+
+    @pytest.mark.asyncio
+    async def test_summary_report_includes_fraud_grid_timing_keys(self, report_service, mock_db, sample_sessions):
+        """Test that summary report includes fraud_summary, grid_analysis_summary, timing_analysis_summary."""
+        mock_session_result = MagicMock()
+        mock_session_result.scalars.return_value.all.return_value = sample_sessions
+        mock_detection_result = MagicMock()
+        mock_detection_result.scalars.return_value.all.return_value = [
+            session.detection_results[0] for session in sample_sessions
+        ]
+        mock_activity_result = MagicMock()
+        mock_activity_result.all.return_value = [("keystroke", 3), ("click", 2)]
+        mock_event_count = MagicMock()
+        mock_event_count.scalar.return_value = 3
+        mock_event_count2 = MagicMock()
+        mock_event_count2.scalar.return_value = 2
+        mock_text = MagicMock()
+        mock_text.scalars.return_value.all.return_value = []
+        mock_fraud = MagicMock()
+        mock_fraud.scalars.return_value.all.return_value = []
+        mock_db.execute.side_effect = [
+            mock_session_result,
+            mock_detection_result,
+            mock_activity_result,
+            mock_event_count,
+            mock_event_count2,
+            mock_text,
+            mock_fraud,
+        ]
+        grid_summary = {
+            "survey_id": "SV_123456",
+            "total_responses": 10,
+            "straight_lined_count": 2,
+            "straight_lined_percentage": 20.0,
+            "pattern_distribution": {},
+            "avg_variance_score": 0.5,
+            "avg_satisficing_score": 0.3,
+            "unique_questions": 2,
+        }
+        timing_summary = {
+            "survey_id": "SV_123456",
+            "total_analyses": 5,
+            "speeders_count": 1,
+            "speeders_percentage": 20.0,
+            "flatliners_count": 0,
+            "flatliners_percentage": 0.0,
+            "anomalies_count": 1,
+            "anomalies_percentage": 20.0,
+            "avg_response_time_ms": 1500.0,
+            "median_response_time_ms": 1200.0,
+            "unique_questions": 2,
+        }
+        with patch.object(report_service.aggregation_service, "get_grid_analysis_summary", new_callable=AsyncMock, return_value=grid_summary), \
+             patch.object(report_service.aggregation_service, "get_timing_analysis_summary", new_callable=AsyncMock, return_value=timing_summary):
+            summary = await report_service.generate_summary_report("SV_123456", mock_db)
+        assert hasattr(summary, "fraud_summary")
+        assert summary.fraud_summary is not None
+        assert "duplicate_sessions" in summary.fraud_summary
+        assert "total_sessions_analyzed" in summary.fraud_summary
+        assert hasattr(summary, "grid_analysis_summary")
+        assert summary.grid_analysis_summary is not None
+        assert summary.grid_analysis_summary.get("straight_lined_percentage") == 20.0
+        assert hasattr(summary, "timing_analysis_summary")
+        assert summary.timing_analysis_summary is not None
+        assert summary.timing_analysis_summary.get("speeders_count") == 1
+
+    def test_generate_csv_report_includes_fraud_grid_timing_columns(self, report_service, sample_sessions):
+        """Test that CSV report includes fraud, grid, and timing columns."""
+        from app.models.report_models import DetailedReport, RespondentDetail
+        respondents = []
+        for session in sample_sessions:
+            respondents.append(RespondentDetail(
+                session_id=session.id,
+                respondent_id=session.respondent_id,
+                created_at=session.created_at,
+                last_activity=session.last_activity,
+                is_bot=session.detection_results[0].is_bot,
+                confidence_score=session.detection_results[0].confidence_score,
+                risk_level=session.detection_results[0].risk_level,
+                total_events=len(session.behavior_data),
+                session_duration_minutes=60.0,
+                event_breakdown={"keystroke": 3, "click": 2},
+                method_scores=session.detection_results[0].method_scores,
+                flagged_patterns=session.detection_results[0].flagged_patterns,
+                analysis_summary=session.detection_results[0].analysis_summary,
+                bot_explanation="Test",
+                fraud_score=0.5,
+                is_duplicate=True,
+                fraud_risk_level="HIGH",
+                grid_straight_lining=True,
+                grid_variance_score=0.2,
+                timing_speeder=True,
+                timing_flatliner=False,
+                timing_anomaly_count=2,
+            ))
+        detailed_report = DetailedReport(
+            survey_id="SV_123456",
+            total_respondents=2,
+            generated_at=datetime.utcnow(),
+            summary_stats={"total_sessions": 2, "bot_detections": 1},
+            respondents=respondents,
+        )
+        csv_content = report_service.generate_csv_report(detailed_report)
+        assert "Fraud Score" in csv_content
+        assert "Is Duplicate" in csv_content
+        assert "Fraud Risk Level" in csv_content
+        assert "Grid Straight Lining" in csv_content
+        assert "Grid Variance Score" in csv_content
+        assert "Timing Speeder" in csv_content
+        assert "Timing Flatliner" in csv_content
+        assert "Timing Anomaly Count" in csv_content
+        assert "50.000" in csv_content or "0.500" in csv_content
+        assert "Yes" in csv_content
+        assert "HIGH" in csv_content

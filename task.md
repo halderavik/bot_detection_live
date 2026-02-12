@@ -93,6 +93,14 @@
 
 ## Discovered During Work
 
+### Dashboard: API Playground and Reports include fraud, grid, and timing detection (2026-02-11)
+- [x] API Playground: Added endpoint templates for fraud (flat + hierarchical), grid analysis (hierarchical), and timing analysis (hierarchical).
+- [x] Report models: Added optional `fraud_summary`, `grid_analysis_summary`, `timing_analysis_summary` to `SurveySummaryReport`; added optional fraud/grid/timing fields to `RespondentDetail`.
+- [x] Report service: Implemented fraud aggregation for report sessions, integrated grid and timing summaries via `AggregationService`, enriched `_create_respondent_detail` with fraud/grid/timing per session, extended CSV export with new columns.
+- [x] ReportBuilder UI: Added Fraud & Duplicate, Grid Analysis, and Timing Analysis sections to summary report; added Fraud, Grid, and Timing columns to detailed report table.
+- [x] Unit tests: Extended `test_report_service.py` with mocks for new report flows and added tests for summary fraud/grid/timing keys and CSV columns.
+- [x] Dashboard deployment: Deployed updated frontend to GCS (`bot-detection-frontend-20251208`); production API URL and cache headers configured (February 2026).
+
 ### Production Test Script Endpoint Refresh (2026-01-06)
 - [x] Update `backend/test_production_text_analysis.py` to use the current production service URL + API base URL construction and send both `platform_id` and legacy `platform` params for compatibility.
 

@@ -9,7 +9,7 @@
 - ✅ **Fraud Detection**: Complete fraud detection system with hierarchical endpoints ✅ **COMPLETED**
 - ✅ **Unit Tests**: Comprehensive test coverage with 100% passing rate ✅ **COMPLETED**
 - ✅ **Migration**: Database migration script created and ready ✅ **COMPLETED**
-- ⏳ **Production Deployment**: Implementation complete, pending deployment to production
+- ✅ **Production Deployment**: Dashboard redeployed February 2026 with fraud/grid/timing in API Playground and Report Builder
 
 ## Overview
 
@@ -49,6 +49,8 @@ https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 - ✅ Frontend successfully deployed to Cloud Storage
 - ✅ All hierarchical API endpoints verified and returning data from Cloud SQL
 - ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
+- ✅ API Playground: Endpoint templates for fraud (flat + hierarchical), grid analysis, and timing analysis
+- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV export)
 
 **Local Development:**
 ```
@@ -1032,4 +1034,5 @@ For questions or issues with the hierarchical API:
 - ✅ Frontend widgets: GridAnalysisWidget, TimingAnalysisWidget, PerQuestionTimingTable integrated
 - ✅ Comprehensive test suite: 40 tests covering grid and timing analysis (100% passing)
 - ✅ Database migration: grid_responses and timing_analysis tables created
+- ✅ Dashboard redeployed: API Playground fraud/grid/timing endpoint templates; Report Builder fraud, grid, and timing in summary and detailed reports/CSV
 

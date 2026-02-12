@@ -217,6 +217,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Data Flow Verification**: Complete end-to-end verification of Cloud SQL → Backend API → Frontend Dashboard (February 2026)
 - **Grid & Timing Analysis**: Complete implementation with 8 new hierarchical endpoints and 3 frontend widgets (February 2026)
 - **Test Coverage**: 40 comprehensive tests covering grid and timing analysis (100% passing rate) (February 2026)
+- **Dashboard Redeploy (February 2026)**: Frontend redeployed to GCS with API Playground fraud/grid/timing endpoint templates and Report Builder fraud, grid, and timing in summary blocks and detailed table/CSV
 
 ## 16. Production Deployment Status ✅
 - **Backend Service**: Deployed on Google Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`
@@ -231,6 +232,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Documentation**: Complete integration guides for Decipher and other survey platforms
 - **Stage 3 Deployment**: Fraud & Duplicate Detection fully operational with comprehensive testing completed (February 2026)
 - **Frontend Deployment**: Frontend deployed to Cloud Storage with all components verified operational (February 2026)
+- **Dashboard Update (February 2026)**: API Playground includes fraud, grid, and timing templates; Report Builder includes Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports/CSV
 - **Cloud SQL Data Flow**: All frontend endpoints verified pulling data correctly from Cloud SQL database (February 2026)
 
 ## 17. Next Phase Requirements

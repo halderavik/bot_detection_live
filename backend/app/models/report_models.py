@@ -51,6 +51,15 @@ class SurveySummaryReport(BaseModel):
     # Text quality analysis
     text_quality_summary: Optional[Dict[str, Any]] = Field(None, description="Text quality analysis summary")
     
+    # Fraud & duplicate detection summary
+    fraud_summary: Optional[Dict[str, Any]] = Field(None, description="Fraud detection summary (duplicate_sessions, high_risk_sessions, average_fraud_score, fraud_methods)")
+    
+    # Grid/matrix analysis summary
+    grid_analysis_summary: Optional[Dict[str, Any]] = Field(None, description="Grid analysis summary (straight_lining rate, satisficing metrics)")
+    
+    # Timing analysis summary
+    timing_analysis_summary: Optional[Dict[str, Any]] = Field(None, description="Timing analysis summary (speeder/flatliner counts and rates, anomalies)")
+    
     model_config = ConfigDict(
         json_encoders={
             datetime: lambda v: v.isoformat()
@@ -94,6 +103,20 @@ class RespondentDetail(BaseModel):
     avg_text_quality_score: Optional[float] = Field(None, description="Average text quality score")
     flagged_text_responses: Optional[int] = Field(None, description="Number of flagged text responses")
     text_quality_percentage: Optional[float] = Field(None, description="Percentage of flagged text responses")
+    
+    # Fraud detection (per session)
+    fraud_score: Optional[float] = Field(None, description="Overall fraud score for this session")
+    is_duplicate: Optional[bool] = Field(None, description="Whether session was flagged as duplicate")
+    fraud_risk_level: Optional[str] = Field(None, description="Fraud risk level if available")
+    
+    # Grid analysis (per session)
+    grid_straight_lining: Optional[bool] = Field(None, description="Whether straight-lining was detected in grid questions")
+    grid_variance_score: Optional[float] = Field(None, description="Grid response variance score")
+    
+    # Timing analysis (per session)
+    timing_speeder: Optional[bool] = Field(None, description="Whether respondent was flagged as speeder")
+    timing_flatliner: Optional[bool] = Field(None, description="Whether respondent was flagged as flatliner")
+    timing_anomaly_count: Optional[int] = Field(None, description="Count of timing anomalies")
     
     model_config = ConfigDict(
         json_encoders={
