@@ -161,6 +161,136 @@ Our bot detection system uses advanced behavioral analysis combined with OpenAI-
 - Generic answer detection (low-effort, uninsightful responses)
 - Overall quality scoring (0-100 scale)
 
+### 8. Survey Question Metadata
+**Purpose**: Track survey questions for text quality analysis, grid analysis, and timing analysis
+
+**Data Captured**:
+- Question text (full question content)
+- Question type (open_ended, multiple_choice, grid, matrix, etc.)
+- HTML element ID and type (input, textarea, select, etc.)
+- Element class names
+- Page URL where question appears
+- Page title
+- Timestamp when question was asked
+
+**Analysis Focus**:
+- Question categorization for appropriate analysis type
+- Grid/matrix question identification
+- Question-response pairing for timing analysis
+- Context for text quality relevance checking
+
+### 9. Survey Response Data
+**Purpose**: Store user responses with timing and analysis results
+
+**Data Captured**:
+- Response text (user's answer)
+- Response time in milliseconds (time to answer)
+- Associated question ID
+- Session ID (links to behavior data)
+- Timestamp when response was submitted
+
+**Analysis Focus**:
+- Text quality analysis (gibberish, copy-paste, relevance, generic)
+- Response timing for speeder/flatliner detection
+- Response patterns for duplicate detection
+- Quality scoring and flagging
+
+### 10. Grid/Matrix Question Responses
+**Purpose**: Analyze grid and matrix questions for straight-lining, patterns, and satisficing behavior
+
+**Data Captured**:
+- Row identifier within the grid question
+- Column identifier within the grid question
+- Response value (selected option or rating)
+- Response time per cell
+- Question ID (links to survey_questions)
+- Session ID (links to session and respondent)
+
+**Analysis Focus**:
+- Straight-lining detection (80%+ identical values)
+- Pattern detection (diagonal, reverse diagonal, zigzag, straight line)
+- Variance scoring (0-1 scale, measures response diversity)
+- Satisficing behavior scoring (0-1 scale, combines variance and timing)
+- Response consistency across grid rows
+
+### 11. Per-Question Timing Data
+**Purpose**: Analyze response timing for each individual question to detect speeders and flatliners
+
+**Data Captured**:
+- Question time in milliseconds (time taken to answer)
+- Question ID (links to survey_questions)
+- Session ID (links to session and respondent)
+- Threshold used for detection (adaptive or fixed)
+- Statistical anomaly score (z-score)
+
+**Analysis Focus**:
+- Speeder detection (response time < 2000ms threshold)
+- Flatliner detection (response time > 300000ms / 5 minutes threshold)
+- Timing anomalies (statistical outliers with z-score > 2.5)
+- Adaptive threshold calculation (question-specific timing norms)
+- Timing consistency patterns
+
+### 12. Fraud Detection Data
+**Purpose**: Detect duplicate respondents, IP reuse, device reuse, geolocation inconsistencies, and velocity patterns
+
+**Data Captured**:
+- IP address (from session)
+- IP usage count (total sessions with same IP)
+- IP sessions today (sessions with same IP created today)
+- Device fingerprint (SHA256 hash of user_agent + screen/viewport + platform_id)
+- Fingerprint usage count (sessions with same device fingerprint)
+- Response similarity scores (text similarity between responses)
+- Duplicate response count (responses with >70% similarity)
+- Geolocation data (country code from IP, city if available)
+- Geolocation consistency (matches other sessions from same respondent)
+- Response velocity (responses per hour by IP, device, or respondent)
+
+**Analysis Focus**:
+- IP address reuse patterns (risk scoring based on usage frequency)
+- Device fingerprint reuse (same device across multiple respondents)
+- Duplicate response detection (text similarity analysis)
+- Geolocation inconsistency (impossible travel patterns)
+- Velocity analysis (unrealistic response rates)
+- Overall fraud score calculation (weighted combination of all factors)
+
+### 13. Hierarchical Structure Data
+**Purpose**: Organize data in a hierarchical structure for efficient aggregation and analysis
+
+**Data Captured**:
+- Survey ID (unique identifier for each survey)
+- Platform ID (survey platform: qualtrics, decipher, etc.)
+- Respondent ID (unique identifier for each survey respondent)
+- Session ID (unique identifier for each survey-taking session)
+- Relationships: Survey → Platform → Respondent → Session
+
+**Analysis Focus**:
+- Aggregated analysis at each hierarchy level
+- Survey-level summaries (all platforms, respondents, sessions)
+- Platform-level summaries (all respondents and sessions for a platform)
+- Respondent-level summaries (all sessions for a respondent)
+- Session-level details (complete analysis for a single session)
+- Cross-survey and cross-platform analysis
+
+### 14. Session Metadata
+**Purpose**: Track session-level information for fraud detection and analysis
+
+**Data Captured**:
+- User agent string (browser and device information)
+- IP address (client IP from HTTP request)
+- Referrer URL (where the user came from)
+- Session creation timestamp
+- Last activity timestamp (updated with each event)
+- Session status (active, completed)
+- Platform information (qualtrics, decipher, etc.)
+- Device fingerprint (calculated after fraud analysis)
+
+**Analysis Focus**:
+- Session duration tracking
+- Activity patterns
+- Device consistency
+- Platform identification
+- Completion status
+
 ---
 
 ## How We Capture Data

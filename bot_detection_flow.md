@@ -1,6 +1,6 @@
 # Bot Detection Flow - Mermaid Diagrams
 
-## Production Status (January 2026)
+## Production Status (February 2026)
 ✅ **DEPLOYED & OPERATIONAL** - All core systems verified and working in production
 
 ## Implementation & Deployment Status Summary
@@ -17,10 +17,12 @@
 - **Composite Scoring**: 40% behavioral, 30% text quality, 30% fraud detection ✅ **COMPLETED**
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure ✅ **DEPLOYED**
 - **Fraud Detection Hierarchical Endpoints**: All levels implemented ✅ **COMPLETED**
-- **Database**: fraud_indicators table with hierarchical indexes ✅ **COMPLETED**
-- **Frontend Integration**: Hierarchical fraud widgets in all detail views ✅ **COMPLETED**
-- **Migration**: Database migration script created and ready ✅ **COMPLETED**
-- ⏳ **Production Deployment**: Fraud detection implementation complete, pending deployment
+- **Grid/Matrix Analysis**: Straight-lining, pattern detection, variance, satisficing ✅ **DEPLOYED**
+- **Per-Question Timing Analysis**: Speeder/flatliner detection, anomaly scoring ✅ **DEPLOYED**
+- **Database**: fraud_indicators, grid_responses, timing_analysis tables with hierarchical indexes ✅ **COMPLETED**
+- **Frontend Integration**: Hierarchical fraud, grid, and timing widgets in all detail views ✅ **COMPLETED**
+- **Migration**: Database migration scripts created and deployed ✅ **COMPLETED**
+- ✅ **Production Deployment**: All features deployed and operational (February 2026)
 
 ### ⏳ **PLANNED** - Future Enhancements
 - Authentication & Authorization (JWT, API keys)
@@ -163,12 +165,40 @@ graph LR
         A10[Question Context]
     end
     
+    subgraph "Survey Metadata Captured ✅ DEPLOYED"
+        A16[Question Text & Type]
+        A17[Element IDs & Classes]
+        A18[Page Context]
+        A19[Question Timestamps]
+    end
+    
+    subgraph "Grid/Matrix Data Captured ✅ DEPLOYED"
+        A20[Grid Row/Column IDs]
+        A21[Grid Response Values]
+        A22[Grid Response Timing]
+        A23[Pattern Detection Data]
+    end
+    
+    subgraph "Per-Question Timing Data Captured ✅ DEPLOYED"
+        A24[Question Response Times]
+        A25[Speeder/Flatliner Flags]
+        A26[Timing Anomalies]
+        A27[Adaptive Thresholds]
+    end
+    
     subgraph "Fraud Detection Data Captured ✅ DEPLOYED"
         A11[IP Addresses]
         A12[Device Fingerprints]
         A13[Response Similarity]
         A14[Geolocation Data]
         A15[Response Velocity]
+    end
+    
+    subgraph "Hierarchical Structure Data ✅ DEPLOYED"
+        A28[Survey ID]
+        A29[Platform ID]
+        A30[Respondent ID]
+        A31[Session ID]
     end
     
     subgraph "Collection Process ✅ DEPLOYED"
@@ -180,6 +210,9 @@ graph LR
         B6[Question Capture]
         B7[Response Analysis]
         B8[Fraud Data Collection]
+        B9[Grid Question Detection]
+        B10[Timing Analysis]
+        B11[Hierarchical Metadata]
     end
     
     A1 --> B1
@@ -194,19 +227,42 @@ graph LR
     A9 --> B2
     A10 --> B2
     
+    A16 --> B6
+    A17 --> B6
+    A18 --> B6
+    A19 --> B6
+    
+    A20 --> B9
+    A21 --> B9
+    A22 --> B9
+    A23 --> B9
+    
+    A24 --> B10
+    A25 --> B10
+    A26 --> B10
+    A27 --> B10
+    
     A11 --> B8
     A12 --> B8
     A13 --> B8
     A14 --> B8
     A15 --> B8
     
+    A28 --> B11
+    A29 --> B11
+    A30 --> B11
+    A31 --> B11
+    
     B1 --> B3
     B2 --> B6
     B6 --> B7
+    B9 --> B10
+    B10 --> B7
     B3 --> B4
     B4 --> B5
     B7 --> B5
     B8 --> B5
+    B11 --> B5
     
     style A1 fill:#ffebee
     style A2 fill:#e8f5e8
@@ -255,6 +311,20 @@ graph TB
         G5[Velocity Checking<br/>15% Weight]
     end
     
+    subgraph "Grid/Matrix Analysis ✅ DEPLOYED"
+        H1[Straight-lining Detection<br/>80%+ identical values]
+        H2[Pattern Detection<br/>Diagonal/Zigzag/Reverse]
+        H3[Variance Scoring<br/>0-1 scale]
+        H4[Satisficing Scoring<br/>0-1 scale]
+    end
+    
+    subgraph "Timing Analysis ✅ DEPLOYED"
+        I1[Speeder Detection<br/>< 2000ms threshold]
+        I2[Flatliner Detection<br/>> 300000ms threshold]
+        I3[Anomaly Detection<br/>Z-score > 2.5]
+        I4[Adaptive Thresholds<br/>Question-specific norms]
+    end
+    
     subgraph "Composite Analysis Process ✅ DEPLOYED"
         H[Individual Method Scoring<br/>0.0 - 1.0]
         I[Behavioral Weight: 40%]
@@ -282,6 +352,16 @@ graph TB
     G3 --> H
     G4 --> H
     G5 --> H
+    
+    H1 --> H
+    H2 --> H
+    H3 --> H
+    H4 --> H
+    
+    I1 --> H
+    I2 --> H
+    I3 --> H
+    I4 --> H
     
     H --> I
     H --> J
@@ -311,6 +391,14 @@ graph TB
     style G3 fill:#e1bee7
     style G4 fill:#e1bee7
     style G5 fill:#e1bee7
+    style H1 fill:#b39ddb
+    style H2 fill:#b39ddb
+    style H3 fill:#b39ddb
+    style H4 fill:#b39ddb
+    style I1 fill:#ce93d8
+    style I2 fill:#ce93d8
+    style I3 fill:#ce93d8
+    style I4 fill:#ce93d8
     style P fill:#ffcdd2
     style Q fill:#c8e6c9
 ```
@@ -432,6 +520,8 @@ graph TD
     D --> K3[Duplicate Response Detection]
     D --> K4[Geolocation Checking]
     D --> K5[Velocity Checking]
+    D --> L1[Grid Analysis]
+    D --> L2[Timing Analysis]
     
     E --> L1[Score: 0.0-1.0]
     F --> L2[Score: 0.0-1.0]
@@ -445,6 +535,9 @@ graph TD
     K3 --> L9[Fraud Score: 0.0-1.0]
     K4 --> L10[Fraud Score: 0.0-1.0]
     K5 --> L11[Fraud Score: 0.0-1.0]
+    
+    L1 --> L12[Grid Score: 0.0-1.0]
+    L2 --> L13[Timing Score: 0.0-1.0]
     
     L1 --> M1[Behavioral Weighted Average<br/>40% Weight]
     L2 --> M1
@@ -460,9 +553,14 @@ graph TD
     L10 --> M3
     L11 --> M3
     
+    L12 --> M4[Grid Analysis Results<br/>Flagged Patterns]
+    L13 --> M5[Timing Analysis Results<br/>Speeder/Flatliner Flags]
+    
     M1 --> S[Composite Score Calculation]
     M2 --> S
     M3 --> S
+    M4 --> S
+    M5 --> S
     
     S --> T[Confidence Score]
     T --> U{Confidence > 0.7?}
@@ -573,6 +671,9 @@ graph LR
         C[Device Info]
         D[Survey Questions]
         E[User Responses]
+        E1[Grid Responses]
+        E2[Timing Data]
+        E3[Hierarchical Metadata]
     end
     
     subgraph "Processing Layer"
@@ -581,6 +682,8 @@ graph LR
         H[Enrichment]
         I[Storage]
         J[Text Analysis]
+        J1[Grid Analysis]
+        J2[Timing Analysis]
     end
     
     subgraph "Analysis Layer"
@@ -588,6 +691,8 @@ graph LR
         L[Analysis Triggering]
         M[Behavioral Detection Engine]
         N[Text Quality Engine]
+        N1[Grid Analysis Engine]
+        N2[Timing Analysis Engine]
         O[Composite Analysis]
         P[Result Generation]
     end
@@ -604,19 +709,30 @@ graph LR
     C --> F
     D --> F
     E --> F
+    E1 --> F
+    E2 --> F
+    E3 --> F
     
     F --> G
     G --> H
     H --> I
     E --> J
+    E1 --> J1
+    E2 --> J2
     
     I --> K
     J --> K
+    J1 --> K
+    J2 --> K
     K --> L
     L --> M
     L --> N
+    L --> N1
+    L --> N2
     M --> O
     N --> O
+    N1 --> O
+    N2 --> O
     O --> P
     
     P --> Q
@@ -663,6 +779,20 @@ graph TB
         A11[Very Low Quality<br/>Score < 30]
     end
     
+    subgraph "Grid/Matrix Bot Indicators ✅ DEPLOYED"
+        A17[Straight-lining<br/>80%+ identical values]
+        A18[Diagonal Patterns<br/>Mechanical patterns]
+        A19[Low Variance<br/>No response diversity]
+        A20[High Satisficing<br/>Low-effort responses]
+    end
+    
+    subgraph "Timing Bot Indicators ✅ DEPLOYED"
+        A21[Speeders<br/>Response < 2000ms]
+        A22[Flatliners<br/>Response > 300000ms]
+        A23[Timing Anomalies<br/>Z-score > 2.5]
+        A24[Inconsistent Timing<br/>No natural variation]
+    end
+    
     subgraph "Fraud Detection Bot Indicators ✅ DEPLOYED"
         A12[IP Address Reuse<br/>Multiple sessions from same IP]
         A13[Device Fingerprint Reuse<br/>Same device across sessions]
@@ -691,6 +821,8 @@ graph TB
         C9[Duplicate Detection ✅ DEPLOYED]
         C10[Geolocation Checking ✅ DEPLOYED]
         C11[Velocity Checking ✅ DEPLOYED]
+        C12[Grid Analysis ✅ DEPLOYED]
+        C13[Per-Question Timing ✅ DEPLOYED]
     end
     
     A1 --> C1
@@ -725,6 +857,16 @@ graph TB
     A15 --> C10
     A16 --> C11
     
+    A17 --> C12
+    A18 --> C12
+    A19 --> C12
+    A20 --> C12
+    
+    A21 --> C13
+    A22 --> C13
+    A23 --> C13
+    A24 --> C13
+    
     style A1 fill:#ffcdd2
     style A2 fill:#ffcdd2
     style A3 fill:#ffcdd2
@@ -752,15 +894,117 @@ graph TB
     style A14 fill:#ffcdd2
     style A15 fill:#ffcdd2
     style A16 fill:#ffcdd2
+    style A17 fill:#ffcdd2
+    style A18 fill:#ffcdd2
+    style A19 fill:#ffcdd2
+    style A20 fill:#ffcdd2
+    style A21 fill:#ffcdd2
+    style A22 fill:#ffcdd2
+    style A23 fill:#ffcdd2
+    style A24 fill:#ffcdd2
     style C6 fill:#ffeb3b
     style C7 fill:#e1bee7
     style C8 fill:#e1bee7
     style C9 fill:#e1bee7
     style C10 fill:#e1bee7
     style C11 fill:#e1bee7
+    style C12 fill:#b39ddb
+    style C13 fill:#ce93d8
 ```
 
-## 11. Text Analysis Dashboard Flow
+## 11. Grid/Matrix Analysis Flow
+
+**Status**: ✅ **DEPLOYED** - Complete grid analysis system operational with pattern detection and satisficing scoring
+
+```mermaid
+graph TD
+    A[Grid Question Detected] --> B[Collect Grid Responses]
+    B --> C[Extract Row/Column Data]
+    C --> D[Response Value Collection]
+    D --> E[Straight-lining Detection]
+    D --> F[Pattern Detection]
+    D --> G[Variance Calculation]
+    D --> H[Satisficing Scoring]
+    
+    E --> E1{80%+ Identical?}
+    E1 -->|Yes| E2[Flag as Straight-lined]
+    E1 -->|No| E3[No Straight-lining]
+    
+    F --> F1[Check Diagonal Pattern]
+    F --> F2[Check Reverse Diagonal]
+    F --> F3[Check Zigzag Pattern]
+    F --> F4[Check Straight Line]
+    F1 --> F5[Pattern Type Identified]
+    F2 --> F5
+    F3 --> F5
+    F4 --> F5
+    
+    G --> G1[Calculate Response Variance]
+    G1 --> G2[Variance Score 0-1]
+    
+    H --> H1[Combine Variance + Timing]
+    H1 --> H2[Satisficing Score 0-1]
+    
+    E2 --> I[Store Grid Analysis Results]
+    E3 --> I
+    F5 --> I
+    G2 --> I
+    H2 --> I
+    
+    I --> J[Return to Composite Analysis]
+    
+    style A fill:#e1f5fe
+    style E2 fill:#ffcdd2
+    style E3 fill:#c8e6c9
+    style I fill:#fff3e0
+    style J fill:#4caf50
+```
+
+## 12. Per-Question Timing Analysis Flow
+
+**Status**: ✅ **DEPLOYED** - Complete timing analysis system operational with speeder/flatliner detection and anomaly scoring
+
+```mermaid
+graph TD
+    A[Response Submitted] --> B[Extract Response Time]
+    B --> C[Get Question Context]
+    C --> D[Calculate Adaptive Threshold]
+    D --> E[Speeder Detection]
+    D --> F[Flatliner Detection]
+    D --> G[Anomaly Detection]
+    
+    E --> E1{Time < 2000ms?}
+    E1 -->|Yes| E2[Flag as Speeder]
+    E1 -->|No| E3[Not a Speeder]
+    
+    F --> F1{Time > 300000ms?}
+    F1 -->|Yes| F2[Flag as Flatliner]
+    F1 -->|No| F3[Not a Flatliner]
+    
+    G --> G1[Calculate Z-Score]
+    G1 --> G2{Z-Score > 2.5?}
+    G2 -->|Yes| G3[Flag as Anomaly]
+    G2 -->|No| G4[No Anomaly]
+    
+    E2 --> H[Store Timing Analysis]
+    E3 --> H
+    F2 --> H
+    F3 --> H
+    G3 --> H
+    G4 --> H
+    
+    H --> I[Update Session Timing Metrics]
+    I --> J[Return to Composite Analysis]
+    
+    style A fill:#e1f5fe
+    style E2 fill:#ffcdd2
+    style F2 fill:#ffcdd2
+    style G3 fill:#ffcdd2
+    style H fill:#fff3e0
+    style J fill:#4caf50
+```
+
+## 13. Text Analysis Dashboard Flow
 
 **Status**: ✅ **DEPLOYED** - Complete text analysis dashboard with filtering, pagination, and CSV export
 
