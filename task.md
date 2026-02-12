@@ -843,6 +843,7 @@ The deploy script automatically runs `prepare_database_for_deploy.ps1` first (us
   - [ ] Implement trap question validation
   - [ ] Create attention failure scorer
   - [ ] Build consistency check validator
+    - **Plan (LLM-assisted, one-time per survey):** (1) On first respondent under a new `survey_id`, collect question list (and optionally their answers) from `survey_questions` / `survey_responses`. (2) Single GPT-4o-mini call to infer rules: consistency pairs (questions that should match) and trap/instruction checks with expected answer. (3) Store rules in a survey-scoped store (e.g. `attention_check_rules` keyed by `survey_id`). (4) For all respondents under that `survey_id`, evaluate the same rules (fetch answers, run consistency/trap checks) and write results to `attention_checks`. Use a survey-level question key (e.g. `element_id` or question-text hash) not raw `question_id`, since questions are per-session. Optional: confidence scores or human review of inferred rules.
   - [ ] Add `attention_checks` table with hierarchical fields (survey_id, platform_id, respondent_id, session_id)
   - [ ] Create hierarchical API endpoints:
     - `GET /surveys/{survey_id}/attention-checks/summary`
