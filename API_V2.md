@@ -50,7 +50,7 @@ https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 - ✅ All hierarchical API endpoints verified and returning data from Cloud SQL
 - ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
 - ✅ API Playground: Endpoint templates for fraud (flat + hierarchical), grid analysis, and timing analysis
-- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV export)
+- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV export); click respondent ID to open full-detail popup; CSV includes every analysis per respondent (text responses of interest, fraud/grid/timing explanations)
 
 **Local Development:**
 ```
@@ -1034,5 +1034,5 @@ For questions or issues with the hierarchical API:
 - ✅ Frontend widgets: GridAnalysisWidget, TimingAnalysisWidget, PerQuestionTimingTable integrated
 - ✅ Comprehensive test suite: 40 tests covering grid and timing analysis (100% passing)
 - ✅ Database migration: grid_responses and timing_analysis tables created
-- ✅ Dashboard redeployed: API Playground fraud/grid/timing endpoint templates; Report Builder fraud, grid, and timing in summary and detailed reports/CSV
+- ✅ Dashboard redeployed: API Playground fraud/grid/timing endpoint templates; Report Builder fraud, grid, and timing in summary and detailed reports/CSV; respondent detail popup and full CSV per respondent
 

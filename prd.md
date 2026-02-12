@@ -88,6 +88,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 17. **Quick Start Guide**: Step-by-step integration instructions ✅
 18. **User Experience**: Toast notifications, responsive design, and error handling ✅
 19. **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis ✅
+20. **Report Builder Respondent Detail**: Click respondent ID in detailed report to open popup with full details, responses of interest, and decision reasons; CSV export includes all analyses per respondent (text responses of interest, fraud/grid/timing explanations) ✅
 
 ## 4. Success Metrics ✅
 - <200 ms median `processing_time_ms` per request ✅ (Achieved: ~100ms average)
@@ -217,7 +218,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Data Flow Verification**: Complete end-to-end verification of Cloud SQL → Backend API → Frontend Dashboard (February 2026)
 - **Grid & Timing Analysis**: Complete implementation with 8 new hierarchical endpoints and 3 frontend widgets (February 2026)
 - **Test Coverage**: 40 comprehensive tests covering grid and timing analysis (100% passing rate) (February 2026)
-- **Dashboard Redeploy (February 2026)**: Frontend redeployed to GCS with API Playground fraud/grid/timing endpoint templates and Report Builder fraud, grid, and timing in summary blocks and detailed table/CSV
+- **Dashboard Redeploy (February 2026)**: Frontend redeployed to GCS with API Playground fraud/grid/timing endpoint templates and Report Builder fraud, grid, and timing in summary blocks and detailed table/CSV; respondent detail popup (click respondent ID) and full CSV per respondent (text responses of interest, decision reasons)
 
 ## 16. Production Deployment Status ✅
 - **Backend Service**: Deployed on Google Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`
@@ -232,7 +233,7 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Documentation**: Complete integration guides for Decipher and other survey platforms
 - **Stage 3 Deployment**: Fraud & Duplicate Detection fully operational with comprehensive testing completed (February 2026)
 - **Frontend Deployment**: Frontend deployed to Cloud Storage with all components verified operational (February 2026)
-- **Dashboard Update (February 2026)**: API Playground includes fraud, grid, and timing templates; Report Builder includes Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports/CSV
+- **Dashboard Update (February 2026)**: API Playground includes fraud, grid, and timing templates; Report Builder includes Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports/CSV; clickable respondent ID opens full-detail popup; CSV includes every analysis per respondent (text responses of interest, fraud/grid/timing explanations)
 - **Cloud SQL Data Flow**: All frontend endpoints verified pulling data correctly from Cloud SQL database (February 2026)
 
 ## 17. Next Phase Requirements

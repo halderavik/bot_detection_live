@@ -36,7 +36,7 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 **Deployment Status**: 
 - ✅ **FULLY DEPLOYED** (Behavioral Detection, Text Analysis, Hierarchical API, Fraud Detection) on Google Cloud Platform (February 2026)
 - ✅ **PRODUCTION DEPLOYED** (Stage 3 - Fraud & Duplicate Detection) - Fully operational and tested
-- ✅ **Dashboard redeployed February 2026**: API Playground fraud/grid/timing templates; Report Builder fraud, grid, and timing in summary and detailed reports/CSV
+- ✅ **Dashboard redeployed February 2026**: API Playground fraud/grid/timing templates; Report Builder fraud, grid, and timing in summary and detailed reports/CSV; respondent detail popup and full CSV per respondent
 - **Backend**: Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - **Frontend**: Cloud Storage + CDN at `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
 - **Database**: Cloud SQL PostgreSQL with VPC Connector

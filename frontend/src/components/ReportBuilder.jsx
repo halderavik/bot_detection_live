@@ -15,7 +15,8 @@ import {
   MessageSquare,
   TrendingUp,
   ShieldAlert,
-  LayoutGrid
+  LayoutGrid,
+  XCircle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { reportService, textAnalysisService } from '../services/apiService';
@@ -32,6 +33,7 @@ const ReportBuilder = () => {
     dateFrom: '',
     dateTo: ''
   });
+  const [selectedRespondent, setSelectedRespondent] = useState(null);
 
   // Load available surveys on component mount
   useEffect(() => {
@@ -661,14 +663,19 @@ const ReportBuilder = () => {
                 {detailedReport.respondents.map((respondent) => (
                   <tr key={respondent.session_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRespondent(respondent)}
+                        className="text-left w-full rounded hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 cursor-pointer"
+                        aria-label={`View details for respondent ${respondent.respondent_id || respondent.session_id}`}
+                      >
                         <div className="text-sm font-medium text-gray-900">
                           {respondent.respondent_id || 'Anonymous'}
                         </div>
                         <div className="text-sm text-gray-500">
                           {respondent.session_id.substring(0, 8)}...
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -764,6 +771,130 @@ const ReportBuilder = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Respondent Detail Modal */}
+      {selectedRespondent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Respondent details – {selectedRespondent.respondent_id || 'Anonymous'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedRespondent(null)}
+                className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                aria-label="Close"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Session info */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Session info</h4>
+                <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-gray-500">Session ID:</span> {selectedRespondent.session_id}</div>
+                  <div><span className="text-gray-500">Created:</span> {formatDate(selectedRespondent.created_at)}</div>
+                  <div><span className="text-gray-500">Last activity:</span> {formatDate(selectedRespondent.last_activity)}</div>
+                  <div><span className="text-gray-500">Duration:</span> {selectedRespondent.session_duration_minutes?.toFixed(1) ?? '—'} min</div>
+                  <div><span className="text-gray-500">Total events:</span> {selectedRespondent.total_events}</div>
+                  {selectedRespondent.event_breakdown && Object.keys(selectedRespondent.event_breakdown).length > 0 && (
+                    <div className="col-span-2"><span className="text-gray-500">Event breakdown:</span> {JSON.stringify(selectedRespondent.event_breakdown)}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bot detection */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Bot detection</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskLevelColor(selectedRespondent.risk_level)}`}>
+                      {selectedRespondent.is_bot ? 'BOT' : 'HUMAN'}
+                    </span>
+                  </div>
+                  <div><span className="text-gray-500">Confidence:</span> {(selectedRespondent.confidence_score * 100).toFixed(1)}%</div>
+                  <div><span className="text-gray-500">Risk level:</span> {selectedRespondent.risk_level}</div>
+                  {selectedRespondent.method_scores && Object.keys(selectedRespondent.method_scores).length > 0 && (
+                    <div><span className="text-gray-500">Method scores:</span> <pre className="inline text-xs">{JSON.stringify(selectedRespondent.method_scores)}</pre></div>
+                  )}
+                  {selectedRespondent.analysis_summary && <div><span className="text-gray-500">Analysis:</span> {selectedRespondent.analysis_summary}</div>}
+                  {selectedRespondent.bot_explanation && <div><span className="text-gray-500">Why:</span> {selectedRespondent.bot_explanation}</div>}
+                </div>
+              </div>
+
+              {/* Text quality & responses of interest */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Text quality</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                  <div><span className="text-gray-500">Text responses:</span> {selectedRespondent.text_response_count ?? '—'}</div>
+                  <div><span className="text-gray-500">Avg quality score:</span> {selectedRespondent.avg_text_quality_score != null ? selectedRespondent.avg_text_quality_score.toFixed(1) : '—'}</div>
+                  <div><span className="text-gray-500">Flagged:</span> {selectedRespondent.flagged_text_responses ?? '—'}</div>
+                </div>
+                {selectedRespondent.text_responses_of_interest && selectedRespondent.text_responses_of_interest.length > 0 && (
+                  <div className="mt-2">
+                    <h5 className="text-xs font-semibold text-gray-600 mb-2">Responses of interest</h5>
+                    <div className="space-y-3">
+                      {selectedRespondent.text_responses_of_interest.map((r, idx) => (
+                        <div key={idx} className="border border-gray-200 rounded p-3 text-sm bg-white">
+                          {r.question_preview && <div className="text-gray-600 mb-1"><span className="font-medium">Q:</span> {r.question_preview}</div>}
+                          <div className="mb-1"><span className="font-medium">Response:</span> {r.response_preview}</div>
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            <span>Score: {r.quality_score != null ? r.quality_score.toFixed(1) : 'N/A'}</span>
+                            {r.is_flagged && <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded">Flagged</span>}
+                            {r.flag_reasons && Object.keys(r.flag_reasons).length > 0 && (
+                              <span className="text-amber-700">Reasons: {Object.keys(r.flag_reasons).join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Fraud */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Fraud</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                  <div><span className="text-gray-500">Score:</span> {selectedRespondent.fraud_score != null ? (selectedRespondent.fraud_score * 100).toFixed(0) + '%' : '—'}</div>
+                  <div><span className="text-gray-500">Duplicate:</span> {selectedRespondent.is_duplicate === true ? 'Yes' : selectedRespondent.is_duplicate === false ? 'No' : '—'}</div>
+                  {selectedRespondent.fraud_risk_level && <div><span className="text-gray-500">Risk level:</span> {selectedRespondent.fraud_risk_level}</div>}
+                  {selectedRespondent.fraud_flag_reasons && Object.keys(selectedRespondent.fraud_flag_reasons).length > 0 && (
+                    <div><span className="text-gray-500">Flag reasons:</span> <pre className="text-xs mt-1">{JSON.stringify(selectedRespondent.fraud_flag_reasons, null, 2)}</pre></div>
+                  )}
+                  {selectedRespondent.fraud_velocity_summary && (selectedRespondent.fraud_velocity_summary.responses_per_hour != null || selectedRespondent.fraud_velocity_summary.velocity_risk_score != null) && (
+                    <div><span className="text-gray-500">Velocity:</span> responses/hr={selectedRespondent.fraud_velocity_summary.responses_per_hour ?? '—'}, risk={selectedRespondent.fraud_velocity_summary.velocity_risk_score != null ? selectedRespondent.fraud_velocity_summary.velocity_risk_score.toFixed(2) : '—'}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Grid */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Grid</h4>
+                <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                  <div><span className="text-gray-500">Straight-lining:</span> {selectedRespondent.grid_straight_lining === true ? 'Yes' : selectedRespondent.grid_straight_lining === false ? 'No' : '—'}</div>
+                  {selectedRespondent.grid_variance_score != null && <div><span className="text-gray-500">Variance score:</span> {selectedRespondent.grid_variance_score.toFixed(2)}</div>}
+                  {selectedRespondent.grid_explanation && <div className="mt-2"><span className="text-gray-500">Why:</span> {selectedRespondent.grid_explanation}</div>}
+                </div>
+              </div>
+
+              {/* Timing */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Timing</h4>
+                <div className="bg-gray-50 rounded-lg p-4 text-sm">
+                  <div><span className="text-gray-500">Speeder:</span> {selectedRespondent.timing_speeder === true ? 'Yes' : selectedRespondent.timing_speeder === false ? 'No' : '—'}</div>
+                  <div><span className="text-gray-500">Flatliner:</span> {selectedRespondent.timing_flatliner === true ? 'Yes' : selectedRespondent.timing_flatliner === false ? 'No' : '—'}</div>
+                  <div><span className="text-gray-500">Anomalies:</span> {selectedRespondent.timing_anomaly_count ?? '—'}</div>
+                  {selectedRespondent.timing_explanation && <div className="mt-2"><span className="text-gray-500">Why:</span> {selectedRespondent.timing_explanation}</div>}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -16,7 +16,7 @@ import {
   Filter,
   Download
 } from 'lucide-react';
-import { config } from '../config/config';
+import { textAnalysisService } from '../services/apiService';
 
 const TextQualityWidget = ({ sessionId, onDataLoad }) => {
   const [qualityData, setQualityData] = useState(null);
@@ -36,20 +36,16 @@ const TextQualityWidget = ({ sessionId, onDataLoad }) => {
     setError(null);
     
     try {
-      const response = await fetch(`${config.API_BASE_URL}/text-analysis/sessions/${sessionId}/summary`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load quality data: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await textAnalysisService.getSessionSummary(sessionId);
       setQualityData(data);
       
       if (onDataLoad) {
         onDataLoad(data);
       }
     } catch (err) {
-      setError(err.message);
+      const status = err.response?.status;
+      const message = status ? `Failed to load quality data: ${status}` : err.message || 'Failed to load quality data';
+      setError(message);
       console.error('Error loading text quality data:', err);
     } finally {
       setLoading(false);

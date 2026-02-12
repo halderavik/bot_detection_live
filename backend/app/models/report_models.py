@@ -118,6 +118,23 @@ class RespondentDetail(BaseModel):
     timing_flatliner: Optional[bool] = Field(None, description="Whether respondent was flagged as flatliner")
     timing_anomaly_count: Optional[int] = Field(None, description="Count of timing anomalies")
     
+    # Responses of interest and decision reasons (for popup and CSV)
+    text_responses_of_interest: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of text responses with question_preview, response_preview, quality_score, is_flagged, flag_reasons"
+    )
+    fraud_flag_reasons: Optional[Dict[str, Any]] = Field(
+        None, description="Fraud flag reasons from FraudIndicator (e.g. ip_reuse, duplicate_responses, high_velocity)"
+    )
+    fraud_velocity_summary: Optional[Dict[str, Any]] = Field(
+        None, description="Fraud velocity summary (responses_per_hour, velocity_risk_score)"
+    )
+    grid_explanation: Optional[str] = Field(
+        None, description="Human-readable grid analysis explanation (e.g. straight-lined count, variance)"
+    )
+    timing_explanation: Optional[str] = Field(
+        None, description="Human-readable timing analysis explanation (e.g. speeder count, anomaly count)"
+    )
+    
     model_config = ConfigDict(
         json_encoders={
             datetime: lambda v: v.isoformat()

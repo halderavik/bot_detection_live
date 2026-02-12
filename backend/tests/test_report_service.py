@@ -514,3 +514,55 @@ class TestReportService:
         assert "50.000" in csv_content or "0.500" in csv_content
         assert "Yes" in csv_content
         assert "HIGH" in csv_content
+
+    def test_generate_csv_report_includes_respondent_detail_and_decision_columns(self, report_service, sample_sessions):
+        """Test that CSV report includes text responses of interest, fraud reasons, grid/timing explanations."""
+        from app.models.report_models import DetailedReport, RespondentDetail
+
+        session = sample_sessions[0]
+        respondent = RespondentDetail(
+            session_id=session.id,
+            respondent_id=session.respondent_id,
+            created_at=session.created_at,
+            last_activity=session.last_activity,
+            is_bot=session.detection_results[0].is_bot,
+            confidence_score=session.detection_results[0].confidence_score,
+            risk_level=session.detection_results[0].risk_level,
+            total_events=len(session.behavior_data),
+            session_duration_minutes=60.0,
+            event_breakdown={"keystroke": 3},
+            method_scores=session.detection_results[0].method_scores,
+            flagged_patterns=session.detection_results[0].flagged_patterns,
+            analysis_summary=session.detection_results[0].analysis_summary,
+            bot_explanation="Test",
+            text_responses_of_interest=[
+                {
+                    "question_preview": "What did you think?",
+                    "response_preview": "Short reply",
+                    "quality_score": 45.0,
+                    "is_flagged": True,
+                    "flag_reasons": {"gibberish": {"confidence": 0.9, "reason": "Low quality"}},
+                }
+            ],
+            fraud_flag_reasons={"high_velocity": {"responses_per_hour": 10.5, "severity": "high"}},
+            fraud_velocity_summary={"responses_per_hour": 10.5, "velocity_risk_score": 0.75},
+            grid_explanation="Straight-lined on 2 grid question(s); variance 0.12",
+            timing_explanation="Speeder (3 question(s)); 2 timing anomaly(ies)",
+        )
+        detailed_report = DetailedReport(
+            survey_id="SV_123456",
+            total_respondents=1,
+            generated_at=datetime.utcnow(),
+            summary_stats={"total_sessions": 1, "bot_detections": 1},
+            respondents=[respondent],
+        )
+        csv_content = report_service.generate_csv_report(detailed_report)
+        assert "Text Responses of Interest" in csv_content
+        assert "Fraud Flag Reasons" in csv_content
+        assert "Fraud Velocity Summary" in csv_content
+        assert "Grid Explanation" in csv_content
+        assert "Timing Explanation" in csv_content
+        assert "What did you think?" in csv_content or "Short reply" in csv_content
+        assert "high_velocity" in csv_content
+        assert "Straight-lined on 2" in csv_content
+        assert "Speeder (3 question" in csv_content or "timing anomaly" in csv_content

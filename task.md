@@ -93,6 +93,19 @@
 
 ## Discovered During Work
 
+### Report Builder respondent detail popup and full CSV (2026-02-11)
+- [x] **Backend**: Extended `RespondentDetail` with `text_responses_of_interest`, `fraud_flag_reasons`, `fraud_velocity_summary`, `grid_explanation`, `timing_explanation`; report service builds these in `_create_respondent_detail` and adds columns in `generate_csv_report`.
+- [x] **Frontend**: Clickable respondent ID in detailed report table opens modal with session info, bot detection, text quality + responses of interest, fraud, grid, timing (including decision reasons).
+- [x] **CSV**: Downloaded detailed report CSV includes Text Responses of Interest, Fraud Flag Reasons, Fraud Velocity Summary, Grid Explanation, Timing Explanation per respondent.
+- [x] **Tests**: Added `test_generate_csv_report_includes_respondent_detail_and_decision_columns`; fixed mock handling for `fraud_flag_reasons` (dict check). All report tests passing.
+- [x] **Deployment**: Backend and frontend deployed (February 2026); Report Builder and CSV export verified.
+
+### Session Details text quality 403 fix and deployment (2026-02-11)
+- [x] **Root cause**: `TextQualityWidget` used `config.API_BASE_URL` (undefined); config exports `apiBaseUrl` (camelCase), so the request URL became `undefined/...` and the server returned 403.
+- [x] **Fix**: Switched widget to use `textAnalysisService.getSessionSummary(sessionId)` from `apiService.js` so requests use correct `config.apiBaseUrl`.
+- [x] **Local verification**: Built frontend, ran dev server, opened Session Details; text quality section loaded (Responses (1) with quality data).
+- [x] **Deployment**: Deployed updated frontend to GCS bucket `bot-detection-frontend-20251208` (rsync + cache headers). Production dashboard now loads text quality data in Session Details without 403.
+
 ### Dashboard: API Playground and Reports include fraud, grid, and timing detection (2026-02-11)
 - [x] API Playground: Added endpoint templates for fraud (flat + hierarchical), grid analysis (hierarchical), and timing analysis (hierarchical).
 - [x] Report models: Added optional `fraud_summary`, `grid_analysis_summary`, `timing_analysis_summary` to `SurveySummaryReport`; added optional fraud/grid/timing fields to `RespondentDetail`.
@@ -569,6 +582,8 @@ The system is ready for production deployment with the next phase focusing on se
 - [x] **Download Functionality** - Implemented CSV download for detailed reports and PDF placeholder for summary reports
 - [x] **Navigation Integration** - Added Reports link to main navigation menu
 - [x] **Unit Tests** - Created comprehensive test suite for report service functionality
+- [x] **Respondent Detail Popup** - Click respondent ID in detailed report to open modal with full details, responses of interest, and decision reasons (bot, text quality, fraud, grid, timing)
+- [x] **Full CSV Per Respondent** - CSV export includes text responses of interest, fraud flag reasons, fraud velocity summary, grid explanation, and timing explanation for every respondent
 
 ### Text Analysis Production Fix ✅ (2025-01-01)
 - [x] **Fixed 404 Errors** - Made OpenAI client optional to prevent import failures when API key is missing

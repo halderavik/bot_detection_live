@@ -15,7 +15,7 @@ from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 import logging
 
-from app.models import Session, BehaviorData, DetectionResult, SurveyResponse, FraudIndicator, GridResponse, TimingAnalysis
+from app.models import Session, BehaviorData, DetectionResult, SurveyResponse, SurveyQuestion, FraudIndicator, GridResponse, TimingAnalysis
 from app.models.report_models import (
     SurveySummaryReport, DetailedReport, RespondentDetail,
     ReportRequest, ReportResponse, ReportType, ReportFormat
@@ -542,11 +542,12 @@ class ReportService:
             if latest_detection.is_bot:
                 bot_explanation = self._generate_bot_explanation(latest_detection)
         
-        # Get text quality data for this session
+        # Get text quality data for this session and build responses of interest
         text_response_count = None
         avg_text_quality_score = None
         flagged_text_responses = None
         text_quality_percentage = None
+        text_responses_of_interest = None
         try:
             text_query = select(SurveyResponse).where(SurveyResponse.session_id == session.id)
             text_result = await db.execute(text_query)
@@ -557,6 +558,22 @@ class ReportService:
                 avg_text_quality_score = sum(scores) / len(scores) if scores else None
                 flagged_text_responses = sum(1 for r in text_responses if r.is_flagged)
                 text_quality_percentage = (flagged_text_responses / text_response_count * 100) if text_response_count else None
+                # Build text_responses_of_interest with question previews
+                question_ids = list({r.question_id for r in text_responses})
+                q_result = await db.execute(select(SurveyQuestion).where(SurveyQuestion.id.in_(question_ids)))
+                questions_map = {q.id: q for q in q_result.scalars().all()}
+                text_responses_of_interest = []
+                for r in text_responses:
+                    q = questions_map.get(r.question_id)
+                    question_preview = (q.question_text[:197] + "...") if q and getattr(q, "question_text", None) and len(q.question_text) > 200 else (getattr(q, "question_text", None) or "")
+                    response_preview = (r.response_text[:197] + "...") if len(r.response_text) > 200 else r.response_text
+                    text_responses_of_interest.append({
+                        "question_preview": question_preview or "",
+                        "response_preview": response_preview,
+                        "quality_score": r.quality_score,
+                        "is_flagged": bool(r.is_flagged),
+                        "flag_reasons": r.flag_reasons or {},
+                    })
         except Exception:
             pass
         
@@ -564,6 +581,8 @@ class ReportService:
         fraud_score = None
         is_duplicate = None
         fraud_risk_level = None
+        fraud_flag_reasons = None
+        fraud_velocity_summary = None
         try:
             fraud_query = (
                 select(FraudIndicator)
@@ -577,12 +596,19 @@ class ReportService:
                 is_duplicate = fi.is_duplicate
                 rl = getattr(fi, "risk_level", None)
                 fraud_risk_level = rl if isinstance(rl, str) else None
+                fraud_flag_reasons = fi.flag_reasons if isinstance(getattr(fi, "flag_reasons", None), dict) else None
+                if getattr(fi, "responses_per_hour", None) is not None or getattr(fi, "velocity_risk_score", None) is not None:
+                    fraud_velocity_summary = {
+                        "responses_per_hour": float(fi.responses_per_hour) if fi.responses_per_hour is not None else None,
+                        "velocity_risk_score": float(fi.velocity_risk_score) if fi.velocity_risk_score is not None else None,
+                    }
         except Exception:
             pass
         
-        # Grid: any straight-lining, avg variance for this session
+        # Grid: any straight-lining, avg variance for this session; build grid_explanation
         grid_straight_lining = None
         grid_variance_score = None
+        grid_explanation = None
         try:
             grid_query = select(GridResponse).where(GridResponse.session_id == session.id)
             grid_result = await db.execute(grid_query)
@@ -591,13 +617,21 @@ class ReportService:
                 grid_straight_lining = any(gr.is_straight_lined for gr in grid_rows)
                 variances = [gr.variance_score for gr in grid_rows if gr.variance_score is not None]
                 grid_variance_score = sum(variances) / len(variances) if variances else None
+                straight_lined_count = sum(1 for gr in grid_rows if gr.is_straight_lined)
+                parts = []
+                if straight_lined_count > 0:
+                    parts.append(f"Straight-lined on {straight_lined_count} grid question(s)")
+                if grid_variance_score is not None:
+                    parts.append(f"variance {grid_variance_score:.2f}")
+                grid_explanation = "; ".join(parts) if parts else None
         except Exception:
             pass
         
-        # Timing: any speeder/flatliner, anomaly count for this session
+        # Timing: any speeder/flatliner, anomaly count for this session; build timing_explanation
         timing_speeder = None
         timing_flatliner = None
         timing_anomaly_count = None
+        timing_explanation = None
         try:
             timing_speeder_query = select(func.count(TimingAnalysis.id)).where(
                 and_(TimingAnalysis.session_id == session.id, TimingAnalysis.is_speeder == True)
@@ -612,8 +646,18 @@ class ReportService:
             flr = await db.execute(timing_flatliner_query)
             ar = await db.execute(timing_anom_query)
             timing_anomaly_count = ar.scalar() or 0
-            timing_speeder = (sr.scalar() or 0) > 0
-            timing_flatliner = (flr.scalar() or 0) > 0
+            speeder_count = sr.scalar() or 0
+            flatliner_count = flr.scalar() or 0
+            timing_speeder = speeder_count > 0
+            timing_flatliner = flatliner_count > 0
+            timing_parts = []
+            if speeder_count > 0:
+                timing_parts.append(f"Speeder ({speeder_count} question(s))")
+            if flatliner_count > 0:
+                timing_parts.append(f"Flatliner ({flatliner_count} question(s))")
+            if timing_anomaly_count and timing_anomaly_count > 0:
+                timing_parts.append(f"{timing_anomaly_count} timing anomaly(ies)")
+            timing_explanation = "; ".join(timing_parts) if timing_parts else None
         except Exception:
             pass
         
@@ -643,7 +687,12 @@ class ReportService:
             grid_variance_score=float(grid_variance_score) if grid_variance_score is not None else None,
             timing_speeder=timing_speeder,
             timing_flatliner=timing_flatliner,
-            timing_anomaly_count=timing_anomaly_count
+            timing_anomaly_count=timing_anomaly_count,
+            text_responses_of_interest=text_responses_of_interest,
+            fraud_flag_reasons=fraud_flag_reasons,
+            fraud_velocity_summary=fraud_velocity_summary,
+            grid_explanation=grid_explanation,
+            timing_explanation=timing_explanation,
         )
     
     def _generate_bot_explanation(self, detection: DetectionResult) -> str:
@@ -686,7 +735,7 @@ class ReportService:
             output = io.StringIO()
             writer = csv.writer(output)
             
-            # Write header
+            # Write header (include new columns for responses of interest and decision reasons)
             header = [
                 "Session ID", "Respondent ID", "Created At", "Last Activity",
                 "Is Bot", "Confidence Score", "Risk Level", "Total Events",
@@ -695,12 +744,22 @@ class ReportService:
                 "Text Response Count", "Avg Text Quality Score", "Flagged Text Responses", "Text Quality Percentage",
                 "Fraud Score", "Is Duplicate", "Fraud Risk Level",
                 "Grid Straight Lining", "Grid Variance Score",
-                "Timing Speeder", "Timing Flatliner", "Timing Anomaly Count"
+                "Timing Speeder", "Timing Flatliner", "Timing Anomaly Count",
+                "Text Responses of Interest", "Fraud Flag Reasons", "Fraud Velocity Summary",
+                "Grid Explanation", "Timing Explanation"
             ]
             writer.writerow(header)
             
             # Write data rows
             for respondent in detailed_report.respondents:
+                # Sanitize string fields for CSV: replace newlines with space to avoid breaking rows
+                def safe_str(s: Optional[str]) -> str:
+                    if s is None:
+                        return ""
+                    return s.replace("\r", " ").replace("\n", " ").strip()
+                text_responses_csv = json.dumps(respondent.text_responses_of_interest) if respondent.text_responses_of_interest else ""
+                fraud_reasons_csv = json.dumps(respondent.fraud_flag_reasons) if respondent.fraud_flag_reasons else ""
+                fraud_velocity_csv = json.dumps(respondent.fraud_velocity_summary) if respondent.fraud_velocity_summary else ""
                 row = [
                     respondent.session_id,
                     respondent.respondent_id or "",
@@ -714,8 +773,8 @@ class ReportService:
                     json.dumps(respondent.event_breakdown),
                     json.dumps(respondent.method_scores),
                     json.dumps(respondent.flagged_patterns) if respondent.flagged_patterns else "",
-                    respondent.analysis_summary or "",
-                    respondent.bot_explanation or "",
+                    safe_str(respondent.analysis_summary),
+                    safe_str(respondent.bot_explanation),
                     respondent.text_response_count or 0,
                     f"{respondent.avg_text_quality_score:.1f}" if respondent.avg_text_quality_score else "N/A",
                     respondent.flagged_text_responses or 0,
@@ -727,7 +786,12 @@ class ReportService:
                     f"{respondent.grid_variance_score:.3f}" if respondent.grid_variance_score is not None else "",
                     "Yes" if respondent.timing_speeder else ("No" if respondent.timing_speeder is False else ""),
                     "Yes" if respondent.timing_flatliner else ("No" if respondent.timing_flatliner is False else ""),
-                    respondent.timing_anomaly_count if respondent.timing_anomaly_count is not None else ""
+                    respondent.timing_anomaly_count if respondent.timing_anomaly_count is not None else "",
+                    text_responses_csv,
+                    fraud_reasons_csv,
+                    fraud_velocity_csv,
+                    safe_str(respondent.grid_explanation),
+                    safe_str(respondent.timing_explanation),
                 ]
                 writer.writerow(row)
             

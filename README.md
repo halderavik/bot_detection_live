@@ -33,7 +33,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
 - ✅ Fraud detection widget integrated and operational
 - ✅ API Playground: Endpoint templates for fraud (flat + hierarchical), grid analysis, and timing analysis
-- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV)
+- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV); click respondent ID to open full-detail popup; CSV includes every analysis per respondent (text responses of interest, fraud/grid/timing explanations)
 - ✅ All 6 frontend-used endpoints tested and working correctly
 
 ## 🚀 Features
@@ -50,7 +50,7 @@ A comprehensive bot detection system with behavioral analysis, survey platform i
 - **Fraud Detection Dashboard**: Hierarchical fraud widgets integrated into all detail views ✅ **COMPLETED**
 - **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
 - **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
-- **Enhanced Report Builder**: Comprehensive reporting system with text quality, fraud & duplicate detection, grid/matrix analysis, and timing analysis metrics in summary and detailed reports
+- **Enhanced Report Builder**: Comprehensive reporting system with text quality, fraud & duplicate detection, grid/matrix analysis, and timing analysis metrics in summary and detailed reports; clickable respondent ID opens a popup with full details, responses of interest, and decision reasons; CSV export includes all analyses per respondent
 - **Scalable Architecture**: FastAPI backend with PostgreSQL deployed on Google Cloud Platform
 - **Client SDKs**: Python and JavaScript client libraries for easy integration
 - **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking

@@ -1,5 +1,9 @@
 # Bot Detection Methodology: Complete User Guide
 
+**Who this document is for**: This guide is written for anyone using or integrating with the bot detection system—survey managers, analysts, and implementers. It explains **how the system works** and **how scores and decisions are calculated**, in plain language. You do not need access to the application’s source code; everything you need to understand and use the system is in this document.
+
+---
+
 ## Production System Status
 ✅ **FULLY OPERATIONAL** - All systems verified and working
 - **API Base URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
@@ -15,7 +19,7 @@
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure available ✅
 - **Hierarchical Text Analysis**: V2 endpoints for text analysis at all hierarchy levels ✅
 - **Database Migration**: `platform_id` column added with composite indexes ✅
-- **Dashboard (February 2026)**: API Playground includes fraud, grid, and timing endpoint templates; Report Builder includes fraud, grid, and timing in summary and detailed reports ✅
+- **Dashboard (February 2026)**: API Playground includes fraud, grid, and timing endpoint templates; Report Builder includes fraud, grid, and timing in summary and detailed reports; click respondent ID in detailed report to open full-detail popup (responses of interest, decision reasons); CSV export includes every analysis per respondent ✅
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -27,9 +31,10 @@
 7. [Decision Making Process](#decision-making-process)
 8. [Confidence Scoring](#confidence-scoring)
 9. [Risk Assessment](#risk-assessment)
-10. [Integration Examples](#integration-examples)
-11. [Best Practices](#best-practices)
-12. [Troubleshooting](#troubleshooting)
+10. [How the System Calculates Scores — Quick Reference](#how-the-system-calculates-scores--quick-reference)
+11. [Integration Examples](#integration-examples)
+12. [Best Practices](#best-practices)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -233,7 +238,7 @@ Events are sent to the API in batches:
 - **Readiness Check**: Session marked ready for analysis when sufficient data collected
 
 ### 3. Analysis Triggering
-- **Minimum Data**: Analysis triggered when session has sufficient events (typically 5+ keystrokes, 3+ mouse events)
+- **Minimum Data**: Analysis requires at least 5 events for keystroke/timing; 3+ for mouse. If keystrokes < 5, keystroke score returns 0.5 (neutral). If mouse events < 3, mouse score returns 0.5.
 - **Time-based**: Analysis can be triggered manually or automatically
 - **Real-time**: Analysis performed within 200ms for immediate results
 
@@ -241,93 +246,79 @@ Events are sent to the API in batches:
 
 ## Detection Methods
 
-### 1. Keystroke Analysis (Weight: 30%)
+The system uses five behavioral signals. Each produces a **risk score from 0 (looks human) to 1 (looks bot-like)**. Those scores are then combined into one behavioral confidence score (see [Decision Making Process](#decision-making-process)).
+
+### 1. Keystroke Analysis (30% of behavioral score)
+
+**What the system looks at**: Time between consecutive keystrokes—how regular or variable typing is.
+
+**How it decides "suspicious"** (each adds to the keystroke risk; up to 4 checks):
+- **Too regular**: Time between key presses varies by less than **10 ms**—unnaturally steady.
+- **Too fast**: Average time between keys is under **50 ms**—faster than human typing.
+- **Too slow**: Average time between keys is over **2000 ms** (2 seconds)—unusual long pauses.
+- **Perfect timing**: More than **80%** of intervals are round numbers (e.g. exactly 100 ms, 200 ms)—machine-like.
+
+**How the keystroke score is calculated**: The system counts how many of these four checks are true, then divides by 4 and caps at 1.0. So 0 checks → 0, 4 checks → 1.0.
+
+**Minimum data**: At least **5 keystroke events** are needed. With fewer, the system uses a neutral score of 0.5.
+
+**What looks human**: Variable timing (variation ≥ 10 ms), realistic speed (roughly 50–2000 ms between keys), irregular patterns.
+
+### 2. Mouse Analysis (25% of behavioral score)
+
+**Backend constants**:
+- `MOUSE_MIN_MOVEMENT = 5` pixels  
+- `MOUSE_MAX_SPEED = 1000` pixels/second  
+- `MOUSE_CLICK_THRESHOLD = 0.7` (precision > 0.99 is treated as “perfect precision”)  
 
 **What it analyzes**:
-- Inter-keystroke timing intervals
-- Typing speed consistency
-- Natural variation patterns
+- Movement type (linear vs. natural), speed, precision, and distance variation
 
-**Bot Indicators**:
-- **Too Regular**: Standard deviation < 10ms (impossible for humans)
-- **Too Fast**: Average interval < 50ms (superhuman typing)
-- **Too Slow**: Average interval > 2000ms (suspicious delays)
-- **Perfect Timing**: Intervals divisible by 10ms (bot-like precision)
+**Bot indicators**:
+- **Straight-line movements**: Movement is perfectly linear instead of curved
+- **Unrealistic speed**: `speed > 1000` pixels/second
+- **Perfect precision**: `precision > 0.99`
+- **Consistent distances**: With > 10 events, std dev of movement distances < **5** pixels
 
-**Human Indicators**:
-- Natural variation in timing (std dev > 10ms)
-- Realistic typing speeds (50-2000ms intervals)
-- Irregular patterns reflecting human cognition
+**Score formula**:
+```python
+# Requires at least 3 mouse events; otherwise returns 0.5
+score = min(suspicious_patterns / (len(mouse_events) + 1), 1.0)
+```
 
-### 2. Mouse Analysis (Weight: 25%)
+**Human indicators**: Curved movements, variable precision, speeds ≤ 1000 px/s, distance std dev ≥ 5.
 
-**What it analyzes**:
-- Mouse movement trajectories
-- Click precision and timing
-- Movement speed variations
+### 3. Timing Analysis (20% of behavioral score)
 
-**Bot Indicators**:
-- **Straight-line Movements**: Perfect linear paths (unrealistic)
-- **Unrealistic Speeds**: Movement > 1000 pixels/second
-- **Perfect Precision**: Click accuracy > 99% (impossible for humans)
-- **Consistent Distances**: Very low variation in movement distances
+**What the system looks at**: Session length, how many events per second, and how regular the gaps between events are.
 
-**Human Indicators**:
-- Natural curved movements
-- Variable click precision
-- Realistic movement speeds
-- Natural distance variations
+**How it decides "suspicious"** (up to 3 checks):
+- **Too short session**: From first to last event, the session is under **10 seconds**.
+- **Too many events per second**: More than **50 events per second**—not realistic for a human.
+- **Too regular**: Gaps between events vary by less than **0.1 seconds**—very mechanical.
 
-### 3. Timing Analysis (Weight: 20%)
+**How the timing score is calculated**: The system counts how many of these three are true, divides by 3, and caps at 1.0.
 
-**What it analyzes**:
-- Overall session timing patterns
-- Event frequency consistency
-- Inter-event intervals
+**Minimum data**: At least **5 events**. With fewer, the system uses a neutral score of 0.5.
 
-**Bot Indicators**:
-- **Too Short Sessions**: < 10 seconds (insufficient interaction)
-- **Too High Frequency**: > 50 events/second (impossible for humans)
-- **Too Regular**: Very consistent timing between events
+**What looks human**: Session at least 10 seconds, at most 50 events per second, and natural variation in timing (≥ 0.1 s).
 
-**Human Indicators**:
-- Natural session durations
-- Variable event frequencies
-- Irregular timing patterns
+### 4. Device Analysis (15% of behavioral score)
 
-### 4. Device Analysis (Weight: 15%)
+**What the system looks at**: Screen resolution, viewport size, and whether they stay consistent.
 
-**What it analyzes**:
-- Device fingerprinting consistency
-- Screen size patterns
-- User agent characteristics
+**How it decides "suspicious"**:
+- **Multiple screen sizes**: More than one different screen resolution reported in the same session.
+- **Common bot resolutions**: Resolution is one of **1920×1080**, **1366×768**, or **1440×900** (each adds half a "point"; these are often seen in automated setups).
+- **Inconsistent viewport**: More than one different viewport size in the session.
 
-**Bot Indicators**:
-- **Multiple Screen Sizes**: Different resolutions in same session
-- **Common Bot Sizes**: Standard resolutions (1920x1080, 1366x768)
-- **Inconsistent Viewport**: Multiple viewport sizes
+**How the device score is calculated**: The system adds up these factors, divides by 3, and caps at 1.0.
 
-**Human Indicators**:
-- Consistent device characteristics
-- Realistic screen sizes
-- Stable viewport dimensions
+**What looks human**: One stable screen size and one viewport, and a resolution not in the common bot list above.
 
-### 5. Network Analysis (Weight: 10%)
+### 5. Network Analysis (10% of behavioral score)
 
-**What it analyzes**:
-- Network request patterns
-- Header characteristics
-- Request timing
-
-**Bot Indicators**:
-- **Suspicious Headers**: Missing or fake user agents
-- **Regular Patterns**: Too consistent request timing
-- **Anomalous IPs**: Known bot IP ranges
-
-**Human Indicators**:
-- Natural request patterns
-- Realistic headers
-- Variable timing
+**Current behavior**: The system does not analyze network or request headers. This part always contributes a **neutral score of 0.5**. Classification is driven by the other four methods.
 
 ---
 
@@ -344,8 +335,7 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 - Mixed languages without meaning
 - Keyboard mashing patterns
 
-**Bot Indicators**:
-- High confidence gibberish detection (>70%)
+**When the system flags a response**: The system flags the response when its confidence that the text is gibberish is **above 70%**.
 - Random character patterns
 - No coherent meaning
 
@@ -364,8 +354,7 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 - Overly polished responses
 - Responses that don't match question context
 
-**Bot Indicators**:
-- High confidence copy-paste detection (>70%)
+**When the system flags a response**: The system flags the response when its confidence that the text is copy-pasted is **70% or higher**.
 - Generic, impersonal language
 - Dictionary-style definitions
 - Responses that are too formal for the context
@@ -384,8 +373,7 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 - Responses that ignore the question
 - Tangential or irrelevant content
 
-**Bot Indicators**:
-- High confidence irrelevance detection (>70%)
+**When the system flags a response**: The system uses a "relevance risk" score; when that score is **70% or higher** (meaning the response is likely not relevant to the question), it flags the response.
 - Completely off-topic responses
 - Responses that ignore the question entirely
 
@@ -403,8 +391,7 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 - Responses with no specific details
 - Low-effort, template-style answers
 
-**Bot Indicators**:
-- High confidence generic detection (>70%)
+**When the system flags a response**: The system flags the response when its confidence that the text is generic/low-effort is **above 70%**.
 - Very short, uninformative responses
 - Template-style answers
 - Lack of specific details
@@ -415,16 +402,22 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 - Thoughtful, considered answers
 
 ### 5. Overall Quality Scoring
-**Purpose**: Provide a comprehensive quality score for each response
+**Purpose**: Provide a comprehensive quality score for each response (0–100 from GPT-4o-mini).
 
-**Scoring Scale (0-100)**:
-- **90-100**: Excellent quality, detailed, insightful
-- **70-89**: Good quality, relevant, informative
-- **50-69**: Average quality, acceptable but basic
-- **30-49**: Poor quality, minimal effort
-- **0-29**: Very poor quality, likely problematic
+**Scoring Scale (0–100)**:
+- **90–100**: Excellent quality, detailed, insightful
+- **70–89**: Good quality, relevant, informative
+- **50–69**: Average quality, acceptable but basic
+- **30–49**: Poor quality, minimal effort
+- **0–29**: Very poor quality, likely problematic
 
-**Quality Factors**:
+**When the system flags for low quality**: If the overall quality score (0–100) is **below 30**, the response is flagged as low quality.
+
+**Priority rules** (so one issue does not pile on redundant flags): If a response is flagged as **gibberish**, the system does not also flag it as generic or low quality. If it is flagged as **irrelevant**, the system does not also flag it as generic.
+
+**Overall confidence** (per response): The system averages the confidence from the four checks (gibberish, copy-paste, relevance, generic) to produce one confidence value for that response.
+
+**Quality factors** the system considers:
 - Relevance to question
 - Depth and detail
 - Originality and authenticity
@@ -441,76 +434,65 @@ Our text quality analysis uses OpenAI's GPT-4o-mini model to analyze open-ended 
 6. **Quality Score**: Overall quality score calculated
 7. **Storage**: Results stored with response data
 
-### Integration with Behavioral Analysis
+### Integration with Composite Score
 
-Text quality analysis is combined with behavioral analysis using weighted scoring:
-- **Behavioral Analysis**: 60% weight
-- **Text Quality Analysis**: 40% weight
+Text quality is combined with **behavioral** and **fraud** in the **composite score** (see [Decision Making Process](#decision-making-process)). The composite is:
 
-This composite approach provides more accurate bot detection by considering both how users interact with the interface and the quality of their responses.
+- **Behavioral score**: 40% — how bot-like the interaction (keystrokes, mouse, timing, device) was.
+- **Text quality (as risk)**: 30% — the system converts the average text quality (0–100) into a risk: higher quality means lower risk (formula: risk = 1 − quality/100).
+- **Fraud score**: 30% — risk from IP, device, duplicates, geolocation, and velocity.
+
+Together, these three give one composite score that reflects both how the user interacted and how good and trustworthy their answers were.
 
 ---
 
 ## Decision Making Process
 
-### 1. Individual Method Scoring
+### 1. Individual Method Scoring (Behavioral Only)
 
-Each detection method returns a score from 0.0 to 1.0:
-- **0.0-0.3**: Strong human indicators
-- **0.3-0.7**: Mixed or unclear signals
-- **0.7-1.0**: Strong bot indicators
+Each behavioral method returns a score from 0.0 to 1.0 (see Detection Methods for formulas). Interpretation:
+- **0.0–0.3**: Strong human indicators
+- **0.3–0.7**: Mixed or unclear signals
+- **0.7–1.0**: Strong bot indicators
 
-### 2. Composite Analysis
+### 2. Behavioral Confidence Score
 
-Scores are combined using a two-tier weighted approach:
+The system combines the five behavioral method scores into one **behavioral confidence score** using fixed weights:
 
-**Behavioral Analysis (60% total weight)**:
-```python
-behavioral_weights = {
-    'keystroke_analysis': 0.30,  # 30% of total
-    'mouse_analysis': 0.25,      # 25% of total
-    'timing_analysis': 0.20,     # 20% of total
-    'device_analysis': 0.15,     # 15% of total
-    'network_analysis': 0.10     # 10% of total
-}
-```
+- Keystroke: **30%**
+- Mouse: **25%**
+- Timing: **20%**
+- Device: **15%**
+- Network: **10%**
 
-**Text Quality Analysis (40% total weight)**:
-```python
-text_quality_weights = {
-    'gibberish_detection': 0.20,    # 20% of total
-    'copy_paste_detection': 0.15,   # 15% of total
-    'relevance_analysis': 0.15,     # 15% of total
-    'generic_detection': 0.10,      # 10% of total
-    'quality_score': 0.40           # 40% of total
-}
-```
+Each method contributes (its score × its weight); the confidence score is the sum of those five contributions (a number between 0 and 1).
 
-**Composite Score Calculation**:
-```python
-composite_score = (
-    0.6 * behavioral_score +      # 60% behavioral analysis
-    0.4 * text_quality_score      # 40% text quality analysis
-)
-```
+**Behavioral bot decision**: If this confidence score is **above 70%**, the session is classified as **bot**. Otherwise it is classified as **human**.
 
-### 3. Confidence Calculation
+### 3. Composite Score (Behavioral + Text Quality + Fraud)
 
-Overall confidence score calculated as weighted average of composite analysis scores.
+When the system has text quality and fraud data, it computes a **composite score** that combines all three areas:
 
-### 4. Classification Decision
+1. **Behavioral score** (40%): The same 0–1 behavioral confidence from keystroke, mouse, timing, device, and network.
+2. **Text quality as risk** (30%): The system turns average text quality (0–100) into a risk: **risk = 1 − (average quality ÷ 100)**. So high quality (e.g. 80) gives low risk (0.2).
+3. **Fraud score** (30%): The 0–1 fraud risk from IP, device, duplicates, geolocation, and velocity (see [Fraud Detection](#fraud-detection-stage-3--deployed)).
 
-**Bot Classification**:
-- Composite score > 0.7 → Classified as bot
-- Composite score ≤ 0.7 → Classified as human
+**Formula in words**:  
+Composite score = (0.4 × behavioral) + (0.3 × text-quality risk) + (0.3 × fraud).  
+The result is a number between 0 and 1.
 
-**Decision Logic**:
-```python
-is_bot = composite_score > 0.7
-```
+**Composite risk level** (what you see in reports):
+- **CRITICAL**: composite score **≥ 80%**
+- **HIGH**: composite score **≥ 60%**
+- **MEDIUM**: composite score **≥ 40%**
+- **LOW**: composite score **under 40%**
 
-**Enhanced Decision Making**:
-The composite analysis provides more accurate classification by considering both behavioral patterns and text quality, reducing false positives and false negatives.
+**Composite bot decision**: If the composite score is **70% or higher**, the session is classified as **bot**. Otherwise it is classified as **human**.
+
+### 4. Summary
+
+- **Behavioral-only** (no text/fraud): The system uses only the weighted behavioral confidence. **Bot** if that score is **&gt; 70%**.
+- **Full composite** (with text and fraud): The system uses the three-part composite. **Bot** if composite score is **70% or higher**; risk level is CRITICAL/HIGH/MEDIUM/LOW as above.
 
 ---
 
@@ -579,18 +561,38 @@ The composite analysis provides more accurate classification by considering both
 
 ### Risk Level Determination
 
-```python
-def determine_risk_level(confidence_score, is_bot):
-    if is_bot:
-        if confidence_score >= 0.9: return 'critical'
-        elif confidence_score >= 0.7: return 'high'
-        elif confidence_score >= 0.5: return 'medium'
-        else: return 'low'
-    else:
-        if confidence_score >= 0.7: return 'low'
-        elif confidence_score >= 0.5: return 'medium'
-        else: return 'high'  # Low confidence in human classification
-```
+**When the session is classified as bot** (behavioral confidence or composite score indicates bot):
+- Confidence **≥ 90%** → **CRITICAL**
+- Confidence **≥ 70%** → **HIGH**
+- Confidence **≥ 50%** → **MEDIUM**
+- Otherwise → **LOW**
+
+**When the session is classified as human** (behavioral or composite indicates human):
+- Confidence **≥ 70%** (strong human signals) → **LOW** risk
+- Confidence **≥ 50%** → **MEDIUM** (some uncertainty)
+- Confidence **under 50%** → **HIGH** (low confidence that the user is human; worth reviewing)
+
+**Composite risk** (when using the full composite score): Composite **≥ 80%** → CRITICAL; **≥ 60%** → HIGH; **≥ 40%** → MEDIUM; **under 40%** → LOW.
+
+---
+
+## How the System Calculates Scores — Quick Reference
+
+This section summarizes the main numbers and rules the system uses, in plain language. You can use it to interpret results or explain the system to others. No access to application code is required.
+
+| What | How the system uses it |
+|------|------------------------|
+| **Keystroke** | Needs at least 5 keystrokes. Suspicious if: timing too regular (under 10 ms variation), too fast (under 50 ms average), too slow (over 2 s average), or over 80% of intervals round numbers. Score = (number of suspicious checks ÷ 4), max 1.0. |
+| **Mouse** | Needs at least 3 mouse events. Suspicious if: straight-line movement, speed over 1000 px/s, precision over 99%, or (with over 10 events) very consistent movement distances (under 5 px variation). Score scales with number of suspicious signs and number of events. |
+| **Timing (session)** | Needs at least 5 events. Suspicious if: session under 10 s, or over 50 events per second, or gaps between events too regular (under 0.1 s variation). Score = (number of checks ÷ 3), max 1.0. |
+| **Device** | Suspicious if: multiple screen sizes in one session, resolution is 1920×1080 / 1366×768 / 1440×900, or multiple viewport sizes. Score = (suspicious factors ÷ 3), max 1.0. |
+| **Network** | Always 0.5 (neutral); no request analysis. |
+| **Behavioral combination** | Weights: keystroke 30%, mouse 25%, timing 20%, device 15%, network 10%. **Bot** if this combined score is over 70%. |
+| **Composite score** | 40% behavioral + 30% text-quality risk + 30% fraud. Text-quality risk = 1 − (average quality ÷ 100). **Bot** if composite ≥ 70%. Risk: CRITICAL ≥ 80%, HIGH ≥ 60%, MEDIUM ≥ 40%, LOW under 40%. |
+| **Text flags** | Gibberish: flag if confidence over 70%. Copy-paste, relevance, generic: flag if 70% or higher. Low quality: flag if quality score under 30. |
+| **Fraud** | Combined from IP (25%), device fingerprint (25%), duplicate responses (20%), geolocation (15%), velocity (15%). **Duplicate** if overall fraud score ≥ 70%. |
+| **Grid straight-lining** | Flagged when **80% or more** of grid answers are the same value (at least 2 answers). |
+| **Response timing** | **Speeder**: answer in **under 2 seconds**. **Flatliner**: answer in **over 5 minutes**. **Anomaly**: response time is a statistical outlier (z-score over 2.5). |
 
 ---
 
@@ -824,24 +826,20 @@ The survey-specific detection system provides specialized analysis for grid/matr
 ### Detection Methods
 
 #### 1. Grid/Matrix Question Analysis
-- **Purpose**: Detect satisficing behavior in grid/matrix questions
-- **What it detects**:
-  - Straight-lining patterns (identical responses across rows)
-  - Diagonal patterns (systematic diagonal responses)
-  - Reverse diagonal patterns
-  - Zigzag patterns (alternating responses)
-  - Low variance responses (minimal variation in answers)
-  - Satisficing behavior (low-effort, pattern-based responses)
-- **Risk Scoring**: Based on pattern detection, variance scores, and satisficing scores
 
-#### 2. Enhanced Timing Analysis
-- **Purpose**: Identify suspicious response timing patterns
-- **What it detects**:
-  - Speeders: Responses faster than threshold (< 2000ms default)
-  - Flatliners: Responses slower than threshold (> 300000ms default)
-  - Timing anomalies: Statistical outliers using z-score analysis
-  - Adaptive thresholds: Context-aware timing thresholds based on question complexity
-- **Risk Scoring**: Based on timing violations and anomaly scores
+The system looks at how respondents answer grid (matrix) questions—e.g. several rows of options with the same scale.
+
+- **Straight-lining**: When **80% or more** of the answers in a grid are the **same value** (e.g. all "5"), the system flags straight-lining. At least **2 responses** are required in the grid to run this check. The confidence of the result increases with the share of identical answers and with the number of cells (up to a cap).
+- **Pattern detection**: The system can also detect diagonal, reverse diagonal, and zigzag patterns; it needs at least **3 responses**. Variance and satisficing scores are derived from the same set of answers.
+
+#### 2. Enhanced Timing Analysis (Response-Level)
+
+The system evaluates how long respondents take to answer each question.
+
+- **Speeders**: A response is flagged as a **speeder** if it was submitted in **under 2 seconds** (2000 ms). This suggests the question may not have been read.
+- **Flatliners**: A response is flagged as a **flatliner** if it took **over 5 minutes** (300 000 ms). This can indicate the respondent left the page or was distracted.
+- **Timing anomalies**: The system computes a statistical measure (z-score) for each response time. If the time is far from the typical time for that question (z-score **over 2.5** in either direction), the response is flagged as an outlier—either very fast (speeder-like) or very slow (flatliner-like). At least **3 responses** are needed for this check.
+- **Adaptive thresholds**: When enough data is available, the system can use question-specific averages and variation to set slightly different speeder/flatliner bounds, while keeping them within 0.5–2 seconds for speeders and 5–10 minutes for flatliners.
 
 ### Grid Analysis Integration
 Grid analysis is integrated into the hierarchical API structure:
@@ -894,50 +892,55 @@ GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_
 
 ## Fraud Detection (Stage 3) ✅ **DEPLOYED**
 
-### Overview
-The fraud detection system provides additional layers of protection by analyzing IP addresses, device fingerprints, duplicate responses, geolocation consistency, and response velocity patterns.
+The fraud module combines several signals into one **overall fraud score** (0–100%). That score is used in the composite bot score and to mark respondents as duplicate when appropriate.
 
-### Detection Methods
+### How the Overall Fraud Score Is Built
 
-#### 1. IP Address Analysis
-- **Purpose**: Track IP reuse and identify suspicious IP patterns
-- **What it detects**:
-  - IP addresses used by multiple sessions
-  - High-frequency IP usage (multiple sessions per day)
-  - Known VPN/proxy IP ranges
-- **Risk Scoring**: Based on usage count and frequency
+The system weights five components and adds them up (the result is capped between 0 and 100%):
 
-#### 2. Device Fingerprinting
-- **Purpose**: Identify duplicate devices across sessions
-- **What it detects**:
-  - Same device fingerprint used by multiple respondents
-  - Device fingerprint reuse patterns
-  - Suspicious device characteristics
-- **Risk Scoring**: Based on fingerprint usage count
+- **IP address**: 25%
+- **Device fingerprint**: 25%
+- **Duplicate responses**: 20%
+- **Geolocation**: 15%
+- **Response velocity**: 15%
 
-#### 3. Duplicate Detection
-- **Purpose**: Identify duplicate responses from same respondent
-- **What it detects**:
-  - Multiple sessions from same respondent_id
-  - Identical or highly similar responses
-  - Response pattern matching
-- **Risk Scoring**: Based on duplicate count and similarity
+- A respondent is treated as **duplicate** when the overall fraud score is **70% or higher**.
+- **Fraud risk levels**: **CRITICAL** (≥ 90%); **HIGH** (≥ 70%); **MEDIUM** (≥ 40%); **LOW** (below 40%).
 
-#### 4. Geolocation Consistency
-- **Purpose**: Verify geographic consistency of responses
-- **What it detects**:
-  - IP geolocation vs. stated location mismatches
-  - Rapid geographic changes (impossible travel)
-  - Suspicious location patterns
-- **Risk Scoring**: Based on consistency violations
+### What Each Component Measures
 
-#### 5. Velocity Checking
-- **Purpose**: Detect abnormally fast response patterns
-- **What it detects**:
-  - Responses per hour exceeding normal thresholds
-  - Suspiciously fast completion times
-  - Unrealistic response velocity
-- **Risk Scoring**: Based on response rate and timing
+#### 1. IP Address (25%)
+How often the same IP is used across sessions or in one day.  
+- **Very high risk (80%)**: Same IP used in 10+ sessions, or in 5+ sessions in one day.  
+- **High (60%)**: 5+ sessions or 3+ in one day.  
+- **Medium (40%)**: 3+ sessions.  
+- **Low (20%)**: 2 sessions.  
+- **None (0%)**: Single use.
+
+#### 2. Device Fingerprinting (25%)
+How often the same device fingerprint appears across respondents.  
+- **Very high (90%)**: 5+ uses; **High (70%)**: 3+; **Medium (50%)**: 2+; **None (0%)**: single use.
+
+#### 3. Duplicate Responses (20%)
+How similar this respondent’s text answers are to others.  
+- Responses are compared; **70% or higher similarity** is treated as a duplicate signal.  
+- **Risk**: 95%+ similar → 100%; 85%+ → 80%; 70%+ → 60%; below 70% → 0%.
+
+#### 4. Geolocation (15%)
+Whether the stated location matches IP-based location, or if there are impossible travel patterns. A **geolocation** reason is added when this risk is **70% or higher**.
+
+#### 5. Velocity (15%)
+How many responses per hour the respondent (or IP/device) submits.  
+- **20+ per hour** → 100%; **10+** → 80%; **5+** → 60%; **3+** → 40%; below 3 → 0%.
+
+### When You See Fraud “Reasons” in Reports
+
+The system attaches labels when a component passes a threshold:  
+- **IP reuse**: IP risk ≥ 60%  
+- **Device reuse**: device risk ≥ 50%  
+- **Duplicate responses**: duplicate risk ≥ 60%  
+- **Geolocation**: geolocation risk ≥ 70%  
+- **High velocity**: velocity risk ≥ 60%
 
 ### Fraud Detection Integration
 Fraud detection is integrated into the composite bot detection scoring:
