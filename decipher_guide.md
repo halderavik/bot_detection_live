@@ -188,32 +188,98 @@ Place the above on a shared header template or relevant pages to ensure coverage
 
 ---
 
+## 3b) Grid/Matrix Question Capture (Optional)
+
+To enable **grid/matrix analysis** (straight-lining, response patterns, variance), capture grid questions as follows.
+
+**1. Register the grid when it is shown**  
+Call `POST /text-analysis/questions` once per grid with `question_type: 'grid'` or `'matrix'`. Store the returned `question_id` (e.g. in a variable keyed by your Decipher question/variable name).
+
+**2. When the respondent has completed the grid** (e.g. on "Next" or page leave), collect each selected value (one per cell) and send **one** `POST /text-analysis/responses` **per cell** with that same `question_id`, `response_text` = the cell value (e.g. `"1"`, `"5"`), and optionally `response_time_ms` for the grid.
+
+Example – register grid question:
+
+```javascript
+async function registerGridQuestion(questionText, elementId) {
+  const sessionId = document.getElementById('session_id')?.value; // or bot_session_id
+  if (!sessionId) return null;
+  const resp = await fetch(`${API_BASE}/text-analysis/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      question_text: questionText || 'Grid question',
+      question_type: 'grid',
+      element_id: elementId || '',
+      page_url: window.location.href,
+      page_title: document.title
+    })
+  });
+  const data = await resp.json();
+  return data.question_id;
+}
+```
+
+Example – send grid cell values (one request per cell):
+
+```javascript
+async function sendGridResponses(questionId, responseTimeMs, cellValues) {
+  const sessionId = document.getElementById('session_id')?.value;
+  if (!sessionId || !questionId || !cellValues?.length) return;
+  for (const value of cellValues) {
+    await fetch(`${API_BASE}/text-analysis/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+        response_text: String(value),
+        response_time_ms: responseTimeMs || null
+      })
+    });
+  }
+}
+```
+
+Get `cellValues` from your grid DOM (e.g. collect each selected input/radio value in row order) or from Decipher’s JS API if available. Grid analysis runs when you call the composite-analyze endpoint on completion (see section 4).
+
+---
+
 ## 4) Trigger Analysis (On Completion)
 
-On the final page or submit event, call the analyze endpoint. You can also check readiness first.
+On the final page or submit event, call the analysis endpoint. **Recommended:** use **composite-analyze**, which combines behavioral, text quality, fraud, grid, and timing analysis. You can also check readiness first via `ready-for-analysis`.
+
+**Composite analyze (recommended)** – includes behavioral + text quality + fraud + grid + timing:
 
 ```javascript
 async function analyzeSession() {
-  const sessionId = document.getElementById('session_id').value;
+  const sessionId = document.getElementById('session_id').value; // or bot_session_id
   if (!sessionId) return;
 
-  // Optional: ensure session is ready
+  // Optional: ensure session is ready for analysis
   const readyResp = await fetch(`${API_BASE}/detection/sessions/${sessionId}/ready-for-analysis`);
   const ready = await readyResp.json();
   if (!ready.is_ready) {
-    // Optionally flush any remaining buffered events
     await flushEvents();
   }
 
-  const resp = await fetch(`${API_BASE}/detection/sessions/${sessionId}/analyze`, {
+  // Composite analyze: behavioral + text quality + fraud + grid + timing
+  const resp = await fetch(`${API_BASE}/detection/sessions/${sessionId}/composite-analyze`, {
     method: 'POST'
   });
   const result = await resp.json();
-  // Save the result to a hidden field or embedded data for export
   document.getElementById('bot_result').value = JSON.stringify(result);
+  // Optional: save is_bot, composite_score, etc. to separate hidden fields
 }
 
 // Call analyzeSession on final submit / thank-you page
+```
+
+**Behavioral-only analyze** – if you only need keystroke/mouse/scroll analysis:
+
+```javascript
+const resp = await fetch(`${API_BASE}/detection/sessions/${sessionId}/analyze`, { method: 'POST' });
+const result = await resp.json();
 ```
 
 Hidden field for storing results:
@@ -281,10 +347,20 @@ curl -s -X POST \
   -d '[{"event_type":"keystroke","timestamp":"2025-01-01T00:00:00Z","key":"a","element_id":"q1"}]'
 # Response: {"session_id":"uuid","events_processed":1,"total_events":1,"status":"success"}
 
-# Analyze session ✅ VERIFIED
+# Analyze session (behavioral only) ✅ VERIFIED
 curl -s -X POST \
   https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/analyze
 # Response: {"session_id":"uuid","is_bot":false,"confidence_score":0.25,"risk_level":"high",...}
+
+# Composite analyze (behavioral + text + fraud + grid + timing) ✅ VERIFIED
+curl -s -X POST \
+  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/composite-analyze
+# Response: composite_score, is_bot, text_quality_score, fraud_score, etc.
+
+# Ready for analysis check ✅ VERIFIED
+curl -s -X GET \
+  https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/detection/sessions/<SESSION_ID>/ready-for-analysis
+# Response: {"is_ready": true/false, ...}
 
 # Get respondent details (hierarchical API) ✅ VERIFIED
 curl -s -X GET \
@@ -300,6 +376,21 @@ curl -s -X GET \
 curl -s -X GET \
   https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/health
 # Response: {"status":"healthy","openai_available":true,"model":"gpt-4o-mini",...}
+
+# Grid analysis summary (hierarchical) ✅ VERIFIED
+curl -s -X GET \
+  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/decipher_survey_123/grid-analysis/summary"
+# Response: straight_lined_count, pattern_distribution, avg_variance_score, etc.
+
+# Timing analysis summary (hierarchical) ✅ VERIFIED
+curl -s -X GET \
+  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/decipher_survey_123/timing-analysis/summary"
+# Response: speeder_count, flatliner_count, timing metrics by level
+
+# Fraud summary (hierarchical) ✅ VERIFIED
+curl -s -X GET \
+  "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/surveys/decipher_survey_123/fraud/summary"
+# Response: average_fraud_score, fraud_methods, duplicate counts, etc.
 ```
 
 ---
@@ -395,7 +486,17 @@ const sessionTextData = await sessionTextResponse.json();
 
 **Tip:** Use hierarchical endpoints when you want aggregated reporting by survey/platform/respondent. Use the flat session endpoint for quick session-only lookups.
 
-For complete hierarchical API documentation, see [API_V2.md](API_V2.md) or the main [API.md](API.md).
+### Grid, Timing, and Fraud (Hierarchical V2)
+
+The same hierarchy applies to **grid analysis**, **timing analysis**, and **fraud detection**:
+
+- **Grid:** `GET /surveys/{survey_id}/grid-analysis/summary`, `.../platforms/{platform_id}/grid-analysis/summary`, `.../respondents/{respondent_id}/grid-analysis/summary`, `.../sessions/{session_id}/grid-analysis` — straight-lining, patterns, variance.
+- **Timing:** `GET /surveys/{survey_id}/timing-analysis/summary`, and similarly at platform/respondent/session levels — speeders, flatliners, per-question timing.
+- **Fraud:** `GET /surveys/{survey_id}/fraud/summary`, and similarly at platform/respondent/session levels — IP, device fingerprint, duplicate responses, velocity.
+
+Grid and timing data are populated when you capture grid questions (section 3b) and when you call **composite-analyze** on completion (section 4). Fraud is computed as part of composite-analyze.
+
+For full request/response shapes and all variants, see [API_V2.md](API_V2.md) or the main [API.md](API.md).
 
 ---
 

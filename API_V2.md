@@ -614,6 +614,8 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 - Pattern detection identifies systematic response patterns (diagonal, zigzag, etc.)
 - Variance and satisficing scores help identify low-effort responses
 
+**Client integration (grid question capture):** To populate grid analysis, the survey client (e.g. Decipher) must: (1) register the grid when it is shown via `POST /api/v1/text-analysis/questions` with `question_type: 'grid'` or `'matrix'`, and (2) when the respondent completes the grid, send **one** `POST /api/v1/text-analysis/responses` **per grid cell** with that same `question_id` and `response_text` = the selected value (e.g. `"1"`, `"5"`). The backend then runs grid analysis when composite-analyze (or grid analysis) is triggered. See [decipher_simple_guide.md](decipher_simple_guide.md) and [decipher_guide.md](decipher_guide.md) for step-by-step integration.
+
 ---
 
 ## Timing Analysis (Hierarchical V2) ✅ **DEPLOYED**

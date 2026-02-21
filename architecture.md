@@ -924,6 +924,8 @@ Decipher Survey → Webhook → API Gateway → Integration Controller
                             Bot Detection Engine → Analysis
 ```
 
+Client-side (in-survey) capture: behavior events (`POST /detection/sessions/{id}/events`), question metadata (`POST /text-analysis/questions`), and responses (`POST /text-analysis/responses`). For **grid/matrix questions**, the client registers the grid with `question_type: 'grid'` or `'matrix'` when shown, then sends one `POST /text-analysis/responses` per grid cell when the respondent completes the grid. See [decipher_simple_guide.md](decipher_simple_guide.md) and [decipher_guide.md](decipher_guide.md).
+
 ### Integration Components
 
 #### 1. Webhook Handlers

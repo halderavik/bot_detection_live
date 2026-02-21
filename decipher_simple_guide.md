@@ -40,6 +40,18 @@ Our system watches how people interact with your survey (typing, mouse movements
 **✅ Hierarchical Text Analysis**: V2 endpoints available for querying text analysis at survey/platform/respondent/session levels!
 **✅ Grid & Timing Analysis**: Stage 2 detection features deployed - grid/matrix question analysis and enhanced timing analysis available!
 
+### Survey-specific analysis – what’s in this guide
+
+| Component | Covered in this guide? | How |
+|-----------|------------------------|-----|
+| **Behavioral** (keystrokes, mouse, scroll, focus) | ✅ Yes | Step 1: events sent to `POST .../events` automatically |
+| **Text quality** (open-ended questions) | ✅ Yes | Step 1: questions captured on focus, responses analyzed on blur via `POST .../text-analysis/questions` and `.../responses` |
+| **Grid/Matrix** (straight-lining, patterns) | ✅ Yes (optional) | Step 1f: register grid with `question_type: 'grid'`, then send one response per cell |
+| **Timing** (speeders, flatliners, per-question time) | ✅ Yes | Response time is sent with every open-ended response and with grid responses; the backend uses it for timing analysis |
+| **Fraud** (IP, device, duplicates, velocity) | ✅ Yes (automatic) | No extra steps: the backend uses session + events when you call composite-analyze (Step 3) |
+
+All of the above are combined in the **composite score** when you run the analysis at the end of the survey (Step 3). For other question types (e.g. multiple choice), you can optionally register the question with `POST /text-analysis/questions` (e.g. `question_type: 'multiple_choice'`) and send one `POST /text-analysis/responses` with `response_time_ms` when the user answers, so that question is included in timing analysis.
+
 ## Step 1: Add the Tracking Script (Once at the Beginning)
 
 ### 📍 Where to put this code:
@@ -355,6 +367,77 @@ setInterval(sendEvents, 5000);
 setupBotDetection();
 ```
 
+### Step 1f: Grid/Matrix Questions (Optional)
+
+If your survey has **grid** or **matrix** questions (rows of items with the same scale), you can capture them so the system can analyze straight-lining and response patterns.
+
+**Two steps:**
+
+1. **Register the grid when it is shown**  
+   Call the questions API once with `question_type: 'grid'` (or `'matrix'`) and store the returned `question_id` (e.g. in a variable keyed by your Decipher question ID).
+
+2. **When the respondent has completed the grid** (e.g. on "Next" or when leaving the page), collect each selected value (one per cell) and send **one** `POST /text-analysis/responses` **per cell** with that same `question_id` and `response_text` = the cell value (e.g. `"1"`, `"5"`).
+
+**Register the grid question** (run when the grid page loads or when the grid becomes visible):
+
+```javascript
+// Call when the grid question is shown (e.g. on page load of the page with the grid)
+async function registerGridQuestion(questionText, elementId) {
+  const sessionId = document.getElementById('bot_session_id')?.value;
+  if (!sessionId) return null;
+  try {
+    const response = await fetch(`${API_BASE}/text-analysis/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_text: questionText || 'Grid question',
+        question_type: 'grid',
+        element_id: elementId || '',
+        page_url: window.location.href,
+        page_title: document.title
+      })
+    });
+    const data = await response.json();
+    return data.question_id;
+  } catch (e) {
+    console.log('Grid question registration failed:', e);
+    return null;
+  }
+}
+```
+
+**Send grid cell values** (call when the respondent leaves the grid or clicks Next; pass the `question_id` from above and an array of selected values, one per cell, in order):
+
+```javascript
+// Call after grid is completed; cellValues = array of selected values, e.g. ['1','2','5','4','3']
+async function sendGridResponses(questionId, responseTimeMs, cellValues) {
+  const sessionId = document.getElementById('bot_session_id')?.value;
+  if (!sessionId || !questionId || !cellValues || !cellValues.length) return;
+  for (const value of cellValues) {
+    try {
+      await fetch(`${API_BASE}/text-analysis/responses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question_id: questionId,
+          response_text: String(value),
+          response_time_ms: responseTimeMs || null
+        })
+      });
+    } catch (e) {
+      console.log('Grid response send failed:', e);
+    }
+  }
+}
+```
+
+**How to get `cellValues` in Decipher:**  
+If the grid is rendered as HTML (e.g. table with inputs or radio groups), when the respondent moves to the next page (or on a "Next" button click), loop through the grid inputs and collect the selected value for each cell (e.g. `input.value` or the checked radio's value), in a consistent order (e.g. row by row). Pass that array as `cellValues`. If Decipher exposes a JavaScript API for question values (e.g. `getValue()` for the grid), use that to build the array of cell values instead.
+
+**Note:** The backend uses one `survey_response` per cell. Grid analysis (straight-lining, patterns, variance) runs when you call the composite-analyze endpoint at the end of the survey (Step 3).
+
 **Also create this hidden field in Decipher:**
 - Field ID: `bot_session_id`
 - Field Type: Hidden/Text
@@ -433,11 +516,11 @@ Hidden fields store data that users can't see but gets saved with their survey r
 - **Make it Hidden:** ✅ Check "Hidden" box
 - **Click "Save"**
 
-#### Optional Field 8: Page URL
+#### Optional Field 10: Page URL
 - **Variable Name:** `page_url`
 - Purpose: stores the page URL captured at start for convenience
 
-#### Optional Field 9: User Agent
+#### Optional Field 11: User Agent
 - **Variable Name:** `user_agent`
 - Purpose: stores browser user agent for reference
 
@@ -546,17 +629,18 @@ analyzeBotDetection();
    - **Capture questions:** Automatically find and save the question text
    - **Analyze responses:** Use AI to check if responses are gibberish, copy-pasted, irrelevant, or generic
    - **Score quality:** Give each response a quality score from 0-100
+   - **Record response time:** Time to answer is sent with each response and used for timing analysis (speeders, flatliners)
 
 4. **Data Sending:** Every 10 events or every 5 seconds, we send the collected data to our analysis server.
 
 5. **Real-time Analysis:** As users finish typing, we immediately analyze their text responses using OpenAI's AI model.
 
-6. **Final Analysis:** When the survey is complete, we combine behavioral data and text quality to determine if it looks like human or bot behavior.
+6. **Final Analysis:** When the survey is complete, we run **composite analysis** (behavioral + text quality + fraud + grid + timing) to determine if it looks like human or bot behavior.
 
 7. **Results:** The final result is saved in your hidden fields:
    - `bot_is_bot`: "true" if detected as bot, "false" if human
-   - `bot_confidence`: A number from 0-1 showing how confident we are (combines both behavioral and text analysis)
-   - `bot_result`: Full analysis details including both behavioral and text quality results
+   - `bot_confidence`: A number from 0-1 (composite score: behavioral + text quality + fraud)
+   - `bot_result`: Full analysis details including behavioral, text quality, fraud, grid, and timing
    - `text_quality_score`: Average quality score 0-100 for all text responses
    - `text_flagged`: "true" if any text response was flagged as low quality
 
@@ -591,6 +675,9 @@ Use this checklist to make sure you've done everything correctly:
 - [ ] I added the analysis code to my final page OR footer section
 - [ ] I saved my survey
 
+### Optional – Grid/Matrix Questions:
+- [ ] If I use grid questions, I register each grid with `registerGridQuestion()` when shown and call `sendGridResponses()` with the returned question_id and cell values when the grid is completed
+
 ### Testing:
 - [ ] I tested my survey by taking it myself
 - [ ] I checked the browser console for errors (F12 → Console)
@@ -604,9 +691,9 @@ Use this checklist to make sure you've done everything correctly:
 ## What You Get in Your Data Export
 
 After the survey, you'll see these new columns in your Decipher data:
-- `bot_is_bot`: true/false/unknown (based on combined behavioral + text analysis)
-- `bot_confidence`: 0.0 to 1.0 (composite score combining behavioral and text quality)
-- `bot_result`: Complete analysis details in JSON format (includes both behavioral and text quality results)
+- `bot_is_bot`: true/false/unknown (based on composite: behavioral + text quality + fraud)
+- `bot_confidence`: 0.0 to 1.0 (composite score: 40% behavioral, 30% text quality risk, 30% fraud)
+- `bot_result`: Full analysis in JSON (behavioral, text quality, fraud, grid, timing)
 - `text_quality_score`: 0-100 (average quality score of all text responses)
 - `text_flagged`: true/false (whether any text response was flagged as low quality)
 
@@ -616,7 +703,7 @@ bot_is_bot: "false"
 bot_confidence: 0.23
 text_quality_score: 85.5
 text_flagged: "false"
-bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, ...}
+bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, "fraud_score": 0.2, ...}
 ```
 
 ## ⚠️ Common Mistakes to Avoid
@@ -723,7 +810,7 @@ bot_is_bot: "false"
 bot_confidence: 0.23
 text_quality_score: 85.5
 text_flagged: "false"
-bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, ...}
+bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_score": 85.5, "fraud_score": 0.2, ...}
 ```
 
 **What you might see if testing very quickly:**
@@ -732,7 +819,7 @@ bot_is_bot: "true"
 bot_confidence: 0.78
 text_quality_score: 45.0
 text_flagged: "true"
-bot_result: {"composite_score": 0.78, "behavioral_score": 0.85, "text_quality_score": 45.0, ...}
+bot_result: {"composite_score": 0.78, "behavioral_score": 0.85, "text_quality_score": 45.0, "fraud_score": 0.5, ...}
 ```
 
 **What you'll see if typing gibberish in text fields:**
@@ -741,7 +828,7 @@ bot_is_bot: "false"
 bot_confidence: 0.45
 text_quality_score: 15.0
 text_flagged: "true"
-bot_result: {"composite_score": 0.45, "behavioral_score": 0.25, "text_quality_score": 15.0, ...}
+bot_result: {"composite_score": 0.45, "behavioral_score": 0.25, "text_quality_score": 15.0, "fraud_score": 0.3, ...}
 ```
 
 ### Using the API Playground for Testing
@@ -754,9 +841,10 @@ You can also test the bot detection system directly using our API Playground:
    - Click "Create Session" to create a test session
    - Click "Ingest Events" to simulate user behavior
    - Click "Analyze Session" to see the behavioral bot detection result
-   - Click "Composite Analyze" to see the combined behavioral + text quality result
+   - Click "Composite Analyze" to see the combined behavioral + text quality + fraud + grid + timing result
    - Click "Get Survey Text Analysis Summary" to test hierarchical V2 text analysis
    - Click "Get Session Text Analysis (Hierarchical)" to get text analysis via hierarchical path
+   - Use the grid analysis and timing analysis endpoint templates to test hierarchical grid/timing summaries (after sending grid responses for a session)
 
 This helps you understand how the system works before integrating it into your survey.
 

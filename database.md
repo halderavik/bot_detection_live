@@ -115,7 +115,7 @@ One row per survey question recorded for a session (used for text quality and fo
 | **asked_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
 
-**Where rows are created:** `POST /api/v1/text-analysis/questions` (TextAnalysisController). The client (e.g. SDK or survey page) sends question metadata when a question is shown.
+**Where rows are created:** `POST /api/v1/text-analysis/questions` (TextAnalysisController). The client (e.g. SDK or survey page) sends question metadata when a question is shown. For **grid/matrix questions**, the client registers one question per grid with `question_type: 'grid'` or `'matrix'` when the grid is shown; see [decipher_simple_guide.md](decipher_simple_guide.md) and [decipher_guide.md](decipher_guide.md) for integration steps.
 
 ---
 
@@ -141,7 +141,7 @@ One row per submitted answer to a survey question, with optional text quality an
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
 | **analyzed_at** | TIMESTAMPTZ | Set to `datetime.utcnow()` when the response is analyzed. |
 
-**Where rows are created:** `POST /api/v1/text-analysis/responses` (TextAnalysisController). The service calls OpenAI (GPT-4o-mini) for gibberish, copy-paste, relevance, generic, and quality; all returned values are stored in the row.
+**Where rows are created:** `POST /api/v1/text-analysis/responses` (TextAnalysisController). The service calls OpenAI (GPT-4o-mini) for gibberish, copy-paste, relevance, generic, and quality; all returned values are stored in the row. For **grid questions**, the client sends **one response per grid cell** (same `question_id`, `response_text` = cell value); grid analysis then uses these rows when composite-analyze or grid analysis is run.
 
 ---
 

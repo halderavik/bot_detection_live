@@ -198,6 +198,8 @@ Our bot detection system uses advanced behavioral analysis combined with OpenAI-
 ### 10. Grid/Matrix Question Responses
 **Purpose**: Analyze grid and matrix questions for straight-lining, patterns, and satisficing behavior
 
+**How grid data is captured (client integration):** The client (e.g. Decipher survey with JavaScript) registers the grid when it is shown by calling `POST /api/v1/text-analysis/questions` with `question_type: 'grid'` or `'matrix'` and stores the returned `question_id`. When the respondent completes the grid, the client sends **one** `POST /api/v1/text-analysis/responses` **per grid cell** with that same `question_id` and `response_text` set to the selected value (e.g. `"1"`, `"5"`). The backend uses these `survey_responses` (one per cell) to run grid analysis when composite-analyze or grid analysis is triggered. Step-by-step instructions: [decipher_simple_guide.md](decipher_simple_guide.md), [decipher_guide.md](decipher_guide.md).
+
 **Data Captured**:
 - Row identifier within the grid question
 - Column identifier within the grid question
@@ -317,13 +319,14 @@ await tracker.init();
 **Event Collection Process**:
 1. **Automatic Setup**: Event listeners attached to DOM events
 2. **Text Field Detection**: Automatic detection of text input fields and textareas
-3. **Question Capture**: Automatic capture of survey questions and context
-4. **Response Monitoring**: Real-time monitoring of user text input
-5. **Throttling**: Mouse movements and scroll events are throttled to prevent overwhelming
-6. **Batching**: Events are collected in batches for efficient transmission
-7. **Real-time Transmission**: Events sent to API every 5 seconds or when batch size reached
-8. **Text Analysis**: Responses automatically analyzed with GPT-4o-mini
-9. **Error Handling**: Failed transmissions are retried automatically
+3. **Question Capture**: Automatic capture of survey questions and context (open-ended and, optionally, grid/matrix)
+4. **Grid Question Capture (optional)**: For grid/matrix questions, the client registers the grid via `POST /text-analysis/questions` with `question_type: 'grid'` or `'matrix'`, then sends one `POST /text-analysis/responses` per grid cell when the respondent completes the grid (see [decipher_simple_guide.md](decipher_simple_guide.md), [decipher_guide.md](decipher_guide.md))
+5. **Response Monitoring**: Real-time monitoring of user text input
+6. **Throttling**: Mouse movements and scroll events are throttled to prevent overwhelming
+7. **Batching**: Events are collected in batches for efficient transmission
+8. **Real-time Transmission**: Events sent to API every 5 seconds or when batch size reached
+9. **Text Analysis**: Responses automatically analyzed with GPT-4o-mini
+10. **Error Handling**: Failed transmissions are retried automatically
 
 ### Data Transmission
 
