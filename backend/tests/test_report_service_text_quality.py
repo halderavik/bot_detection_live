@@ -258,12 +258,6 @@ class TestReportServiceTextQuality:
             detection_query_mock,
             # Third call for activity distribution
             mock_activity_result,
-            # Fourth call for event count (session 1)
-            mock_event_count_result1,
-            # Fifth call for event count (session 2)
-            mock_event_count_result2,
-            # Sixth call for event count (session 3)
-            mock_event_count_result3,
             # Seventh call for text responses
             mock_text_responses_result,
             # Eighth call for fraud aggregation
@@ -330,10 +324,6 @@ class TestReportServiceTextQuality:
             mock_detection_result,
             # Activity distribution
             mock_activity_result,
-            # Event counts (3 calls)
-            mock_event_results[0],
-            mock_event_results[1],
-            mock_event_results[2],
             # Text responses (empty)
             mock_empty_text_result,
             # Fraud aggregation
@@ -383,9 +373,6 @@ class TestReportServiceTextQuality:
             mock_detection_result,
             # Activity distribution
             mock_activity_result,
-            # Event counts (2 calls)
-            mock_event_results[0],
-            mock_event_results[1],
             # Text responses for survey-1 only
             mock_text_responses_result,
             # Fraud aggregation
@@ -440,15 +427,13 @@ class TestReportServiceTextQuality:
         mock_grid.scalars.return_value.all.return_value = []
         mock_timing = Mock()
         mock_timing.scalar.return_value = 0
-        mock_db_session.execute.side_effect = [
-            mock_result,
-            mock_text, mock_fraud_first, mock_grid, mock_timing, mock_timing, mock_timing,
-        ]
-        
-        result = await report_service.generate_detailed_report(
-            survey_id="survey-1",
-            db=mock_db_session
-        )
+        mock_db_session.execute.return_value = mock_result
+
+        with patch.object(report_service, "_load_bundle", AsyncMock(return_value=bundle_from_sessions([session_with_data]))):
+            result = await report_service.generate_detailed_report(
+                survey_id="survey-1",
+                db=mock_db_session
+            )
         
         # Verify detailed report structure
         assert isinstance(result, DetailedReport)
@@ -646,10 +631,6 @@ class TestReportServiceTextQuality:
             mock_empty_detection_result,
             # Activity distribution
             mock_empty_activity_result,
-            # Event counts (3 calls)
-            mock_empty_event_results[0],
-            mock_empty_event_results[1],
-            mock_empty_event_results[2],
             # Text responses
             mock_test_responses_result,
             # Fraud aggregation
@@ -707,3 +688,16 @@ class TestReportServiceTextQuality:
             )
         
         assert "Database connection error" in str(exc_info.value)
+
+
+def bundle_from_sessions(sessions):
+    """The bulk-loaded report data the detailed report reads, built from mock sessions."""
+    bundle = {"events": {}, "detection": {}, "texts": {}, "fraud": {}, "grid": {}, "timing": {}}
+    for session in sessions:
+        for event in getattr(session, "behavior_data", None) or []:
+            counts = bundle["events"].setdefault(session.id, {})
+            counts[event.event_type] = counts.get(event.event_type, 0) + 1
+        detections = getattr(session, "detection_results", None) or []
+        if detections:
+            bundle["detection"][session.id] = max(detections, key=lambda d: d.created_at)
+    return bundle

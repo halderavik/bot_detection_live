@@ -42,49 +42,59 @@ class BotDetectionEngine:
         # Device analysis thresholds
         self.SCREEN_SIZE_THRESHOLD = 0.9
         self.USER_AGENT_SUSPICIOUS_PATTERNS = [
-            'bot', 'crawler', 'spider', 'scraper', 'headless'
+            'bot', 'crawler', 'spider', 'scraper', 'headless', 'phantomjs', 'puppeteer', 'playwright', 'selenium'
         ]
+        self.MOBILE_PATTERNS = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'tablet', 'silk', 'kindle']
+
+        # A session at or above this bot probability is classified as a bot.
+        self.BOT_THRESHOLD = 0.7
     
-    async def analyze_session(self, behavior_data: List[BehaviorData]) -> DetectionResult:
+    async def analyze_session(
+        self, behavior_data: List[BehaviorData], user_agent: Optional[str] = None
+    ) -> DetectionResult:
         """
         Analyze a session's behavior data for bot detection.
-        
+
         Args:
             behavior_data: List of behavior data events
-            
+            user_agent: The session's user agent, used to recognise touch devices
+                and headless browsers
+
         Returns:
             DetectionResult: Analysis result with confidence scores
         """
         start_time = time.time()
-        
+
         if not behavior_data:
             logger.warning("No behavior data provided for analysis")
-            # Return None or raise an exception since we need session_id
             raise ValueError("No behavior data provided for analysis")
-        
-        # Perform individual analyses
-        keystroke_score = self._analyze_keystrokes(behavior_data)
-        mouse_score = self._analyze_mouse_behavior(behavior_data)
-        timing_score = self._analyze_timing_patterns(behavior_data)
-        device_score = self._analyze_device_characteristics(behavior_data)
-        network_score = self._analyze_network_patterns(behavior_data)
-        
-        # Combine scores
+
+        behavior_data = sorted(behavior_data, key=lambda event: event.timestamp)
+        context = self._session_context(behavior_data, user_agent)
+
         method_scores = {
-            'keystroke_analysis': keystroke_score,
-            'mouse_analysis': mouse_score,
-            'timing_analysis': timing_score,
-            'device_analysis': device_score,
-            'network_analysis': network_score
+            'keystroke_analysis': self._analyze_keystrokes(behavior_data),
+            'mouse_analysis': self._analyze_mouse_behavior(behavior_data, context),
+            'timing_analysis': self._analyze_timing_patterns(behavior_data),
+            'device_analysis': self._analyze_device_characteristics(behavior_data, context),
+            'network_analysis': self._analyze_network_patterns(behavior_data),
         }
-        
+
         confidence_score = calculate_confidence_score(method_scores)
-        
-        # Determine if it's a bot (threshold-based)
-        is_bot = confidence_score > 0.7
+
+        # Signals a person cannot produce. One lifts the score to 0.85, two or more to 0.95.
+        decisive = self._decisive_signals(behavior_data, context)
+        if decisive:
+            confidence_score = max(confidence_score, 0.95 if len(decisive) > 1 else 0.85)
+        confidence_score = round(min(confidence_score, 1.0), 4)
+
+        is_bot = confidence_score >= self.BOT_THRESHOLD
         risk_level = determine_risk_level(confidence_score, is_bot)
-        
-        # Create detection result
+
+        flagged = self._get_flagged_patterns(behavior_data, method_scores)
+        if decisive:
+            flagged['decisive_signals'] = decisive
+
         result = DetectionResult(
             session_id=behavior_data[0].session_id,
             is_bot=is_bot,
@@ -94,13 +104,13 @@ class BotDetectionEngine:
             method_scores=method_scores,
             processing_time_ms=(time.time() - start_time) * 1000,
             event_count=len(behavior_data),
-            analysis_summary=self._generate_analysis_summary(method_scores, is_bot),
-            flagged_patterns=self._get_flagged_patterns(behavior_data, method_scores)
+            analysis_summary=self._generate_analysis_summary(method_scores, is_bot, decisive),
+            flagged_patterns=flagged,
         )
-        
+
         logger.info(f"Analysis completed: is_bot={is_bot}, confidence={confidence_score:.3f}")
         return result
-    
+
     async def calculate_composite_score(self, session_id: str, db: AsyncSession) -> Dict[str, Any]:
         """
         Calculate unified composite score combining behavioral, text quality, and fraud detection analysis.
@@ -209,7 +219,7 @@ class BotDetectionEngine:
                     'risk_level': detection_result.risk_level,
                     'method_scores': detection_result.method_scores,
                     'analysis_summary': detection_result.analysis_summary,
-                    'created_at': detection_result.created_at
+                    'created_at': detection_result.created_at.isoformat() if detection_result.created_at else None
                 }
             return None
             
@@ -291,7 +301,7 @@ class BotDetectionEngine:
                     'geolocation_risk_score': float(fraud_indicator.geolocation_risk_score) if fraud_indicator.geolocation_risk_score else 0.0,
                     'velocity_risk_score': float(fraud_indicator.velocity_risk_score) if fraud_indicator.velocity_risk_score else 0.0,
                     'flag_reasons': fraud_indicator.flag_reasons,
-                    'created_at': fraud_indicator.created_at
+                    'created_at': fraud_indicator.created_at.isoformat() if fraud_indicator.created_at else None
                 }
             return None
             
@@ -299,190 +309,204 @@ class BotDetectionEngine:
             logger.error(f"Error getting fraud analysis: {e}")
             return None
     
+    @staticmethod
+    def _data(event: BehaviorData) -> Dict[str, Any]:
+        return event.event_data if isinstance(event.event_data, dict) else {}
+
+    def _session_context(self, behavior_data: List[BehaviorData], user_agent: Optional[str]) -> Dict[str, Any]:
+        """Facts about the device and the session used by several checks."""
+        agent = (user_agent or "").lower()
+        touch = any(pattern in agent for pattern in self.MOBILE_PATTERNS)
+        webdriver = False
+        for event in behavior_data:
+            data = self._data(event)
+            if data.get('pointer') in ('touch', 'pen') or (data.get('touch_points') or 0) > 0:
+                touch = True
+            if data.get('webdriver') is True:
+                webdriver = True
+        return {
+            'user_agent': agent,
+            'touch': touch,
+            'webdriver': webdriver,
+            'moves': [e for e in behavior_data if e.event_type == 'mouse_move'],
+            'clicks': [e for e in behavior_data if e.event_type == 'mouse_click'],
+            'keys': [e for e in behavior_data if e.event_type == 'keystroke'],
+            'submits': [e for e in behavior_data if e.event_type == 'form_submit'],
+        }
+
+    def _decisive_signals(self, behavior_data: List[BehaviorData], context: Dict[str, Any]) -> List[str]:
+        """Patterns that real people do not produce, each described in plain words."""
+        signals: List[str] = []
+        if context['webdriver']:
+            signals.append('Browser reports it is controlled by automation (navigator.webdriver)')
+        if any(pattern in context['user_agent'] for pattern in self.USER_AGENT_SUSPICIOUS_PATTERNS):
+            signals.append('User agent belongs to a headless or automated browser')
+
+        inputs = context['clicks'] + context['keys']
+        flagged = [e for e in inputs if self._data(e).get('trusted') is False]
+        if len(flagged) >= 3 and len(flagged) >= 0.5 * len(inputs):
+            signals.append(f'{len(flagged)} of {len(inputs)} clicks and key presses were generated by script')
+
+        pages = len(context['submits'])
+        if not context['touch'] and pages >= 2:
+            if not context['moves'] and not context['clicks'] and not context['keys']:
+                signals.append(f'Answered {pages} pages with no mouse or keyboard activity')
+            elif len(context['clicks']) >= 3 and not context['moves'] and not context['keys']:
+                # Keyboard users click with Space/Enter, so key presses rule this out.
+                signals.append(f"{len(context['clicks'])} clicks with no mouse movement or key presses")
+        return signals
+
     def _analyze_keystrokes(self, behavior_data: List[BehaviorData]) -> float:
         """
         Analyze keystroke patterns for bot detection.
-        
+
         Args:
             behavior_data: List of behavior data events
-            
+
         Returns:
             float: Bot probability score (0.0 to 1.0)
         """
         keystroke_events = [event for event in behavior_data if event.is_keystroke_event]
-        
+
         if len(keystroke_events) < 5:
-            return 0.5  # Insufficient data
-        
-        # Analyze timing intervals
+            return 0.3  # Too few key presses to judge; leans human
+
         intervals = []
         for i in range(1, len(keystroke_events)):
-            interval = (keystroke_events[i].timestamp - keystroke_events[i-1].timestamp).total_seconds() * 1000
+            interval = (keystroke_events[i].timestamp - keystroke_events[i - 1].timestamp).total_seconds() * 1000
             intervals.append(interval)
-        
-        # Check for suspicious patterns
+
         suspicious_patterns = 0
-        
-        # Too regular intervals (bot-like)
-        if intervals:
-            std_dev = statistics.stdev(intervals) if len(intervals) > 1 else 0
-            if std_dev < 10:  # Very consistent timing
+        # Typing pauses are normal, so only within-burst intervals (< 2 s) say anything.
+        bursts = [interval for interval in intervals if interval < self.KEYSTROKE_MAX_INTERVAL]
+        if len(bursts) >= 4:
+            if statistics.stdev(bursts) < 10:  # Machine-regular rhythm
                 suspicious_patterns += 1
-        
-        # Too fast typing
-        avg_interval = statistics.mean(intervals) if intervals else 0
-        if avg_interval < self.KEYSTROKE_MIN_INTERVAL:
-            suspicious_patterns += 1
-        
-        # Too slow typing (suspicious)
-        if avg_interval > self.KEYSTROKE_MAX_INTERVAL:
-            suspicious_patterns += 1
-        
-        # Perfect timing (impossible for humans)
-        perfect_intervals = sum(1 for interval in intervals if interval % 10 == 0)
-        if perfect_intervals > len(intervals) * 0.8:
-            suspicious_patterns += 1
-        
-        return min(suspicious_patterns / 4, 1.0)
-    
-    def _analyze_mouse_behavior(self, behavior_data: List[BehaviorData]) -> float:
+            if statistics.mean(bursts) < self.KEYSTROKE_MIN_INTERVAL:  # Faster than people type
+                suspicious_patterns += 1
+            if sum(1 for interval in bursts if interval % 10 == 0) > len(bursts) * 0.8:
+                suspicious_patterns += 1  # Rounded timer intervals
+
+        return min(suspicious_patterns / 3, 1.0)
+
+    def _analyze_mouse_behavior(self, behavior_data: List[BehaviorData], context: Optional[Dict[str, Any]] = None) -> float:
         """
         Analyze mouse movement patterns for bot detection.
-        
+
         Args:
             behavior_data: List of behavior data events
-            
+            context: Session facts from ``_session_context``
+
         Returns:
             float: Bot probability score (0.0 to 1.0)
         """
-        mouse_events = [event for event in behavior_data if event.is_mouse_event]
-        
-        if len(mouse_events) < 3:
-            return 0.5  # Insufficient data
-        
-        suspicious_patterns = 0
-        
-        # Analyze movement patterns
-        for event in mouse_events:
-            event_data = event.event_data
-            
-            # Check for straight-line movements (bot-like)
-            if 'movement_type' in event_data and event_data['movement_type'] == 'linear':
-                suspicious_patterns += 1
-            
-            # Check for unrealistic speeds
-            if 'speed' in event_data:
-                speed = event_data['speed']
-                if speed > self.MOUSE_MAX_SPEED:
-                    suspicious_patterns += 1
-            
-            # Check for perfect precision (impossible for humans)
-            if 'precision' in event_data and event_data['precision'] > 0.99:
-                suspicious_patterns += 1
-        
-        # Check for lack of natural variation
-        if len(mouse_events) > 10:
-            movements = [event.event_data.get('distance', 0) for event in mouse_events]
-            if movements:
-                std_dev = statistics.stdev(movements) if len(movements) > 1 else 0
-                if std_dev < 5:  # Very consistent movement distances
-                    suspicious_patterns += 1
-        
-        return min(suspicious_patterns / (len(mouse_events) + 1), 1.0)
-    
+        context = context or self._session_context(behavior_data, None)
+        moves = context['moves']
+        clicks = context['clicks']
+
+        if context['touch']:
+            return 0.3  # Phones and tablets have no pointer to track
+
+        if not moves:
+            if context['keys']:
+                return 0.4  # Keyboard-only respondents are rare but real
+            if clicks or context['submits']:
+                return 0.8  # Pages answered on a desktop without the mouse moving
+            return 0.4
+
+        suspicious = 0.0
+        points = [(self._data(e).get('x'), self._data(e).get('y')) for e in moves]
+        points = [(x, y) for x, y in points if isinstance(x, (int, float)) and isinstance(y, (int, float))]
+        if len(points) >= 10:
+            steps = [((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 for a, b in zip(points, points[1:])]
+            steps = [step for step in steps if step > 0]
+            if len(steps) >= 5 and statistics.pstdev(steps) < 1:
+                suspicious += 1  # Every step the same length
+            turns = 0
+            for a, b, c in zip(points, points[1:], points[2:]):
+                cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+                if abs(cross) > 1:
+                    turns += 1
+            if turns == 0:
+                suspicious += 1  # Perfectly straight path
+
+        # Legacy SDK fields
+        for event in moves:
+            data = self._data(event)
+            if data.get('movement_type') == 'linear' or (data.get('speed') or 0) > self.MOUSE_MAX_SPEED:
+                suspicious += 1 / max(len(moves), 1)
+
+        return min(suspicious / 2, 1.0)
+
     def _analyze_timing_patterns(self, behavior_data: List[BehaviorData]) -> float:
         """
         Analyze timing patterns across all events.
-        
+
         Args:
             behavior_data: List of behavior data events
-            
+
         Returns:
             float: Bot probability score (0.0 to 1.0)
         """
         if len(behavior_data) < 5:
-            return 0.5
-        
+            return 0.4
+
         suspicious_patterns = 0
-        
-        # Check session duration
+
         session_duration = (behavior_data[-1].timestamp - behavior_data[0].timestamp).total_seconds()
         if session_duration < self.MIN_SESSION_DURATION:
             suspicious_patterns += 1
-        
-        # Check event frequency
-        events_per_second = len(behavior_data) / session_duration
-        if events_per_second > self.MAX_EVENTS_PER_SECOND:
+
+        if session_duration > 0 and len(behavior_data) / session_duration > self.MAX_EVENTS_PER_SECOND:
             suspicious_patterns += 1
-        
-        # Check for regular intervals (bot-like)
-        intervals = []
-        for i in range(1, len(behavior_data)):
-            interval = (behavior_data[i].timestamp - behavior_data[i-1].timestamp).total_seconds()
-            intervals.append(interval)
-        
-        if intervals:
-            std_dev = statistics.stdev(intervals) if len(intervals) > 1 else 0
-            if std_dev < 0.1:  # Very regular timing
-                suspicious_patterns += 1
-        
+
+        intervals = [
+            (behavior_data[i].timestamp - behavior_data[i - 1].timestamp).total_seconds()
+            for i in range(1, len(behavior_data))
+        ]
+        if len(intervals) > 1 and statistics.stdev(intervals) < 0.1:
+            suspicious_patterns += 1  # Clockwork regularity
+
         return min(suspicious_patterns / 3, 1.0)
-    
-    def _analyze_device_characteristics(self, behavior_data: List[BehaviorData]) -> float:
+
+    def _analyze_device_characteristics(self, behavior_data: List[BehaviorData], context: Optional[Dict[str, Any]] = None) -> float:
         """
         Analyze device characteristics for suspicious patterns.
-        
+
         Args:
             behavior_data: List of behavior data events
-            
+            context: Session facts from ``_session_context``
+
         Returns:
             float: Bot probability score (0.0 to 1.0)
         """
         if not behavior_data:
-            return 0.5
-        
-        suspicious_patterns = 0
-        
-        # Check screen size consistency
-        screen_sizes = set()
-        for event in behavior_data:
-            if event.screen_width and event.screen_height:
-                screen_sizes.add((event.screen_width, event.screen_height))
-        
+            return 0.3
+        context = context or self._session_context(behavior_data, None)
+        if context['webdriver'] or any(p in context['user_agent'] for p in self.USER_AGENT_SUSPICIOUS_PATTERNS):
+            return 1.0
+
+        suspicious = 0.0
+        screen_sizes = {
+            (event.screen_width, event.screen_height)
+            for event in behavior_data
+            if event.screen_width and event.screen_height
+        }
         if len(screen_sizes) > 1:
-            suspicious_patterns += 1  # Multiple screen sizes in same session
-        
-        # Check for common bot screen sizes
-        common_bot_sizes = [(1920, 1080), (1366, 768), (1440, 900)]
-        for event in behavior_data:
-            if (event.screen_width, event.screen_height) in common_bot_sizes:
-                suspicious_patterns += 0.5
-        
-        # Check viewport consistency
-        viewport_sizes = set()
-        for event in behavior_data:
-            if event.viewport_width and event.viewport_height:
-                viewport_sizes.add((event.viewport_width, event.viewport_height))
-        
-        if len(viewport_sizes) > 1:
-            suspicious_patterns += 1
-        
-        return min(suspicious_patterns / 3, 1.0)
-    
+            suspicious += 1  # The physical screen changed mid-session
+        if any(width == 0 or height == 0 for width, height in screen_sizes):
+            suspicious += 1  # Headless browsers often report an empty screen
+        if not screen_sizes and not context['touch']:
+            suspicious += 0.5
+        return min(suspicious / 2, 1.0)
+
     def _analyze_network_patterns(self, behavior_data: List[BehaviorData]) -> float:
         """
-        Analyze network and request patterns.
-        
-        Args:
-            behavior_data: List of behavior data events
-            
-        Returns:
-            float: Bot probability score (0.0 to 1.0)
+        Network analysis is not implemented yet. It returns 0.0 and carries no weight
+        in the overall score (see ``calculate_confidence_score``).
         """
-        # This would typically analyze network requests, headers, etc.
-        # For now, return a neutral score
-        return 0.5
-    
+        return 0.0
+
     def _create_empty_result(self, session_id: str, event_count: int, start_time: float) -> DetectionResult:
         """Create an empty detection result for insufficient data."""
         return DetectionResult(
@@ -498,17 +522,19 @@ class BotDetectionEngine:
             flagged_patterns={}
         )
     
-    def _generate_analysis_summary(self, method_scores: Dict[str, float], is_bot: bool) -> str:
+    def _generate_analysis_summary(
+        self, method_scores: Dict[str, float], is_bot: bool, decisive: Optional[List[str]] = None
+    ) -> str:
         """Generate a human-readable analysis summary."""
         if is_bot:
+            if decisive:
+                return "Bot detected: " + "; ".join(decisive)
             high_scores = [method for method, score in method_scores.items() if score > 0.7]
             if high_scores:
                 return f"Bot detected with high confidence in: {', '.join(high_scores)}"
-            else:
-                return "Bot detected with moderate confidence across multiple indicators"
-        else:
-            return "Human behavior detected with normal patterns"
-    
+            return "Bot detected with moderate confidence across multiple indicators"
+        return "Human behavior detected with normal patterns"
+
     def _get_flagged_patterns(self, behavior_data: List[BehaviorData], method_scores: Dict[str, float]) -> Dict[str, Any]:
         """Get specific patterns that were flagged during analysis."""
         flagged = {}

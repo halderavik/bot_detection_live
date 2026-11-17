@@ -158,8 +158,6 @@ class TestReportService:
             mock_session_result,  # Session query
             mock_detection_result,  # Detection query
             mock_activity_result,  # Activity query
-            mock_event_count_result,  # Event count for session 1
-            mock_event_count_result2,  # Event count for session 2
             mock_text_responses_result,  # Text responses query (for text quality)
             mock_fraud_result,  # Fraud aggregation query
         ]
@@ -221,15 +219,12 @@ class TestReportService:
         mock_grid.scalars.return_value.all.return_value = []
         mock_timing_scalar = MagicMock()
         mock_timing_scalar.scalar.return_value = 0
-        mock_db.execute.side_effect = [
-            mock_session_result,
-            mock_text, mock_fraud_first, mock_grid, mock_timing_scalar, mock_timing_scalar, mock_timing_scalar,
-            mock_text, mock_fraud_first, mock_grid, mock_timing_scalar, mock_timing_scalar, mock_timing_scalar,
-        ]
-        
-        detailed_report = await report_service.generate_detailed_report(
-            "SV_123456", mock_db
-        )
+        mock_db.execute.return_value = mock_session_result
+
+        with patch.object(report_service, "_load_bundle", AsyncMock(return_value=bundle_from_sessions(sample_sessions))):
+            detailed_report = await report_service.generate_detailed_report(
+                "SV_123456", mock_db
+            )
         
         assert detailed_report.survey_id == "SV_123456"
         assert detailed_report.total_respondents == 2
@@ -353,8 +348,6 @@ class TestReportService:
             mock_session_result,
             mock_detection_result,
             mock_activity_result,
-            mock_event_count_result,
-            mock_event_count_result2,
             mock_text_responses_result,
             mock_fraud_result,
         ]
@@ -384,14 +377,15 @@ class TestReportService:
         mock_session_result = MagicMock()
         mock_session_result.scalars.return_value.all.return_value = sample_sessions
         mock_db.execute.return_value = mock_session_result
-        
+
         request = ReportRequest(
             survey_id="SV_123456",
             report_type=ReportType.DETAILED,
             format=ReportFormat.CSV
         )
-        
-        response = await report_service.generate_report(request, mock_db)
+
+        with patch.object(report_service, "_load_bundle", AsyncMock(return_value=bundle_from_sessions(sample_sessions))):
+            response = await report_service.generate_report(request, mock_db)
         
         assert response.success is True
         assert response.report_type == ReportType.DETAILED
@@ -424,8 +418,6 @@ class TestReportService:
             mock_session_result,
             mock_detection_result,
             mock_activity_result,
-            mock_event_count,
-            mock_event_count2,
             mock_text,
             mock_fraud,
         ]
@@ -566,3 +558,16 @@ class TestReportService:
         assert "high_velocity" in csv_content
         assert "Straight-lined on 2" in csv_content
         assert "Speeder (3 question" in csv_content or "timing anomaly" in csv_content
+
+
+def bundle_from_sessions(sessions):
+    """The bulk-loaded report data the detailed report reads, built from mock sessions."""
+    bundle = {"events": {}, "detection": {}, "texts": {}, "fraud": {}, "grid": {}, "timing": {}}
+    for session in sessions:
+        for event in getattr(session, "behavior_data", None) or []:
+            counts = bundle["events"].setdefault(session.id, {})
+            counts[event.event_type] = counts.get(event.event_type, 0) + 1
+        detections = getattr(session, "detection_results", None) or []
+        if detections:
+            bundle["detection"][session.id] = max(detections, key=lambda d: d.created_at)
+    return bundle

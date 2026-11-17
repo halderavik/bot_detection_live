@@ -76,7 +76,9 @@ def calculate_confidence_score(method_scores: Dict[str, float]) -> float:
         'mouse_analysis': 0.25,
         'timing_analysis': 0.2,
         'device_analysis': 0.15,
-        'network_analysis': 0.1
+        # Network analysis is not implemented yet; a constant would only drag every
+        # session toward the middle, so it carries no weight.
+        'network_analysis': 0.0
     }
     
     total_score = 0.0
@@ -91,33 +93,25 @@ def calculate_confidence_score(method_scores: Dict[str, float]) -> float:
 
 def determine_risk_level(confidence_score: float, is_bot: bool) -> str:
     """
-    Determine risk level based on confidence score and bot detection.
-    
+    Determine risk level from the bot probability.
+
+    ``confidence_score`` is the probability that the session is a bot (0.0 = human,
+    1.0 = bot), so a low score is low risk whatever the verdict.
+
     Args:
-        confidence_score: Confidence score (0.0 to 1.0)
+        confidence_score: Bot probability (0.0 to 1.0)
         is_bot: Whether the session was classified as a bot
-        
+
     Returns:
         str: Risk level ('low', 'medium', 'high', 'critical')
     """
-    if is_bot:
-        if confidence_score >= 0.9:
-            return 'critical'
-        elif confidence_score >= 0.7:
-            return 'high'
-        elif confidence_score >= 0.5:
-            return 'medium'
-        else:
-            return 'low'
-    else:
-        if confidence_score >= 0.9:
-            return 'low'
-        elif confidence_score >= 0.7:
-            return 'low'
-        elif confidence_score >= 0.5:
-            return 'medium'
-        else:
-            return 'high'  # Low confidence in human classification
+    if confidence_score >= 0.9:
+        return 'critical'
+    if confidence_score >= 0.7 or is_bot:
+        return 'high'
+    if confidence_score >= 0.5:
+        return 'medium'
+    return 'low'
 
 def sanitize_user_agent(user_agent: str) -> str:
     """
@@ -171,4 +165,25 @@ def format_processing_time(start_time: float) -> float:
     Returns:
         float: Processing time in milliseconds
     """
-    return (time.time() - start_time) * 1000 
+    return (time.time() - start_time) * 1000
+
+
+def client_ip(request) -> Optional[str]:
+    """
+    The respondent's IP address.
+
+    Behind Cloud Run's front end, ``request.client.host`` is the proxy's internal
+    address, the same for everyone. The real address is the right-most public entry
+    of X-Forwarded-For (entries to its left can be supplied by the client).
+    """
+    import ipaddress
+
+    forwarded = request.headers.get("x-forwarded-for", "")
+    for candidate in reversed([part.strip() for part in forwarded.split(",") if part.strip()]):
+        try:
+            address = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if address.is_global:
+            return str(address)
+    return request.client.host if request.client else None

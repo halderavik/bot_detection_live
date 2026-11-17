@@ -93,7 +93,7 @@ class TestFraudDetectionService:
     @pytest.mark.asyncio
     async def test_analyze_device_fingerprint_unique(self, fraud_service, mock_session, mock_behavior_data, mock_db):
         """Test device fingerprint analysis with unique fingerprint."""
-        # Mock database query to return 0 matches (unique fingerprint)
+        # No other session in the survey has this device
         mock_result = MagicMock()
         mock_result.scalar.return_value = 0
         mock_db.execute = AsyncMock(return_value=mock_result)
@@ -101,13 +101,13 @@ class TestFraudDetectionService:
         result = await fraud_service._analyze_device_fingerprint(mock_session, mock_behavior_data, mock_db)
         
         assert result["risk_score"] == 0.0
-        assert result["usage_count"] == 0
+        assert result["usage_count"] == 1  # this session only
         assert result["fingerprint"] is not None
     
     @pytest.mark.asyncio
     async def test_analyze_device_fingerprint_duplicate(self, fraud_service, mock_session, mock_behavior_data, mock_db):
         """Test device fingerprint analysis with duplicate fingerprint."""
-        # Mock database query to return 5 matches
+        # Five other sessions in the survey share this device
         mock_result = MagicMock()
         mock_result.scalar.return_value = 5
         mock_db.execute = AsyncMock(return_value=mock_result)
@@ -115,7 +115,7 @@ class TestFraudDetectionService:
         result = await fraud_service._analyze_device_fingerprint(mock_session, mock_behavior_data, mock_db)
         
         assert result["risk_score"] >= 0.9  # High risk for >=5 matches
-        assert result["usage_count"] == 5
+        assert result["usage_count"] == 6  # five others plus this one
         assert result["fingerprint"] is not None
     
     @pytest.mark.asyncio

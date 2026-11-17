@@ -13,9 +13,12 @@ import logging
 
 from app.database import get_db
 from app.models import Session, BehaviorData, DetectionResult, FraudIndicator
+from fastapi.encoders import jsonable_encoder
+from app.services.grid_analysis_service import GridAnalysisService
+from app.services.timing_analysis_service import TimingAnalysisService
 from app.services import BotDetectionEngine
 from app.utils.logger import setup_logger
-from app.utils.helpers import validate_event_data, sanitize_user_agent, is_valid_ip_address
+from app.utils.helpers import validate_event_data, sanitize_user_agent, is_valid_ip_address, client_ip
 
 logger = setup_logger(__name__)
 
@@ -44,7 +47,7 @@ class DetectionController:
             try:
                 # Extract client information
                 user_agent = request.headers.get("user-agent", "")
-                ip_address = request.client.host if request.client else None
+                ip_address = client_ip(request)
                 referrer = request.headers.get("referer", "")
                 
                 # Sanitize inputs
@@ -247,7 +250,7 @@ class DetectionController:
                     )
                 
                 # Perform bot detection analysis
-                detection_result = await self.detection_engine.analyze_session(behavior_data)
+                detection_result = await self.detection_engine.analyze_session(behavior_data, session.user_agent)
                 
                 # Set the session_id explicitly
                 detection_result.session_id = session_id
@@ -298,26 +301,46 @@ class DetectionController:
                 if not session:
                     raise HTTPException(status_code=404, detail="Session not found")
                 
-                # Get behavior data for fraud detection
+                # Get behavior data for behavioural and fraud analysis
                 behavior_query = select(BehaviorData).where(BehaviorData.session_id == session_id)
                 behavior_result = await db.execute(behavior_query)
                 behavior_data = behavior_result.scalars().all()
-                
+
+                # Behavioural analysis first, so the composite never falls back to a
+                # neutral 0.5 when /analyze was not called (or ran before new events).
+                if behavior_data:
+                    detection = await self.detection_engine.analyze_session(behavior_data, session.user_agent)
+                    detection.session_id = session_id
+                    db.add(detection)
+                    await db.commit()
+
+                # Grid straight-lining and per-question timing. Neither may block the result.
+                grid_summary = await self._run_optional(
+                    "grid", session_id, db,
+                    lambda: GridAnalysisService().analyze_grid_responses(session_id, db),
+                )
+                timing_summary = await self._run_optional(
+                    "timing", session_id, db,
+                    lambda: TimingAnalysisService().analyze_timing(session_id, db),
+                )
+
                 # Run fraud detection analysis
                 from app.services.fraud_detection_service import FraudDetectionService
                 fraud_service = FraudDetectionService()
                 fraud_indicator = await fraud_service.analyze_session_fraud(session, behavior_data, db)
-                
+
                 # Save fraud indicator
                 db.add(fraud_indicator)
                 await db.commit()
-                
+
                 # Calculate composite score (includes fraud detection)
                 composite_result = await self.detection_engine.calculate_composite_score(session_id, db)
-                
-                # Update detection result with fraud score if it exists
-                if composite_result.get('fraud_details') and composite_result['fraud_details'].get('fraud_score') is not None:
-                    # Get or create detection result
+                composite_result['grid_details'] = _grid_digest(grid_summary)
+                composite_result['timing_details'] = _timing_digest(timing_summary)
+
+                # Copy the fraud score onto the latest detection result
+                fraud_details = composite_result.get('fraud_details')
+                if fraud_details and fraud_details.get('fraud_score') is not None:
                     detection_query = (
                         select(DetectionResult)
                         .where(DetectionResult.session_id == session_id)
@@ -326,22 +349,27 @@ class DetectionController:
                     )
                     detection_result_query = await db.execute(detection_query)
                     latest_detection = detection_result_query.scalar_one_or_none()
-                    
+
                     if latest_detection:
-                        latest_detection.fraud_score = composite_result['fraud_score']
-                        latest_detection.fraud_indicators = composite_result.get('fraud_details')
+                        latest_detection.fraud_score = round(float(composite_result['fraud_score']), 2)
+                        # JSON columns cannot hold datetimes; store a JSON-safe copy.
+                        latest_detection.fraud_indicators = jsonable_encoder(fraud_details)
                         await db.commit()
-                
-                logger.info(f"Composite analysis completed for session {session_id}: score={composite_result['composite_score']:.3f}, fraud_score={composite_result.get('fraud_score', 0):.3f}")
-                
-                return composite_result
-                
+
+                logger.info(
+                    f"Composite analysis completed for session {session_id}: "
+                    f"score={composite_result['composite_score']:.3f}, fraud_score={composite_result.get('fraud_score') or 0:.3f}"
+                )
+
+                return jsonable_encoder(composite_result)
+
             except HTTPException:
                 raise
             except Exception as e:
                 logger.error(f"Error in composite analysis: {e}")
+                await db.rollback()
                 raise HTTPException(status_code=500, detail="Failed to perform composite analysis")
-        
+
         @self.router.get("/sessions/{session_id}/status")
         async def get_session_status(
             session_id: str,
@@ -400,6 +428,42 @@ class DetectionController:
                 logger.error(f"Error getting session status: {e}")
                 raise HTTPException(status_code=500, detail="Failed to get session status")
     
+    async def _run_optional(self, name, session_id, db, run):
+        """Run an optional analysis; a failure is logged and leaves the rest intact."""
+        try:
+            return await run()
+        except Exception as exc:  # noqa: BLE001 - optional analyses must not fail the request
+            logger.warning(f"{name} analysis skipped for session {session_id}: {exc}")
+            try:
+                await db.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            return None
+
     def get_router(self) -> APIRouter:
         """Get the router for this controller."""
         return self.router 
+
+def _grid_digest(summary):
+    """Compact grid result for the composite response."""
+    if not summary:
+        return None
+    results = summary.get("analysis_results") or []
+    return {
+        "grid_questions": summary.get("grid_questions_found", 0),
+        "straight_lined_questions": sum(1 for r in results if (r.get("straight_lining") or {}).get("is_straight_lined")),
+        "max_satisficing_score": max((r.get("satisficing_score") or 0 for r in results), default=None),
+        "patterns": sorted({(r.get("patterns") or {}).get("pattern_type") for r in results} - {None}),
+    }
+
+
+def _timing_digest(summary):
+    """Compact timing result for the composite response."""
+    if not summary:
+        return None
+    return {
+        "responses_analyzed": summary.get("responses_analyzed", 0),
+        "speeders": summary.get("speeders_count", 0),
+        "flatliners": summary.get("flatliners_count", 0),
+        "anomalies": summary.get("anomalies_count", 0),
+    }

@@ -172,7 +172,8 @@ class DashboardController:
                         "element_type": event.element_type,
                         "page_url": event.page_url,
                         "screen_width": event.screen_width,
-                        "screen_height": event.screen_height
+                        "screen_height": event.screen_height,
+                        "event_data": _event_extras(event.event_data),
                     })
                 
                 # Format detection results
@@ -411,3 +412,16 @@ class DashboardController:
     def get_router(self) -> APIRouter:
         """Get the router for this controller."""
         return self.router 
+
+# Fields already returned as columns (or not useful to clients) are left out of event_data.
+_EVENT_COLUMNS = {
+    "event_type", "timestamp", "element_id", "element_type", "element_class", "page_url", "page_title",
+    "screen_width", "screen_height", "viewport_width", "viewport_height", "load_time", "response_time",
+}
+
+
+def _event_extras(data):
+    """The event's own fields (coordinates, keys, scroll position, page timing...)."""
+    if not isinstance(data, dict):
+        return {}
+    return {key: value for key, value in data.items() if key not in _EVENT_COLUMNS}

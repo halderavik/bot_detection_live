@@ -24,6 +24,9 @@ logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/text-analysis", tags=["text-analysis"])
 
+# Question types whose answers are not free text.
+CLOSED_QUESTION_TYPES = {"grid", "matrix", "single", "single_choice", "multi", "multiple_choice", "multi_choice", "rating", "scale", "choice"}
+
 # Pydantic models for API requests and responses
 
 class SubmitQuestionRequest(BaseModel):
@@ -174,11 +177,25 @@ async def submit_response(
                 detail=f"Question {request.question_id} not found"
             )
         
-        # Perform text analysis
-        analysis_result = await text_analysis_service.analyze_response(
-            question.question_text,
-            request.response_text
-        )
+        # Closed questions (grid rows, single and multi choice) are stored for grid and
+        # timing analysis only; an AI text-quality check would only misjudge them.
+        if (question.question_type or "").lower() in CLOSED_QUESTION_TYPES:
+            analysis_result = TextAnalysisResult(
+                quality_score=None,
+                is_flagged=False,
+                flag_reasons={},
+                gibberish_score=None,
+                copy_paste_score=None,
+                relevance_score=None,
+                generic_score=None,
+                analysis_details={"skipped": f"{question.question_type} answers are not text-scored"},
+                confidence=0.0,
+            )
+        else:
+            analysis_result = await text_analysis_service.analyze_response(
+                question.question_text,
+                request.response_text
+            )
         
         # Create survey response
         response = SurveyResponse(

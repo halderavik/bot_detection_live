@@ -61,8 +61,14 @@ class FraudDetectionService:
         start_time = time.time()
         
         # Run all fraud detection methods
-        ip_analysis = await self._analyze_ip_address(session, db)
         fingerprint_analysis = await self._analyze_device_fingerprint(session, behavior_data, db)
+        if fingerprint_analysis["fingerprint"] and not session.device_fingerprint:
+            session.device_fingerprint = fingerprint_analysis["fingerprint"]
+        ip_analysis = await self._analyze_ip_address(session, db)
+        if ip_analysis["risk_score"] and fingerprint_analysis["usage_count"] <= 1:
+            # Same network, different device: a shared connection, not a repeat respondent.
+            ip_analysis["risk_score"] = round(ip_analysis["risk_score"] * 0.5, 2)
+            ip_analysis["shared_network"] = True
         duplicate_analysis = await self._analyze_duplicate_responses(session, db)
         geolocation_analysis = await self._analyze_geolocation(session, db)
         velocity_analysis = await self._analyze_velocity(session, db)
@@ -151,6 +157,11 @@ class FraudDetectionService:
         
         return fraud_indicator
     
+    @staticmethod
+    def _same_survey(session: Session) -> list:
+        """Limit reuse checks to the session's own survey (all sessions when it has none)."""
+        return [Session.survey_id == session.survey_id] if session.survey_id else []
+
     async def _analyze_ip_address(self, session: Session, db: AsyncSession) -> Dict[str, Any]:
         """
         Analyze IP address for reuse patterns.
@@ -171,7 +182,7 @@ class FraudDetectionService:
         
         # Count total sessions with this IP
         total_count_query = select(func.count(Session.id)).where(
-            Session.ip_address == session.ip_address
+            and_(Session.ip_address == session.ip_address, *self._same_survey(session))
         )
         total_result = await db.execute(total_count_query)
         usage_count = total_result.scalar() or 0
@@ -181,7 +192,8 @@ class FraudDetectionService:
         today_count_query = select(func.count(Session.id)).where(
             and_(
                 Session.ip_address == session.ip_address,
-                Session.created_at >= today_start
+                Session.created_at >= today_start,
+                *self._same_survey(session)
             )
         )
         today_result = await db.execute(today_count_query)
@@ -225,10 +237,14 @@ class FraudDetectionService:
         
         # Count sessions with matching fingerprint
         count_query = select(func.count(Session.id)).where(
-            Session.device_fingerprint == fingerprint
+            and_(
+                Session.device_fingerprint == fingerprint,
+                Session.id != session.id,
+                *self._same_survey(session)
+            )
         )
         count_result = await db.execute(count_query)
-        usage_count = count_result.scalar() or 0
+        usage_count = (count_result.scalar() or 0) + 1  # other sessions plus this one
         
         # Calculate risk score
         risk_score = calculate_fingerprint_risk_score(usage_count)
@@ -405,7 +421,8 @@ class FraudDetectionService:
             ip_count_query = select(func.count(Session.id)).where(
                 and_(
                     Session.ip_address == session.ip_address,
-                    Session.created_at >= one_hour_ago
+                    Session.created_at >= one_hour_ago,
+                    *self._same_survey(session)
                 )
             )
             ip_count_result = await db.execute(ip_count_query)
@@ -418,7 +435,8 @@ class FraudDetectionService:
             fp_count_query = select(func.count(Session.id)).where(
                 and_(
                     Session.device_fingerprint == session.device_fingerprint,
-                    Session.created_at >= one_hour_ago
+                    Session.created_at >= one_hour_ago,
+                    *self._same_survey(session)
                 )
             )
             fp_count_result = await db.execute(fp_count_query)
@@ -431,7 +449,8 @@ class FraudDetectionService:
             resp_count_query = select(func.count(Session.id)).where(
                 and_(
                     Session.respondent_id == session.respondent_id,
-                    Session.created_at >= one_hour_ago
+                    Session.created_at >= one_hour_ago,
+                    *self._same_survey(session)
                 )
             )
             resp_count_result = await db.execute(resp_count_query)
@@ -440,6 +459,10 @@ class FraudDetectionService:
             resp_sessions_per_hour = 0
         
         # Use maximum of the three as the velocity metric
+        # Many people share one network (offices, campuses, mobile carriers), so IP
+        # velocity counts only when the same device is also coming back.
+        if fp_sessions_per_hour < 2:
+            ip_sessions_per_hour = min(ip_sessions_per_hour, fp_sessions_per_hour)
         responses_per_hour = max(ip_sessions_per_hour, fp_sessions_per_hour, resp_sessions_per_hour)
         
         # Calculate risk score

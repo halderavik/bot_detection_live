@@ -156,7 +156,7 @@ class ReportService:
             session_ids = [session.id for session in sessions]
             detection_query = (
                 select(DetectionResult)
-                .where(DetectionResult.session_id.in_(session_ids))
+                .where(DetectionResult.session_id.in_(select(Session.id).where(and_(*base_conditions))))
                 .order_by(DetectionResult.created_at.desc())
             )
             detection_result = await db.execute(detection_query)
@@ -199,15 +199,10 @@ class ReportService:
                     duration = (session.last_activity - session.created_at).total_seconds() / 60
                     total_duration += duration
                     sessions_with_duration += 1
-                
-                # Get event count for this session
-                event_count_query = select(func.count(BehaviorData.id)).where(
-                    BehaviorData.session_id == session.id
-                )
-                event_result = await db.execute(event_count_query)
-                event_count = event_result.scalar() or 0
-                total_events += event_count
-            
+
+            # Every event for the survey in one count (the activity query already grouped them)
+            total_events = sum(activity_distribution.values())
+
             average_session_duration = (
                 total_duration / sessions_with_duration 
                 if sessions_with_duration > 0 else None
@@ -241,7 +236,8 @@ class ReportService:
                 
                 # Get text responses for these sessions
                 text_responses_query = select(SurveyResponse).where(
-                    SurveyResponse.session_id.in_(session_ids)
+                    SurveyResponse.session_id.in_(select(Session.id).where(and_(*base_conditions))),
+                    SurveyResponse.quality_score.isnot(None),
                 )
                 text_responses_result = await db.execute(text_responses_query)
                 text_responses = text_responses_result.scalars().all()
@@ -352,29 +348,19 @@ class ReportService:
             if date_to:
                 base_conditions.append(Session.created_at <= date_to)
             
-            # Get sessions with all related data
+            # Sessions only; related rows are loaded in bulk below
             session_query = (
                 select(Session)
-                .options(
-                    selectinload(Session.behavior_data),
-                    selectinload(Session.detection_results)
-                )
                 .where(and_(*base_conditions))
                 .order_by(Session.created_at.desc())
             )
-            
             session_result = await db.execute(session_query)
             sessions = session_result.scalars().all()
-            
-            # Generate summary statistics
-            summary_stats = await self._generate_summary_stats(sessions)
-            
-            # Generate respondent details
-            respondents = []
-            for session in sessions:
-                respondent_detail = await self._create_respondent_detail(session, db)
-                respondents.append(respondent_detail)
-            
+
+            bundle = await self._load_bundle(db, select(Session.id).where(and_(*base_conditions)))
+            summary_stats = self._summary_stats_from_bundle(sessions, bundle)
+            respondents = [self._build_respondent_detail(session, bundle) for session in sessions]
+
             return DetailedReport(
                 survey_id=survey_id,
                 total_respondents=len(sessions),
@@ -382,11 +368,110 @@ class ReportService:
                 summary_stats=summary_stats,
                 respondents=respondents
             )
-            
+
         except Exception as e:
             self.logger.error(f"Error generating detailed report: {e}")
             raise
-    
+
+    async def _load_bundle(self, db: AsyncSession, session_ids) -> Dict[str, Dict[str, Any]]:
+        """
+        Load every row a detailed report needs with a fixed number of queries.
+
+        ``session_ids`` is a subquery (or list) of session ids. Returns maps keyed by
+        session id: events (type -> count), detection (latest), texts, fraud (latest),
+        grid (rows) and timing (speeder / flatliner / anomaly counts).
+        """
+        bundle: Dict[str, Dict[str, Any]] = {
+            "events": {}, "detection": {}, "texts": {}, "fraud": {}, "grid": {}, "timing": {}
+        }
+
+        rows = await db.execute(
+            select(BehaviorData.session_id, BehaviorData.event_type, func.count(BehaviorData.id))
+            .where(BehaviorData.session_id.in_(session_ids))
+            .group_by(BehaviorData.session_id, BehaviorData.event_type)
+        )
+        for session_id, event_type, count in rows.all():
+            bundle["events"].setdefault(session_id, {})[event_type] = count
+
+        rows = await db.execute(
+            select(DetectionResult)
+            .where(DetectionResult.session_id.in_(session_ids))
+            .order_by(DetectionResult.created_at.desc())
+        )
+        for detection in rows.scalars().all():
+            bundle["detection"].setdefault(detection.session_id, detection)
+
+        try:
+            rows = await db.execute(
+                select(SurveyResponse, SurveyQuestion.question_text)
+                .outerjoin(SurveyQuestion, SurveyResponse.question_id == SurveyQuestion.id)
+                .where(SurveyResponse.session_id.in_(session_ids), SurveyResponse.quality_score.isnot(None))
+            )
+            for response, question_text in rows.all():
+                bundle["texts"].setdefault(response.session_id, []).append((response, question_text))
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Text responses not loaded: {exc}")
+
+        try:
+            rows = await db.execute(
+                select(FraudIndicator)
+                .where(FraudIndicator.session_id.in_(session_ids))
+                .order_by(FraudIndicator.created_at.desc())
+            )
+            for indicator in rows.scalars().all():
+                bundle["fraud"].setdefault(indicator.session_id, indicator)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Fraud indicators not loaded: {exc}")
+
+        try:
+            rows = await db.execute(
+                select(GridResponse.session_id, GridResponse.question_id, GridResponse.is_straight_lined, GridResponse.variance_score)
+                .where(GridResponse.session_id.in_(session_ids))
+            )
+            for session_id, question_id, straight, variance in rows.all():
+                bundle["grid"].setdefault(session_id, []).append((question_id, straight, variance))
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Grid rows not loaded: {exc}")
+
+        try:
+            rows = await db.execute(
+                select(TimingAnalysis.session_id, TimingAnalysis.is_speeder, TimingAnalysis.is_flatliner, TimingAnalysis.anomaly_score)
+                .where(TimingAnalysis.session_id.in_(session_ids))
+            )
+            for session_id, speeder, flatliner, anomaly in rows.all():
+                counts = bundle["timing"].setdefault(session_id, {"speeder": 0, "flatliner": 0, "anomaly": 0})
+                counts["speeder"] += 1 if speeder else 0
+                counts["flatliner"] += 1 if flatliner else 0
+                counts["anomaly"] += 1 if anomaly is not None and abs(anomaly) > 2.5 else 0
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Timing rows not loaded: {exc}")
+
+        return bundle
+
+    def _summary_stats_from_bundle(self, sessions: List[Session], bundle: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """Summary statistics for a detailed report, from bulk-loaded rows."""
+        if not sessions:
+            return {}
+        bot_count = 0
+        risk_distribution: Dict[str, int] = {}
+        activity_distribution: Dict[str, int] = {}
+        for session in sessions:
+            detection = bundle["detection"].get(session.id)
+            if detection:
+                bot_count += 1 if detection.is_bot else 0
+                risk_distribution[detection.risk_level] = risk_distribution.get(detection.risk_level, 0) + 1
+            for event_type, count in bundle["events"].get(session.id, {}).items():
+                activity_distribution[event_type] = activity_distribution.get(event_type, 0) + count
+        total = len(sessions)
+        return {
+            "total_sessions": total,
+            "bot_detections": bot_count,
+            "human_respondents": total - bot_count,
+            "bot_detection_rate": bot_count / total * 100,
+            "risk_distribution": risk_distribution,
+            "activity_distribution": activity_distribution,
+        }
+
     async def _generate_summary_stats(self, sessions: List[Session]) -> Dict[str, Any]:
         """Generate summary statistics from sessions."""
         if not sessions:
@@ -511,156 +596,113 @@ class ReportService:
             return None
     
     async def _create_respondent_detail(self, session: Session, db: AsyncSession) -> RespondentDetail:
-        """Create respondent detail from session data including fraud, grid, and timing."""
-        # Get latest detection result
-        latest_detection = None
-        if session.detection_results:
-            latest_detection = max(session.detection_results, key=lambda x: x.created_at)
-        
-        # Calculate session duration
+        """Respondent detail for one session (loads its rows, then builds the detail)."""
+        bundle = await self._load_bundle(db, [session.id])
+        return self._build_respondent_detail(session, bundle)
+
+    def _build_respondent_detail(self, session: Session, bundle: Dict[str, Dict[str, Any]]) -> RespondentDetail:
+        """Create respondent detail from bulk-loaded data including fraud, grid, and timing."""
+        latest_detection = bundle["detection"].get(session.id)
+
         session_duration = 0
         if session.last_activity and session.created_at:
             session_duration = (session.last_activity - session.created_at).total_seconds() / 60
-        
-        # Get event breakdown
-        event_breakdown = {}
-        for event in session.behavior_data:
-            event_type = event.event_type
-            event_breakdown[event_type] = event_breakdown.get(event_type, 0) + 1
-        
-        # Get method scores and analysis
+
+        event_breakdown = dict(bundle["events"].get(session.id, {}))
+
         method_scores = {}
         analysis_summary = None
         flagged_patterns = None
         bot_explanation = None
-        
         if latest_detection:
             method_scores = latest_detection.method_scores or {}
             analysis_summary = latest_detection.analysis_summary
             flagged_patterns = latest_detection.flagged_patterns
-            
             if latest_detection.is_bot:
                 bot_explanation = self._generate_bot_explanation(latest_detection)
-        
-        # Get text quality data for this session and build responses of interest
+
+        # Text quality (scored open ends only)
         text_response_count = None
         avg_text_quality_score = None
         flagged_text_responses = None
         text_quality_percentage = None
         text_responses_of_interest = None
-        try:
-            text_query = select(SurveyResponse).where(SurveyResponse.session_id == session.id)
-            text_result = await db.execute(text_query)
-            text_responses = text_result.scalars().all()
-            if text_responses:
-                text_response_count = len(text_responses)
-                scores = [r.quality_score for r in text_responses if r.quality_score is not None]
-                avg_text_quality_score = sum(scores) / len(scores) if scores else None
-                flagged_text_responses = sum(1 for r in text_responses if r.is_flagged)
-                text_quality_percentage = (flagged_text_responses / text_response_count * 100) if text_response_count else None
-                # Build text_responses_of_interest with question previews
-                question_ids = list({r.question_id for r in text_responses})
-                q_result = await db.execute(select(SurveyQuestion).where(SurveyQuestion.id.in_(question_ids)))
-                questions_map = {q.id: q for q in q_result.scalars().all()}
-                text_responses_of_interest = []
-                for r in text_responses:
-                    q = questions_map.get(r.question_id)
-                    question_preview = (q.question_text[:197] + "...") if q and getattr(q, "question_text", None) and len(q.question_text) > 200 else (getattr(q, "question_text", None) or "")
-                    response_preview = (r.response_text[:197] + "...") if len(r.response_text) > 200 else r.response_text
-                    text_responses_of_interest.append({
-                        "question_preview": question_preview or "",
-                        "response_preview": response_preview,
-                        "quality_score": r.quality_score,
-                        "is_flagged": bool(r.is_flagged),
-                        "flag_reasons": r.flag_reasons or {},
-                    })
-        except Exception:
-            pass
-        
-        # Fraud: latest fraud indicator for this session
+        texts = bundle["texts"].get(session.id) or []
+        if texts:
+            text_response_count = len(texts)
+            scores = [r.quality_score for r, _ in texts if r.quality_score is not None]
+            avg_text_quality_score = sum(scores) / len(scores) if scores else None
+            flagged_text_responses = sum(1 for r, _ in texts if r.is_flagged)
+            text_quality_percentage = flagged_text_responses / text_response_count * 100
+            text_responses_of_interest = []
+            for r, question_text in texts:
+                question_text = question_text or ""
+                question_preview = question_text[:197] + "..." if len(question_text) > 200 else question_text
+                response_text = r.response_text or ""
+                response_preview = response_text[:197] + "..." if len(response_text) > 200 else response_text
+                text_responses_of_interest.append({
+                    "question_preview": question_preview,
+                    "response_preview": response_preview,
+                    "quality_score": r.quality_score,
+                    "is_flagged": bool(r.is_flagged),
+                    "flag_reasons": r.flag_reasons or {},
+                })
+
+        # Fraud (latest indicator)
         fraud_score = None
         is_duplicate = None
         fraud_risk_level = None
         fraud_flag_reasons = None
         fraud_velocity_summary = None
-        try:
-            fraud_query = (
-                select(FraudIndicator)
-                .where(FraudIndicator.session_id == session.id)
-                .order_by(FraudIndicator.created_at.desc())
-            )
-            fraud_row = await db.execute(fraud_query)
-            fi = fraud_row.scalars().first()
-            if fi:
-                fraud_score = float(fi.overall_fraud_score) if fi.overall_fraud_score else None
-                is_duplicate = fi.is_duplicate
-                rl = getattr(fi, "risk_level", None)
-                fraud_risk_level = rl if isinstance(rl, str) else None
-                fraud_flag_reasons = fi.flag_reasons if isinstance(getattr(fi, "flag_reasons", None), dict) else None
-                if getattr(fi, "responses_per_hour", None) is not None or getattr(fi, "velocity_risk_score", None) is not None:
-                    fraud_velocity_summary = {
-                        "responses_per_hour": float(fi.responses_per_hour) if fi.responses_per_hour is not None else None,
-                        "velocity_risk_score": float(fi.velocity_risk_score) if fi.velocity_risk_score is not None else None,
-                    }
-        except Exception:
-            pass
-        
-        # Grid: any straight-lining, avg variance for this session; build grid_explanation
+        fi = bundle["fraud"].get(session.id)
+        if fi:
+            fraud_score = float(fi.overall_fraud_score) if fi.overall_fraud_score is not None else None
+            is_duplicate = fi.is_duplicate
+            rl = getattr(fi, "risk_level", None)
+            fraud_risk_level = rl if isinstance(rl, str) else None
+            fraud_flag_reasons = fi.flag_reasons if isinstance(getattr(fi, "flag_reasons", None), dict) else None
+            if getattr(fi, "responses_per_hour", None) is not None or getattr(fi, "velocity_risk_score", None) is not None:
+                fraud_velocity_summary = {
+                    "responses_per_hour": float(fi.responses_per_hour) if fi.responses_per_hour is not None else None,
+                    "velocity_risk_score": float(fi.velocity_risk_score) if fi.velocity_risk_score is not None else None,
+                }
+
+        # Grid
         grid_straight_lining = None
         grid_variance_score = None
         grid_explanation = None
-        try:
-            grid_query = select(GridResponse).where(GridResponse.session_id == session.id)
-            grid_result = await db.execute(grid_query)
-            grid_rows = grid_result.scalars().all()
-            if grid_rows:
-                grid_straight_lining = any(gr.is_straight_lined for gr in grid_rows)
-                variances = [gr.variance_score for gr in grid_rows if gr.variance_score is not None]
-                grid_variance_score = sum(variances) / len(variances) if variances else None
-                straight_lined_count = sum(1 for gr in grid_rows if gr.is_straight_lined)
-                parts = []
-                if straight_lined_count > 0:
-                    parts.append(f"Straight-lined on {straight_lined_count} grid question(s)")
-                if grid_variance_score is not None:
-                    parts.append(f"variance {grid_variance_score:.2f}")
-                grid_explanation = "; ".join(parts) if parts else None
-        except Exception:
-            pass
-        
-        # Timing: any speeder/flatliner, anomaly count for this session; build timing_explanation
+        grid_rows = bundle["grid"].get(session.id) or []
+        if grid_rows:
+            grid_straight_lining = any(straight for _, straight, _ in grid_rows)
+            variances = [variance for _, _, variance in grid_rows if variance is not None]
+            grid_variance_score = sum(variances) / len(variances) if variances else None
+            straight_questions = len({question for question, straight, _ in grid_rows if straight})
+            parts = []
+            if straight_questions:
+                parts.append(f"Straight-lined on {straight_questions} grid question(s)")
+            if grid_variance_score is not None:
+                parts.append(f"variance {grid_variance_score:.2f}")
+            grid_explanation = "; ".join(parts) if parts else None
+
+        # Timing
         timing_speeder = None
         timing_flatliner = None
         timing_anomaly_count = None
         timing_explanation = None
-        try:
-            timing_speeder_query = select(func.count(TimingAnalysis.id)).where(
-                and_(TimingAnalysis.session_id == session.id, TimingAnalysis.is_speeder == True)
-            )
-            timing_flatliner_query = select(func.count(TimingAnalysis.id)).where(
-                and_(TimingAnalysis.session_id == session.id, TimingAnalysis.is_flatliner == True)
-            )
-            timing_anom_query = select(func.count(TimingAnalysis.id)).where(
-                and_(TimingAnalysis.session_id == session.id, func.abs(TimingAnalysis.anomaly_score) > 2.5)
-            )
-            sr = await db.execute(timing_speeder_query)
-            flr = await db.execute(timing_flatliner_query)
-            ar = await db.execute(timing_anom_query)
-            timing_anomaly_count = ar.scalar() or 0
-            speeder_count = sr.scalar() or 0
-            flatliner_count = flr.scalar() or 0
-            timing_speeder = speeder_count > 0
-            timing_flatliner = flatliner_count > 0
+        timing = bundle["timing"].get(session.id)
+        if timing:
+            timing_speeder = timing["speeder"] > 0
+            timing_flatliner = timing["flatliner"] > 0
+            timing_anomaly_count = timing["anomaly"]
             timing_parts = []
-            if speeder_count > 0:
-                timing_parts.append(f"Speeder ({speeder_count} question(s))")
-            if flatliner_count > 0:
-                timing_parts.append(f"Flatliner ({flatliner_count} question(s))")
-            if timing_anomaly_count and timing_anomaly_count > 0:
-                timing_parts.append(f"{timing_anomaly_count} timing anomaly(ies)")
+            if timing["speeder"]:
+                timing_parts.append(f"Speeder ({timing['speeder']} question(s))")
+            if timing["flatliner"]:
+                timing_parts.append(f"Flatliner ({timing['flatliner']} question(s))")
+            if timing["anomaly"]:
+                timing_parts.append(f"{timing['anomaly']} timing anomaly(ies)")
             timing_explanation = "; ".join(timing_parts) if timing_parts else None
-        except Exception:
-            pass
-        
+
         return RespondentDetail(
             session_id=session.id,
             respondent_id=session.respondent_id,
@@ -669,7 +711,7 @@ class ReportService:
             is_bot=latest_detection.is_bot if latest_detection else False,
             confidence_score=latest_detection.confidence_score if latest_detection else 0.0,
             risk_level=latest_detection.risk_level if latest_detection else "unknown",
-            total_events=len(session.behavior_data),
+            total_events=sum(event_breakdown.values()),
             session_duration_minutes=session_duration,
             event_breakdown=event_breakdown,
             method_scores=method_scores,
@@ -694,7 +736,7 @@ class ReportService:
             grid_explanation=grid_explanation,
             timing_explanation=timing_explanation,
         )
-    
+
     def _generate_bot_explanation(self, detection: DetectionResult) -> str:
         """Generate human-readable bot explanation."""
         explanations = []
