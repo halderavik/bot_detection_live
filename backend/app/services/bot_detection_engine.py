@@ -342,6 +342,13 @@ class BotDetectionEngine:
         if any(pattern in context['user_agent'] for pattern in self.USER_AGENT_SUSPICIOUS_PATTERNS):
             signals.append('User agent belongs to a headless or automated browser')
 
+        submits = [self._data(e) for e in context['submits']]
+        if any(data.get('honeypot') is True for data in submits):
+            signals.append('Filled in a hidden field that people cannot see (honeypot)')
+        untyped = sum(int(data.get('untyped_answers') or 0) for data in submits)
+        if untyped:
+            signals.append(f'{untyped} open-ended answer(s) appeared without any typing, pasting, or dictation')
+
         inputs = context['clicks'] + context['keys']
         flagged = [e for e in inputs if self._data(e).get('trusted') is False]
         if len(flagged) >= 3 and len(flagged) >= 0.5 * len(inputs):

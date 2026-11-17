@@ -379,3 +379,57 @@ async def test_session_details_include_event_data(api):
     assert submit["element_id"].startswith("qos-page:")
     move = next(e for e in details["behavior_data"] if e["event_type"] == "mouse_move")
     assert "x" in move["event_data"] and "timestamp" not in move["event_data"]
+
+
+# ------------------------------------------------------------------ honeypot and entry method
+
+@pytest.mark.asyncio
+async def test_honeypot_filled_is_a_bot(api):
+    sid = await start(api)
+    events = human_events(t0())
+    events[-1]["honeypot"] = True
+    await send(api, sid, events)
+    result = await analyze(api, sid)
+    assert result["is_bot"] is True
+    assert any("honeypot" in s for s in result["flagged_patterns"]["decisive_signals"])
+
+
+@pytest.mark.asyncio
+async def test_answers_without_typing_are_a_bot(api):
+    sid = await start(api)
+    events = human_events(t0())
+    events[-1]["untyped_answers"] = 2
+    await send(api, sid, events)
+    result = await analyze(api, sid)
+    assert result["is_bot"] is True
+    assert any("without any typing" in s for s in result["flagged_patterns"]["decisive_signals"])
+
+
+@pytest.mark.asyncio
+async def test_pasted_and_untyped_answers_are_flagged(api):
+    sid = await start(api)
+    question = await register(api, sid, "Why did you give that score?", "open_ended")
+    text = "The coffee tastes rich and it heats up quickly, but the tank is small."
+
+    async def submit(**counts):
+        response = await api.post("/text-analysis/responses", json={
+            "session_id": sid, "question_id": question, "response_text": text, "response_time_ms": 20000, **counts})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    typed = await submit(typed_chars=len(text), pasted_chars=0, input_events=len(text))
+    assert typed["is_flagged"] is False and "pasted" not in typed["flag_reasons"]
+    assert typed["analysis_details"]["entry_method"]["typed_chars"] == len(text)
+
+    pasted = await submit(typed_chars=3, pasted_chars=len(text), input_events=4)
+    assert pasted["is_flagged"] is True and "pasted" in pasted["flag_reasons"]
+
+    scripted = await submit(typed_chars=0, pasted_chars=0, input_events=0)
+    assert "no_typing" in scripted["flag_reasons"]
+
+    legacy = await submit()  # older trackers send no counts: no entry-method judgement
+    assert "pasted" not in legacy["flag_reasons"] and "no_typing" not in legacy["flag_reasons"]
+
+    short = await api.post("/text-analysis/responses", json={
+        "session_id": sid, "question_id": question, "response_text": "Too pricey", "pasted_chars": 10, "input_events": 1})
+    assert "pasted" not in short.json()["flag_reasons"]  # short answers are not judged

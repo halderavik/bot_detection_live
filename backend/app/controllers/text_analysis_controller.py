@@ -51,6 +51,9 @@ class SubmitResponseRequest(BaseModel):
     question_id: str = Field(..., description="Question ID")
     response_text: str = Field(..., description="Response text")
     response_time_ms: Optional[int] = Field(None, description="Time to respond in milliseconds")
+    typed_chars: Optional[int] = Field(None, description="Characters entered by typing or dictation")
+    pasted_chars: Optional[int] = Field(None, description="Characters entered by pasting or dropping text")
+    input_events: Optional[int] = Field(None, description="Number of input events while answering")
 
 class SubmitResponseResponse(BaseModel):
     """Response model for response submission with analysis."""
@@ -83,6 +86,31 @@ class TextAnalysisStatsResponse(BaseModel):
     cache_hit_rate: float
 
 # API Endpoints
+
+def entry_method_flags(request: "SubmitResponseRequest") -> Optional[Dict[str, Any]]:
+    """
+    How the answer was entered, from the tracker's counts.
+
+    Returns None when the tracker sent no counts (older trackers). Flags:
+    ``pasted`` when at least half of a 20+ character answer was pasted, and
+    ``no_typing`` when a 20+ character answer arrived with no input events at all
+    (set by script).
+    """
+    if request.typed_chars is None and request.pasted_chars is None and request.input_events is None:
+        return None
+    length = len((request.response_text or "").strip())
+    typed = request.typed_chars or 0
+    pasted = request.pasted_chars or 0
+    flags: Dict[str, Any] = {}
+    if length >= 20 and pasted >= max(20, length * 0.5):
+        flags["pasted"] = {"pasted_chars": pasted, "length": length, "severity": "medium"}
+    if length >= 20 and request.input_events == 0:
+        flags["no_typing"] = {"length": length, "severity": "high"}
+    return {
+        "flags": flags,
+        "details": {"typed_chars": typed, "pasted_chars": pasted, "input_events": request.input_events, "length": length},
+    }
+
 
 @router.post("/questions", response_model=SubmitQuestionResponse)
 async def submit_question(
@@ -197,6 +225,13 @@ async def submit_response(
                 request.response_text
             )
         
+        entry = entry_method_flags(request)
+        if entry:
+            analysis_result.flag_reasons = {**(analysis_result.flag_reasons or {}), **entry["flags"]}
+            analysis_result.analysis_details = {**(analysis_result.analysis_details or {}), "entry_method": entry["details"]}
+            if entry["flags"]:
+                analysis_result.is_flagged = True
+
         # Create survey response
         response = SurveyResponse(
             id=str(uuid.uuid4()),
