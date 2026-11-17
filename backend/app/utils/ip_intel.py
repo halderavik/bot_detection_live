@@ -11,12 +11,13 @@ import asyncio
 import csv
 import io
 import ipaddress
-import logging
 from typing import Dict, List, Optional, Tuple
 
 import httpx
 
-logger = logging.getLogger(__name__)
+from app.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # provider -> URL of its published ranges
 SOURCES: Dict[str, str] = {

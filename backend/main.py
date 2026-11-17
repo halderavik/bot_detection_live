@@ -81,7 +81,9 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health_check():
         """Health check endpoint for monitoring."""
-        return {"status": "healthy", "service": "bot-detection-api"}
+        from app.utils import ip_intel
+
+        return {"status": "healthy", "service": "bot-detection-api", "datacenter_networks": ip_intel.loaded()}
     
     @app.get("/metrics")
     async def metrics():
