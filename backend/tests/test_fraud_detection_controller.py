@@ -10,20 +10,57 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
 
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
+from app.database import Base, get_db
+from app import models as _models  # noqa: F401  (registers every table on Base.metadata)
 from main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def sqlite_db(tmp_path):
+    """Run every request in this module against a fresh SQLite database.
+
+    The suite must not depend on whatever schema the developer's local Postgres
+    happens to have, so get_db is overridden for the shared app. NullPool keeps
+    aiosqlite connections from being reused across TestClient's per-request loops.
+    """
+    db_path = tmp_path / "fraud.db"
+    sync_engine = create_engine(f"sqlite:///{db_path}")
+    Base.metadata.create_all(sync_engine)
+    sync_engine.dispose()
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", poolclass=NullPool)
+    maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def override_get_db():
+        async with maker() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides.pop(get_db, None)
 
 
 class TestFraudDetectionAPI:
     """Test cases for fraud detection API endpoints."""
     
     def test_fraud_endpoints_exist(self):
-        """Test that fraud detection endpoints are accessible (not 404)."""
-        # Test that endpoints exist and return proper error codes (not 404)
-        # We'll use a dummy session ID to test endpoint existence
+        """Test that fraud detection endpoints are routed (not a router-level 404)."""
+        # An unknown session legitimately returns 404 from the handler itself
+        # ("Session not found"); a missing route would return FastAPI's "Not Found".
         response = client.get("/api/v1/fraud/sessions/test-session-id")
-        assert response.status_code != 404, "Fraud detection endpoints should not return 404"
+        assert response.json().get("detail") != "Not Found", "Fraud detection route is not registered"
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Session not found"
+
+        # Routes that need no existing session must answer 200.
+        assert client.get("/api/v1/fraud/ip/192.168.1.100").status_code == 200
+        assert client.get("/api/v1/fraud/dashboard/summary").status_code == 200
     
     def test_get_fraud_indicators_session_not_found(self):
         """Test getting fraud indicators for non-existent session."""

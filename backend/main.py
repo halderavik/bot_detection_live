@@ -7,6 +7,7 @@ routers, and configuration for the bot detection service.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from app.utils.rate_limit import RateLimitMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
@@ -27,6 +28,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Bot Detection API...")
     
+    # Data-centre IP ranges load in the background; nothing waits for them.
+    import asyncio
+    from app.utils import ip_intel
+    ranges_task = asyncio.create_task(ip_intel.keep_fresh())
+
     # Create database tables (with error handling)
     try:
         async with engine.begin() as conn:
@@ -37,6 +43,7 @@ async def lifespan(app: FastAPI):
         logger.warning("Application will start without database tables")
     
     yield
+    ranges_task.cancel()
     
     # Shutdown
     logger.info("Shutting down Bot Detection API...")
@@ -61,6 +68,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     
+    app.add_middleware(RateLimitMiddleware)
+
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=settings.ALLOWED_HOSTS

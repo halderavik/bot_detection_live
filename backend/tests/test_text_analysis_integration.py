@@ -6,11 +6,11 @@ text responses to generating dashboard summaries and reports with text quality d
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from unittest.mock import patch, AsyncMock
 import json
 import uuid
@@ -19,7 +19,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from main import app
+from main import create_app
 from app.database import get_db, Base
 from app.models import Session, SurveyQuestion, SurveyResponse, BehaviorData, DetectionResult
 from app.services.text_analysis_service import TextAnalysisService
@@ -30,35 +30,37 @@ from app.controllers.text_analysis_controller import get_dashboard_summary, get_
 class TestTextAnalysisIntegration:
     """Test class for end-to-end text analysis integration."""
 
-    @pytest.fixture
-    async def test_db(self):
-        """Create test database."""
-        # Use in-memory SQLite for testing
-        engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    @pytest_asyncio.fixture
+    async def test_db(self, tmp_path):
+        """Create a fresh file-backed SQLite test database and return its session factory."""
+        # A file (not :memory:) so every connection the engine opens sees the same tables.
+        engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'text_analysis.db'}", echo=False)
         
         # Create all tables
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         
         # Create session factory
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         
         yield async_session
         
         # Cleanup
         await engine.dispose()
 
-    @pytest.fixture
-    def client(self, test_db):
-        """Create test client with database override."""
-        def override_get_db():
-            return test_db
+    @pytest_asyncio.fixture
+    async def client(self, test_db):
+        """HTTP client for the real app with get_db overridden to use the test database."""
+        async def override_get_db():
+            async with test_db() as session:
+                yield session
         
+        app = create_app()
         app.dependency_overrides[get_db] = override_get_db
-        yield TestClient(app)
-        app.dependency_overrides.clear()
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            yield client
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def sample_session_data(self, test_db):
         """Create sample session with survey responses for testing."""
         async with test_db() as db:
@@ -211,7 +213,7 @@ class TestTextAnalysisIntegration:
             # Verify aggregated statistics
             assert result["total_responses"] == 6
             assert result["flagged_count"] == 2  # responses 5 and 6
-            assert result["flagged_percentage"] == 33.3  # 2/6 * 100
+            assert result["flagged_percentage"] == pytest.approx(100 * 2 / 6)  # 2/6 * 100, not rounded
             
             # Verify average quality score (88+82+65+58+12+35)/6 = 56.67
             assert abs(result["avg_quality_score"] - 56.67) < 0.1
@@ -291,7 +293,7 @@ class TestTextAnalysisIntegration:
             
             assert text_quality["total_responses"] == 6
             assert text_quality["flagged_count"] == 2
-            assert text_quality["flagged_percentage"] == 33.3
+            assert text_quality["flagged_percentage"] == pytest.approx(100 * 2 / 6)  # not rounded
             assert abs(text_quality["avg_quality_score"] - 56.67) < 0.1
             
             # Test detailed report generation
@@ -313,7 +315,7 @@ class TestTextAnalysisIntegration:
     async def test_dashboard_api_endpoints_integration(self, client, sample_session_data):
         """Test dashboard API endpoints through HTTP client."""
         # Test dashboard summary endpoint
-        response = client.get("/api/v1/text-analysis/dashboard/summary?days=7&survey_id=test-survey-1")
+        response = await client.get("/api/v1/text-analysis/dashboard/summary?days=7&survey_id=test-survey-1")
         assert response.status_code == 200
         
         data = response.json()
@@ -322,7 +324,7 @@ class TestTextAnalysisIntegration:
         assert data["avg_quality_score"] is not None
         
         # Test respondent analysis endpoint
-        response = client.get("/api/v1/text-analysis/dashboard/respondents?survey_id=test-survey-1&days=7&page=1&limit=10")
+        response = await client.get("/api/v1/text-analysis/dashboard/respondents?survey_id=test-survey-1&days=7&page=1&limit=10")
         assert response.status_code == 200
         
         data = response.json()

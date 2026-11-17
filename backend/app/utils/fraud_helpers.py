@@ -14,6 +14,10 @@ from datetime import datetime
 from app.models import Session, BehaviorData
 
 
+# Device signals from the tracker's page_load event, in fingerprint order.
+DEVICE_SIGNAL_KEYS = ("timezone", "languages", "platform", "cores", "memory", "canvas", "webgl")
+
+
 def generate_device_fingerprint(session: Session, behavior_data: list[BehaviorData]) -> str:
     """
     Generate a device fingerprint hash from session and behavior data.
@@ -57,6 +61,15 @@ def generate_device_fingerprint(session: Session, behavior_data: list[BehaviorDa
     
     # Platform ID
     fingerprint_components.append(session.platform_id or "")
+
+    # Browser signals sent by newer trackers (time zone, languages, hardware,
+    # canvas and graphics hashes). Older trackers send none, which adds nothing.
+    for event in behavior_data:
+        data = event.event_data if isinstance(event.event_data, dict) else {}
+        extras = [str(data.get(key)) for key in DEVICE_SIGNAL_KEYS if data.get(key) not in (None, "")]
+        if extras:
+            fingerprint_components.extend(extras)
+            break
     
     # Combine all components
     fingerprint_string = "|".join(fingerprint_components)

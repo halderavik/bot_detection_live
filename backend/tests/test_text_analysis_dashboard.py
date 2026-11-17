@@ -305,10 +305,10 @@ class TestTextAnalysisDashboardEndpoints:
         """Test respondent analysis with response data."""
         from app.controllers.text_analysis_controller import get_respondent_analysis
         
-        # Mock session query - get_respondent_analysis makes multiple queries:
+        # Mock session query - get_respondent_analysis makes queries in this order:
         # 1. Sessions with counts (paginated)
-        # 2. Total count query (for pagination)
-        # 3. Responses for each session (if response_count > 0)
+        # 2. Responses for each session (if response_count > 0)
+        # 3. Total count query (for pagination)
         mock_sessions_with_counts = [(sample_sessions[0], 2)]
         mock_result1 = MagicMock()
         mock_result1.all.return_value = mock_sessions_with_counts
@@ -321,7 +321,7 @@ class TestTextAnalysisDashboardEndpoints:
         mock_scalars_result = MagicMock()
         mock_scalars_result.all.return_value = session1_responses
         mock_result3.scalars.return_value = mock_scalars_result
-        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result3])
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result3, mock_result2])
         
         result = await get_respondent_analysis(
             survey_id=None,
@@ -373,9 +373,10 @@ class TestTextAnalysisDashboardEndpoints:
         
         # Mock session with 0 responses
         mock_sessions_with_counts = [(sample_sessions[0], 0)]
-        mock_result1 = AsyncMock()
+        # Result objects are synchronous (.all()/.scalar() are plain methods), so use MagicMock
+        mock_result1 = MagicMock()
         mock_result1.all.return_value = mock_sessions_with_counts
-        mock_result2 = AsyncMock()
+        mock_result2 = MagicMock()
         mock_result2.scalar.return_value = 1
         mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2])
         
@@ -400,7 +401,7 @@ class TestTextAnalysisDashboardEndpoints:
         """Test flag reasons aggregation across responses."""
         from app.controllers.text_analysis_controller import get_respondent_analysis
         
-        # Mock session with flagged responses
+        # Mock session with flagged responses (query order: sessions, responses, total count)
         mock_sessions_with_counts = [(sample_sessions[2], 2)]  # session-3 has flagged responses
         mock_result1 = MagicMock()
         mock_result1.all.return_value = mock_sessions_with_counts
@@ -413,7 +414,7 @@ class TestTextAnalysisDashboardEndpoints:
         mock_scalars_result = MagicMock()
         mock_scalars_result.all.return_value = session3_responses
         mock_result3.scalars.return_value = mock_scalars_result
-        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result2, mock_result3])
+        mock_db_session.execute = AsyncMock(side_effect=[mock_result1, mock_result3, mock_result2])
         
         result = await get_respondent_analysis(
             survey_id=None,

@@ -12,7 +12,8 @@ from typing import List, Dict, Any
 import logging
 
 from app.database import get_db
-from app.models import Session, BehaviorData, DetectionResult, FraudIndicator
+from app.models import Session, BehaviorData, DetectionResult, FraudIndicator, ProtectedSurvey
+from app.utils.survey_tokens import token_valid
 from fastapi.encoders import jsonable_encoder
 from app.services.grid_analysis_service import GridAnalysisService
 from app.services.timing_analysis_service import TimingAnalysisService
@@ -41,9 +42,11 @@ class DetectionController:
             platform: str = None,  # Kept for backward compatibility
             platform_id: str = None,  # New hierarchical field
             respondent_id: str = None,
+            token: str = None,
             db: AsyncSession = Depends(get_db)
         ):
             """Create a new session for bot detection."""
+            await _check_survey_token(db, survey_id, token)
             try:
                 # Extract client information
                 user_agent = request.headers.get("user-agent", "")
@@ -117,10 +120,13 @@ class DetectionController:
                 if not session.is_active:
                     raise HTTPException(status_code=400, detail="Session is not active")
                 
+                if len(events) > MAX_EVENTS_PER_REQUEST:
+                    raise HTTPException(status_code=413, detail=f"At most {MAX_EVENTS_PER_REQUEST} events per request")
+
                 # Validate and process events
                 valid_events = []
                 for event_data in events:
-                    if validate_event_data(event_data):
+                    if validate_event_data(event_data) and _plausible_time(event_data.get('timestamp')):
                         # Convert timestamp
                         from datetime import datetime
                         if isinstance(event_data['timestamp'], str):
@@ -467,3 +473,49 @@ def _timing_digest(summary):
         "flatliners": summary.get("flatliners_count", 0),
         "anomalies": summary.get("anomalies_count", 0),
     }
+
+
+# Events per ingest request, and how far event times may be from the server clock.
+MAX_EVENTS_PER_REQUEST = 500
+_FUTURE_SLACK = 600  # seconds
+_PAST_LIMIT = 7 * 24 * 3600  # seconds
+
+
+def _plausible_time(value) -> bool:
+    """Reject events stamped far in the future or more than a week ago."""
+    from datetime import datetime, timezone
+
+    try:
+        if isinstance(value, str):
+            moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        else:
+            moment = datetime.fromtimestamp(float(value), tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    delta = (moment - datetime.now(timezone.utc)).total_seconds()
+    return -_PAST_LIMIT <= delta <= _FUTURE_SLACK
+
+
+async def _check_survey_token(db, survey_id, token) -> None:
+    """
+    Enforce signed survey tokens.
+
+    A valid token protects the survey id from then on; a protected survey rejects
+    sessions without a valid token. Surveys never created with a token stay open.
+    """
+    if not survey_id:
+        return
+    if token:
+        if not token_valid(survey_id, token):
+            raise HTTPException(status_code=403, detail="Invalid survey token")
+        if await db.get(ProtectedSurvey, survey_id) is None:
+            db.add(ProtectedSurvey(survey_id=survey_id))
+            try:
+                await db.commit()
+            except Exception:  # noqa: BLE001 - another instance protected it first
+                await db.rollback()
+        return
+    if await db.get(ProtectedSurvey, survey_id) is not None:
+        raise HTTPException(status_code=403, detail="This survey requires a survey token")

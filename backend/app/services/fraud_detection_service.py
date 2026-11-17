@@ -11,6 +11,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import logging
 
+from app.utils import ip_intel
 from app.utils.logger import setup_logger
 from app.utils.fraud_helpers import (
     generate_device_fingerprint,
@@ -28,6 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 
 logger = setup_logger(__name__)
+
+
+# Fraud score given to sessions from a cloud provider's address range.
+DATACENTER_FRAUD_SCORE = 0.75
 
 
 class FraudDetectionService:
@@ -84,6 +89,11 @@ class FraudDetectionService:
         
         # Determine if duplicate
         is_duplicate = overall_fraud_score >= 0.7
+
+        # Cloud servers host bot farms and many VPNs; real respondents rarely use them.
+        datacenter = ip_intel.provider_for(session.ip_address)
+        if datacenter:
+            overall_fraud_score = max(overall_fraud_score, DATACENTER_FRAUD_SCORE)
         
         # Collect flag reasons
         flag_reasons = {}
@@ -106,6 +116,8 @@ class FraudDetectionService:
             flag_reasons["geolocation_inconsistency"] = {
                 "severity": "high"
             }
+        if datacenter:
+            flag_reasons["datacenter_ip"] = {"provider": datacenter, "severity": "high"}
         if velocity_analysis["risk_score"] >= 0.6:
             flag_reasons["high_velocity"] = {
                 "responses_per_hour": velocity_analysis["responses_per_hour"],

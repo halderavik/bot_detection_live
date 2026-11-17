@@ -12,6 +12,7 @@ from .survey_response import SurveyResponse
 from .fraud_indicator import FraudIndicator
 from .grid_response import GridResponse
 from .timing_analysis import TimingAnalysis
+from .protected_survey import ProtectedSurvey
 from .report_models import (
     SurveySummaryReport, DetailedReport, RespondentDetail,
     ReportRequest, ReportResponse, ReportType, ReportFormat,
@@ -21,7 +22,7 @@ from .report_models import (
 __all__ = [
     "Session", "BehaviorData", "DetectionResult",
     "SurveyQuestion", "SurveyResponse", "FraudIndicator",
-    "GridResponse", "TimingAnalysis",
+    "GridResponse", "TimingAnalysis", "ProtectedSurvey",
     "SurveySummaryReport", "DetailedReport", "RespondentDetail",
     "ReportRequest", "ReportResponse", "ReportType", "ReportFormat",
     "SurveyListResponse"

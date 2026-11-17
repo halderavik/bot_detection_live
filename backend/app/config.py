@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     
     # Security settings
     SECRET_KEY: str = "your-secret-key-here"
+    # Shared with the survey builder; when set, surveys created with a token are protected.
+    TRACKING_TOKEN_SECRET: Optional[str] = None
     ALLOWED_HOSTS: List[str] = ["*"]
     ALLOWED_ORIGINS: str = '["http://localhost:3000", "http://localhost:5173"]'
     

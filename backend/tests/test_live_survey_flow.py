@@ -21,7 +21,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.controllers import text_analysis_controller  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.services.text_analysis_service import TextAnalysisResult  # noqa: E402
+from app.utils import ip_intel, rate_limit  # noqa: E402
 from app.utils.helpers import client_ip, determine_risk_level  # noqa: E402
+from app.utils.survey_tokens import survey_token  # noqa: E402
+from app.config import settings  # noqa: E402
 from main import create_app  # noqa: E402
 
 DESKTOP = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -53,6 +56,7 @@ async def api(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr(text_analysis_controller.text_analysis_service, "analyze_response", fake_score)
+    monkeypatch.setattr(rate_limit, "LIMITS", {"new_session": (100000, 60), "write": (100000, 60)})
     app = create_app()
     app.dependency_overrides[get_db] = db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test/api/v1") as client:
@@ -433,3 +437,93 @@ async def test_pasted_and_untyped_answers_are_flagged(api):
     short = await api.post("/text-analysis/responses", json={
         "session_id": sid, "question_id": question, "response_text": "Too pricey", "pasted_chars": 10, "input_events": 1})
     assert "pasted" not in short.json()["flag_reasons"]  # short answers are not judged
+
+
+
+# ------------------------------------------------------------------ API protection
+
+@pytest.mark.asyncio
+async def test_survey_token_protects_a_survey(api, monkeypatch):
+    monkeypatch.setattr(settings, "TRACKING_TOKEN_SECRET", "test-secret")
+    url = "/detection/sessions?survey_id=Signed%20Survey&respondent_id=a"
+    assert (await api.post(url)).status_code == 200  # never signed: open
+    assert (await api.post(url + "&token=wrong")).status_code == 403
+    good = survey_token("Signed Survey")
+    assert (await api.post(url + f"&token={good}")).status_code == 200  # now protected
+    assert (await api.post(url)).status_code == 403
+    assert (await api.post(url + f"&token={good}")).status_code == 200
+    other = survey_token("Another Survey")
+    assert (await api.post(url + f"&token={other}")).status_code == 403  # token is per survey
+
+
+@pytest.mark.asyncio
+async def test_implausible_event_times_and_huge_batches_are_rejected(api):
+    sid = await start(api)
+    now = datetime.now(timezone.utc)
+    events = [
+        {"event_type": "page_load", "timestamp": now.isoformat()},
+        {"event_type": "mouse_move", "timestamp": (now + timedelta(days=2)).isoformat(), "x": 1, "y": 1},
+        {"event_type": "mouse_move", "timestamp": (now - timedelta(days=30)).isoformat(), "x": 1, "y": 1},
+    ]
+    body = (await api.post(f"/detection/sessions/{sid}/events", json=events)).json()
+    assert body["events_processed"] == 1
+    big = [{"event_type": "scroll", "timestamp": now.isoformat()}] * 501
+    assert (await api.post(f"/detection/sessions/{sid}/events", json=big)).status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_returns_429():
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    async def ok(request):
+        return PlainTextResponse("ok")
+
+    app = Starlette(routes=[Route("/api/v1/detection/sessions", ok, methods=["POST"])])
+    app.add_middleware(rate_limit.RateLimitMiddleware, limits={"new_session": (3, 60), "write": (100, 60)})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        codes = [(await client.post("/api/v1/detection/sessions")).status_code for _ in range(5)]
+    assert codes == [200, 200, 200, 429, 429]
+
+
+@pytest.mark.asyncio
+async def test_datacenter_ip_is_flagged(api):
+    ip_intel.load({"Test Cloud": ["127.0.0.0/8"]})  # the test client connects from 127.0.0.1
+    try:
+        sid = await start(api)
+        await send(api, sid, human_events(t0()))
+        body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
+        flags = body["fraud_details"]["flag_reasons"] or {}
+        assert flags["datacenter_ip"]["provider"] == "Test Cloud"
+        assert body["fraud_score"] >= 0.75
+    finally:
+        ip_intel.load({})
+
+
+def test_ip_ranges_parse_and_match():
+    ip_intel.load({"A": ["3.0.0.0/9", "2600:1f00::/24"], "B": ["34.64.0.0/10"]})
+    try:
+        assert ip_intel.provider_for("3.5.1.1") == "A"
+        assert ip_intel.provider_for("34.100.0.1") == "B"
+        assert ip_intel.provider_for("2600:1f18::1") == "A"
+        assert ip_intel.provider_for("8.8.8.8") is None
+        assert ip_intel.provider_for("not an ip") is None
+    finally:
+        ip_intel.load({})
+
+
+@pytest.mark.asyncio
+async def test_browser_signals_separate_identical_laptops(api):
+    """Same browser and screen, different time zone and canvas: different devices."""
+    fingerprints = set()
+    for index, (zone, canvas) in enumerate([("America/Toronto", "a1"), ("Europe/London", "b2")]):
+        sid = await start(api, respondent=f"laptop-{index}")
+        events = human_events(t0(), pages=1)
+        events[0].update({"timezone": zone, "languages": "en-CA,en", "platform": "Win32", "cores": 8, "canvas": canvas})
+        await send(api, sid, events)
+        body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
+        assert "device_reuse" not in (body["fraud_details"]["flag_reasons"] or {})
+        details = (await api.get(f"/dashboard/sessions/{sid}/details")).json()
+        fingerprints.add(details.get("device_fingerprint") or sid)
+    assert len(fingerprints) == 2
