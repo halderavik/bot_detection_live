@@ -281,6 +281,13 @@ async def test_composite_after_analyze_includes_grid_and_timing(api):
     assert row["risk_level"] == "low"
     assert row["total_events"] == len(human_events(t0()))
 
+    # The summary report reads the grid and timing results too (it failed once they existed)
+    summary = await api.get(f"/reports/summary/{SURVEY}?include_inactive=true")
+    assert summary.status_code == 200, summary.text
+    body = summary.json()
+    assert body["timing_analysis_summary"]["speeders_count"] >= 1
+    assert body["grid_analysis_summary"] is not None
+
 
 @pytest.mark.asyncio
 async def test_composite_without_analyze_scores_behaviour(api):

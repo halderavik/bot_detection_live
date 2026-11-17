@@ -894,7 +894,8 @@ class AggregationService:
                 .where(and_(*conditions))
             )
             result = await db.execute(avg_time_query)
-            avg_time = float(result.scalar()) if result.scalar() else 0.0
+            avg_value = result.scalar()  # a result can be read only once
+            avg_time = float(avg_value) if avg_value else 0.0
             
             # Get median response time (fetch all times and calculate in Python for simplicity)
             median_query = select(TimingAnalysis.question_time_ms).where(and_(*conditions))
