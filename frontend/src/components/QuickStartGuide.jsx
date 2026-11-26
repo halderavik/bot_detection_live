@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { config } from '../config/config';
 
@@ -360,13 +361,13 @@ const QuickStartGuide = () => {
         <div className="mt-8 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-semibold text-gray-900 mb-3">Additional Resources</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a
-              href="/api-playground"
+            <Link
+              to="/api-playground"
               className="p-3 bg-white rounded-lg border hover:border-blue-300 transition-colors"
             >
               <h4 className="font-medium text-gray-900">API Playground</h4>
               <p className="text-sm text-gray-600">Test API endpoints interactively</p>
-            </a>
+            </Link>
             <a
               href={config.apiDocsUrl}
               target="_blank"
@@ -376,13 +377,13 @@ const QuickStartGuide = () => {
               <h4 className="font-medium text-gray-900">API Documentation</h4>
               <p className="text-sm text-gray-600">Complete API reference</p>
             </a>
-            <a
-              href="/integrations"
+            <Link
+              to="/integrations"
               className="p-3 bg-white rounded-lg border hover:border-blue-300 transition-colors"
             >
               <h4 className="font-medium text-gray-900">Integrations</h4>
               <p className="text-sm text-gray-600">Configure survey platforms</p>
-            </a>
+            </Link>
           </div>
         </div>
       </div>

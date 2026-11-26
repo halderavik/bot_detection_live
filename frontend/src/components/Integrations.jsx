@@ -216,22 +216,18 @@ const Integrations = () => {
             Follow our step-by-step guides to add bot detection to your surveys in minutes:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a 
-              href={config.frontendBaseUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
+            <Link
+              to="/tracking"
               className="bg-white p-4 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
             >
               <div className="flex items-center mb-2">
                 <Globe className="h-5 w-5 text-blue-600 mr-2" />
                 <span className="font-medium text-gray-900">Decipher Integration</span>
               </div>
-              <p className="text-xs text-gray-600">Complete guide for Decipher surveys with copy-paste code</p>
-            </a>
-            <a 
-              href={config.frontendBaseUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
+              <p className="text-xs text-gray-600">Add tracking to a Decipher survey XML and upload it to Decipher</p>
+            </Link>
+            <Link
+              to="/api-playground"
               className="bg-white p-4 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
             >
               <div className="flex items-center mb-2">
@@ -239,7 +235,7 @@ const Integrations = () => {
                 <span className="font-medium text-gray-900">API Playground</span>
               </div>
               <p className="text-xs text-gray-600">Test the bot detection system directly</p>
-            </a>
+            </Link>
           </div>
         </div>
       </div>

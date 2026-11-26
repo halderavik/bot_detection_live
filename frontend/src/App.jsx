@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter as Router, Navigate, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Routes, Route, Link } from 'react-router-dom'
 import AppShell from './components/layout/AppShell'
 import Overview from './components/Overview'
 import SessionList from './components/SessionList'
@@ -32,6 +32,11 @@ function NotFound() {
     </EmptyState>
   )
 }
+
+// Reason: the production dashboard is a static page in a storage bucket, which can't send
+// every path to index.html, so addresses there use a hash (index.html#/quality) and
+// survive reloads and bookmarks. Local development keeps normal paths.
+const Router = import.meta.env.VITE_ROUTER_MODE === 'hash' ? HashRouter : BrowserRouter
 
 function App() {
   return (
