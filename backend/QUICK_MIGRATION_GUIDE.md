@@ -1,5 +1,7 @@
 # Quick Migration Guide - Stage 3 Deployment
 
+> **Current state (November 2026):** This is a record of a one-off migration for the Stage 3 deployment. It is not part of a normal deploy. New tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`) are created when the backend starts (`Base.metadata.create_all` in `main.py`), so they need no migration. Existing tables were not changed. Only run SQL like this when an existing table changes. For deploy and rollback steps, see `SELECTIVE_DEPLOYMENT_GUIDE.md` and `rollback-procedures.md` in the repository root.
+
 ## Fastest Method: Cloud SQL Console Query Tab
 
 1. **Open Query Tab**: https://console.cloud.google.com/sql/instances/bot-db/databases/bot_detection_v2/query?project=survey-bot-detection

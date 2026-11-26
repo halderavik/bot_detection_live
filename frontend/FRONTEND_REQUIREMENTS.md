@@ -2,35 +2,85 @@
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Core Dependencies](#core-dependencies)
-3. [Development Dependencies](#development-dependencies)
-4. [Project Structure](#project-structure)
-5. [Configuration Files](#configuration-files)
-6. [Installation & Setup](#installation--setup)
-7. [Development Workflow](#development-workflow)
-8. [Build & Deployment](#build--deployment)
-9. [Testing](#testing)
-10. [Code Quality](#code-quality)
-11. [Browser Support](#browser-support)
-12. [Performance Features](#performance-features)
-13. [Troubleshooting](#troubleshooting)
+2. [Pages and Navigation](#pages-and-navigation)
+3. [Core Dependencies](#core-dependencies)
+4. [Development Dependencies](#development-dependencies)
+5. [Project Structure](#project-structure)
+6. [Configuration Files](#configuration-files)
+7. [Installation & Setup](#installation--setup)
+8. [Development Workflow](#development-workflow)
+9. [Build & Deployment](#build--deployment)
+10. [Testing](#testing)
+11. [Code Quality](#code-quality)
+12. [Browser Support](#browser-support)
+13. [Performance Features](#performance-features)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-The Bot Detection Frontend is a React-based dashboard built with modern web technologies. It provides a comprehensive interface for monitoring bot detection sessions, managing integrations, and testing APIs.
+The Bot Detection Frontend is a React dashboard built with Vite and Tailwind CSS. It shows bot and quality results for survey sessions, adds tracking to Decipher surveys, and holds the service settings.
 
-### Key Features
-- **Real-time Dashboard**: Live session monitoring and analysis results
-- **Text Analysis Dashboard**: Real-time text quality analysis with filtering and pagination
-- **Integration Management**: Webhook testing and status monitoring
-- **API Playground**: Interactive API testing interface
-- **Quick Start Guide**: Step-by-step integration instructions
-- **Settings Interface**: System configuration management
-- **Report Builder**: Enhanced reporting with text quality metrics integration
-- **Toast Notifications**: User feedback and alerts
-- **Responsive Design**: Mobile-friendly interface
+### Layout
+- **Wide screens:** a grouped left sidebar with the service status at the bottom (checked against `/health` every minute: running, degraded or unreachable).
+- **Phones and narrow screens (below the `lg` breakpoint):** a top bar with a menu button that opens the same navigation as a slide-out panel. It closes on navigation or Escape. Pages use a 16px side gutter on phones.
+- Frame: `src/components/layout/AppShell.jsx` (the navigation groups are defined there as `NAV_GROUPS`).
+
+### Addresses
+- **Production** is a static page in a storage bucket, which cannot send every path to `index.html`, so addresses use a hash: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/quality`. This is switched on by `VITE_ROUTER_MODE=hash` in `frontend/.env.production`, which makes `App.jsx` use `HashRouter`.
+- **Local development** uses normal paths (`BrowserRouter`), for example `http://localhost:3000/quality`.
+
+### Removed
+These were removed because they showed made-up or non-working content: hard-coded "from last week" trends, the random "Test Webhook" result, made-up integration logs, the fixed "Production Ready" badge, the mocked session comparison, the non-working dark-mode toggle, and Settings options that nothing used (notifications, data retention, debug mode, per-method switches, min events).
+
+---
+
+## Pages and Navigation
+
+### Sidebar groups
+
+| Group | Page | Route | Component |
+|-------|------|-------|-----------|
+| Monitor | Overview | `/` | `Overview.jsx` |
+| Monitor | Live Quality | `/quality` | `LiveQuality.jsx` (+ `quality/*`) |
+| Monitor | Sessions | `/sessions` | `SessionList.jsx` |
+| Analyse | Open-end quality | `/text-analysis` | `TextAnalysis.jsx` |
+| Analyse | Reports | `/reports` | `ReportBuilder.jsx` |
+| Set up | Add tracking | `/tracking` | `SurveyTracking.jsx` |
+| Set up | Integrations | `/integrations` | `Integrations.jsx` |
+| Set up | Settings | `/settings` | `Settings.jsx` |
+| Developers | Quick start | `/quick-start` | `QuickStartGuide.jsx` |
+| Developers | API playground | `/api-playground` | `ApiPlayground.jsx` |
+
+### Detail routes
+- `/sessions/:sessionId` - Session details (`SessionDetails.jsx`)
+- `/surveys/:surveyId` - Survey details (`SurveyDetails.jsx`)
+- `/surveys/:surveyId/platforms/:platformId` - Platform details (`PlatformDetails.jsx`)
+- `/surveys/:surveyId/platforms/:platformId/respondents/:respondentId` - Respondent details (`RespondentDetails.jsx`)
+- `/surveys/:surveyId/platforms/:platformId/respondents/:respondentId/sessions/:sessionId` - Session details
+- `/dashboard` and `/surveys` redirect to `/` (the Overview replaced the old Dashboard and Surveys list).
+- Any other path shows a "This page doesn't exist" view with a link back to the Overview.
+
+### What each page does
+- **Overview:** last-7-days tiles (sessions, checked, bots with bot rate, surveys), a surveys table with bot rate and links to Live Quality, a chart of starts and bots per day over 14 days, and the latest bots. Bot rate everywhere is sessions judged bots divided by sessions checked.
+- **Live Quality:** pick a survey (tracked surveys first; also opened with `?survey=<id>`). Shows totals, flag counts, quality distribution, trend and one row per respondent under that survey's rules. Rules can be edited per survey (`quality/QualityRules.jsx`), results exported as CSV, and **Add flags to a data file** (`quality/QualityDataFile.jsx`) returns an uploaded `.sav`, `.csv` or `.xlsx` file with `LQ_` variables added.
+- **Sessions:** latest verdict, risk, bot score, platform and event count per session. Filters (verdict, risk, platform, search) are kept in the URL; results are paginated.
+- **Session details:** the verdict and the signals that decided it first, then behaviour scores with plain labels, session facts (time in survey, browser, IP), fraud checks, open ends, grid, timing, and collapsible event log and raw analysis output.
+- **Open-end quality:** text quality results for open-ended answers.
+- **Reports:** report builder for summary and detailed reports, including text quality figures.
+- **Add tracking:** upload a Decipher survey XML (up to 5 MB), choose the privacy notice and the early end on a clear bot signal, then **Upload to Decipher** (new survey, the survey uploaded last time, or replace the XML of a given survey path) or download the tracked file. Shows what was added, warnings (including "Decipher will refuse this file: ..."), and Decipher's own error messages in full. The upload panel only appears when the service has a Decipher API key.
+- **Integrations:** Qualtrics and Decipher webhook addresses and configuration status, the API base URL, and setup notes.
+- **Settings:** shows each editable setting (Decipher API key, base and company, Qualtrics token, OpenAI key and model, tracker API address, tracking token secret, detection threshold) and whether it comes from a saved value or the environment. Secrets only show set or not set. Editing needs an **admin unlock**: enter the admin token (the backend's `ADMIN_TOKEN`), which is kept in the browser's session storage for that tab and sent as `X-Admin-Token`. Without `ADMIN_TOKEN` on the backend the page is read-only. Saved values can be removed to fall back to the environment.
+- **Quick start** and **API playground:** integration steps and an interactive API tester for developers.
+
+### Shared UI kit
+`src/components/ui/index.jsx` holds the shared building blocks, so pages look and behave the same:
+- Layout: `PageHeader`, `Card`, `StatCard`
+- Controls: `Button`, `buttonClass`, `inputClass`, `tableClasses`
+- Status: `Badge`, `VerdictBadge`, `RiskBadge`, `RateBar`
+- States: `EmptyState`, `Loading`, `ErrorBanner`
+- Helpers: `apiError` (readable message from an API error), `toDate`, `timeAgo`, `formatDateTime`, `percent`
 
 ---
 
@@ -48,7 +98,7 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 **Purpose:**
 - **React 18**: Modern React with concurrent features and hooks
 - **React DOM**: DOM rendering for React
-- **React Router**: Client-side navigation and routing
+- **React Router**: Client-side navigation (`HashRouter` in production, `BrowserRouter` locally)
 
 ### UI & Styling
 ```json
@@ -66,7 +116,7 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 - **Autoprefixer**: Automatic vendor prefixes
 - **PostCSS**: CSS processing pipeline
 - **clsx**: Conditional className utility
-- **Lucide React**: Modern icon library
+- **Lucide React**: Icon library
 
 ### Data Visualization & Charts
 ```json
@@ -88,7 +138,7 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 
 **Purpose:**
 - **Axios**: HTTP client for API communication
-- **date-fns**: Modern date utility library
+- **date-fns**: Date utility library
 
 ### User Feedback
 ```json
@@ -98,7 +148,7 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 ```
 
 **Purpose:**
-- **React Toastify**: Toast notification system
+- **React Toastify**: Toast notifications (bottom right)
 
 ---
 
@@ -136,7 +186,7 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 ```
 
 **Purpose:**
-- **Vitest**: Fast unit testing framework
+- **Vitest**: Unit testing framework
 - **@vitest/ui**: Testing UI interface
 
 ### Code Quality
@@ -161,37 +211,47 @@ The Bot Detection Frontend is a React-based dashboard built with modern web tech
 
 ```
 frontend/
-├── public/                    # Static assets
-│   ├── favicon.ico           # Site favicon
-│   └── index.html            # HTML entry point
+├── index.html                 # HTML entry point
 ├── src/
-│   ├── components/           # React components
-│   │   ├── Dashboard.jsx     # Main dashboard component
-│   │   ├── Navigation.jsx    # Navigation component
-│   │   ├── Integrations.jsx  # Integration management
-│   │   ├── Settings.jsx      # System settings
-│   │   ├── ApiPlayground.jsx # API testing interface
-│   │   ├── QuickStartGuide.jsx # Getting started guide
-│   │   ├── SessionDetails.jsx # Session analysis view
-│   │   ├── SessionList.jsx   # Session list component
-│   │   └── SessionTable.jsx  # Session table component
-│   ├── services/             # API service layer
-│   │   └── apiService.js     # API communication
-│   ├── utils/                # Utility functions
-│   │   └── formatters.js     # Data formatting utilities
-│   ├── styles/               # CSS styles
-│   │   ├── App.css           # Main app styles
-│   │   └── index.css         # Global styles
-│   ├── App.jsx               # Main app component
-│   └── main.jsx              # App entry point
-├── package.json              # Dependencies and scripts
-├── package-lock.json         # Locked dependency versions
-├── vite.config.js            # Vite configuration
-├── tailwind.config.js        # Tailwind configuration
-├── postcss.config.js         # PostCSS configuration
-├── .eslintrc.cjs             # ESLint configuration
-├── .gitignore                # Git ignore rules
-└── README.md                 # Project documentation
+│   ├── App.jsx                # Routes and router choice (hash or normal paths)
+│   ├── main.jsx               # App entry point
+│   ├── config/
+│   │   └── config.ts          # API and frontend base URLs, derived URLs
+│   ├── services/
+│   │   └── apiService.js      # API calls (sessions, dashboard, tracking, settings, live quality, ...)
+│   ├── styles/
+│   │   ├── App.css
+│   │   └── index.css
+│   └── components/
+│       ├── layout/
+│       │   └── AppShell.jsx   # Sidebar, phone top bar and menu, service status
+│       ├── ui/
+│       │   └── index.jsx      # Shared UI kit
+│       ├── quality/           # Live Quality parts: rules, data file, shared pieces
+│       ├── Overview.jsx
+│       ├── LiveQuality.jsx
+│       ├── SessionList.jsx
+│       ├── SessionTable.jsx
+│       ├── SessionDetails.jsx
+│       ├── SurveyDetails.jsx
+│       ├── PlatformDetails.jsx
+│       ├── RespondentDetails.jsx
+│       ├── HierarchicalNavigation.jsx
+│       ├── TextAnalysis.jsx
+│       ├── ReportBuilder.jsx
+│       ├── SurveyTracking.jsx  # Add tracking page
+│       ├── Integrations.jsx
+│       ├── Settings.jsx
+│       ├── QuickStartGuide.jsx
+│       ├── ApiPlayground.jsx
+│       └── *Widget.jsx, PerQuestionTimingTable.jsx  # Text, fraud, grid and timing panels
+├── .env.example               # Local settings
+├── .env.production            # Production settings (hash routing)
+├── Dockerfile                 # Optional nginx image
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+└── postcss.config.js
 ```
 
 ---
@@ -200,78 +260,45 @@ frontend/
 
 ### Vite Configuration (vite.config.js)
 ```javascript
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
 export default defineConfig({
   plugins: [react()],
+  base: process.env.NODE_ENV === 'production' ? './' : '/',
   server: {
     port: 3000,
     host: true,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      }
+      '/api': { target: 'http://localhost:8000', changeOrigin: true, secure: false }
     }
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['lucide-react', 'react-toastify'],
+          charts: ['recharts']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.js',
-  }
+  test: { globals: true, environment: 'jsdom', setupFiles: './src/test/setup.js' }
 })
 ```
 
 **Configuration Details:**
+- **Base**: relative asset paths (`./`) in production, so the build works from the bucket's `index.html`
 - **Port**: Development server runs on port 3000
-- **Host**: Allows external access
-- **Proxy**: Routes `/api` requests to backend (localhost:8000)
-- **Build**: Outputs to `dist` directory with source maps
-- **Test**: Uses jsdom environment for testing
+- **Proxy**: Routes `/api` requests to the backend (localhost:8000)
+- **Build**: Outputs to `dist` with source maps and separate vendor, router, ui and charts chunks
 
 ### Tailwind Configuration (tailwind.config.js)
-```javascript
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
-      colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-        },
-      },
-    },
-  },
-  plugins: [],
-}
-```
-
-**Configuration Details:**
-- **Content**: Scans HTML and React files for classes
-- **Font**: Uses Inter font family
-- **Colors**: Custom primary color palette
-- **Plugins**: Extensible plugin system
+- **Content**: Scans `index.html` and `src/**/*.{js,ts,jsx,tsx}` for classes
+- **Font**: Inter, then system-ui
+- **Colors**: A `primary` blue palette (50 to 900)
 
 ### PostCSS Configuration (postcss.config.js)
 ```javascript
@@ -283,47 +310,20 @@ export default {
 }
 ```
 
-**Configuration Details:**
-- **Tailwind CSS**: Processes Tailwind directives
-- **Autoprefixer**: Adds vendor prefixes automatically
-
-### ESLint Configuration (.eslintrc.cjs)
-```javascript
-module.exports = {
-  root: true,
-  env: { browser: true, es2020: true },
-  extends: [
-    'eslint:recommended',
-    '@typescript-eslint/recommended',
-    'plugin:react-hooks/recommended',
-  ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
-  parser: '@typescript-eslint/parser',
-  plugins: ['react-refresh'],
-  rules: {
-    'react-refresh/only-export-components': [
-      'warn',
-      { allowConstantExport: true },
-    ],
-  },
-}
-```
-
 ---
 
 ## Installation & Setup
 
 ### Prerequisites
-- **Node.js**: Version 18 or higher
+- **Node.js**: Version 18 or higher (the Dockerfile uses Node 20)
 - **npm**: Version 9 or higher
 - **Git**: For version control
 
 ### Installation Steps
 
-1. **Clone the repository**
+1. **Go to the frontend folder**
    ```bash
-   git clone <repository-url>
-   cd bot_iden_live/frontend
+   cd bot_detection_live/frontend
    ```
 
 2. **Install dependencies**
@@ -331,32 +331,26 @@ module.exports = {
    npm install
    ```
 
-3. **Create environment file**
+3. **Create the environment file**
    ```bash
-   # Create .env file
-   echo "VITE_API_BASE_URL=http://localhost:8000/api/v1" > .env
-   echo "VITE_APP_NAME=Bot Detection Dashboard" >> .env
+   cp .env.example .env
    ```
 
-4. **Start development server**
+4. **Start the development server**
    ```bash
    npm run dev
    ```
 
 ### Environment Variables
 
-Create a `.env` file in the frontend directory:
-```env
-# API Configuration
-VITE_API_BASE_URL=http://localhost:8000/api/v1
+| Variable | Used for | Local (`.env.example`) | Production (`.env.production`) |
+|----------|----------|------------------------|--------------------------------|
+| `VITE_API_BASE_URL` | Backend API base | `http://localhost:8000/api/v1` | `https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1` |
+| `VITE_APP_NAME` | App name | `Bot Detection Dashboard` | `Bot Detection Dashboard` |
+| `VITE_FRONTEND_BASE_URL` | Links to the dashboard itself | (not set) | `https://storage.googleapis.com/bot-detection-frontend-20251208` |
+| `VITE_ROUTER_MODE` | `hash` for `index.html#/...` addresses | (not set: normal paths) | `hash` |
 
-# Application Configuration
-VITE_APP_NAME=Bot Detection Dashboard
-
-# Development Configuration
-VITE_DEV_MODE=true
-VITE_ENABLE_MOCK_DATA=false
-```
+When a variable is missing, `src/config/config.ts` falls back to the production API and bucket addresses.
 
 ---
 
@@ -377,49 +371,21 @@ VITE_ENABLE_MOCK_DATA=false
 }
 ```
 
-### Development Commands
-
-```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Run linting
-npm run lint
-
-# Run tests
-npm test
-
-# Run tests with UI
-npm run test:ui
-```
-
 ### Development Best Practices
 
-1. **Component Structure**
-   - Use functional components with hooks
-   - Keep components small and focused
-   - Use proper prop types and validation
+1. **Components**
+   - Functional components with hooks
+   - Build pages from the shared UI kit (`components/ui`) rather than one-off styles
+   - Add new pages to `App.jsx` and, if they belong in the menu, to `NAV_GROUPS` in `AppShell.jsx`
 
-2. **State Management**
-   - Use React hooks for local state
-   - Use context for global state when needed
-   - Avoid prop drilling
+2. **Data**
+   - All API calls go through `services/apiService.js`
+   - Show loading, empty and error states (`Loading`, `EmptyState`, `ErrorBanner`)
+   - Show only real data; no placeholder figures or simulated results
 
 3. **Styling**
-   - Use Tailwind CSS classes
-   - Create reusable component classes
-   - Follow responsive design principles
-
-4. **API Integration**
-   - Use the centralized apiService
-   - Handle loading and error states
-   - Implement proper error boundaries
+   - Tailwind CSS classes
+   - Check pages at phone width as well as desktop
 
 ---
 
@@ -428,319 +394,98 @@ npm run test:ui
 ### Production Build
 
 ```bash
-# Create production build
-npm run build
-
-# Preview production build locally
-npm run preview
+npx vite build --mode production
 ```
 
-### Build Output
+This reads `.env.production` (production API address and `VITE_ROUTER_MODE=hash`) and writes `dist/`.
 
-The build process creates a `dist` directory with:
-- **HTML**: Entry point with optimized assets
-- **CSS**: Minified and optimized styles
-- **JavaScript**: Bundled and minified code
-- **Assets**: Optimized images and other assets
+### Deploying to the bucket (how production is done)
 
-### Deployment Options
+```bash
+gcloud storage rsync -r frontend/dist gs://bot-detection-frontend-20251208
+```
 
-1. **Static Hosting** (Netlify, Vercel, GitHub Pages)
-   ```bash
-   npm run build
-   # Deploy dist/ directory
-   ```
+Then set cache headers: `index.html` as `no-cache`, and `assets/**` as `public, max-age=31536000, immutable`. Do not delete unmatched files in the bucket: `tracking-client.js` there may still be used by live surveys.
 
-2. **Docker Deployment**
-   ```dockerfile
-   FROM node:18-alpine
-   WORKDIR /app
-   COPY package*.json ./
-   RUN npm ci --only=production
-   COPY . .
-   RUN npm run build
-   FROM nginx:alpine
-   COPY --from=0 /app/dist /usr/share/nginx/html
-   ```
+The dashboard is then at `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`, with pages at `index.html#/<route>`.
 
-3. **CDN Deployment**
-   - Upload `dist/` contents to CDN
-   - Configure proper caching headers
-   - Set up domain and SSL
+### Docker (optional)
+
+`frontend/Dockerfile` builds the app and serves it with nginx on port 3000, sending every path to `index.html`, so normal paths work there without `VITE_ROUTER_MODE=hash`.
 
 ---
 
 ## Testing
 
-### Test Setup
-
-```javascript
-// src/test/setup.js
-import { expect, afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import matchers from '@testing-library/jest-dom/matchers';
-
-expect.extend(matchers);
-
-afterEach(() => {
-  cleanup();
-});
-```
-
-### Test Structure
-
-```
-src/
-├── components/
-│   ├── __tests__/
-│   │   ├── Dashboard.test.jsx
-│   │   ├── Navigation.test.jsx
-│   │   └── Integrations.test.jsx
-│   └── Dashboard.jsx
-└── services/
-    ├── __tests__/
-    │   └── apiService.test.js
-    └── apiService.js
-```
-
-### Writing Tests
-
-```javascript
-// Example component test
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import Dashboard from '../Dashboard';
-
-describe('Dashboard', () => {
-  it('renders dashboard title', () => {
-    render(<Dashboard />);
-    expect(screen.getByText('Bot Detection Dashboard')).toBeInTheDocument();
-  });
-});
-```
-
-### Test Commands
+Vitest is installed and configured in `vite.config.js` (jsdom environment, setup file `./src/test/setup.js`), but the frontend has no test files yet, and `src/test/setup.js`, jsdom and Testing Library are not present. Add them before writing component tests.
 
 ```bash
-# Run all tests
 npm test
-
-# Run tests in watch mode
-npm test -- --watch
-
-# Run tests with UI
 npm run test:ui
-
-# Run tests with coverage
-npm test -- --coverage
 ```
 
 ---
 
 ## Code Quality
 
-### ESLint Rules
-
-The project uses ESLint with React-specific rules:
-- **React Hooks**: Enforces hooks rules
-- **React Refresh**: Supports fast refresh
-- **TypeScript**: Type checking (if using TypeScript)
-
-### Code Formatting
-
-```bash
-# Format code with Prettier (if configured)
-npx prettier --write src/
-
-# Check formatting
-npx prettier --check src/
-```
-
-### Pre-commit Hooks
-
-Consider adding pre-commit hooks:
-```json
-{
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "src/**/*.{js,jsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
-  }
-}
-```
+`npm run lint` runs ESLint with the React plugins listed above. There is no ESLint configuration file in the frontend folder yet, so add one (for example `.eslintrc.cjs` with `plugin:react-hooks/recommended`) before relying on the lint script.
 
 ---
 
 ## Browser Support
-
-### Supported Browsers
 
 - **Chrome**: Version 90+
 - **Firefox**: Version 88+
 - **Safari**: Version 14+
 - **Edge**: Version 90+
 
-### Polyfills
-
-The project uses modern JavaScript features. For older browsers, consider:
-- **core-js**: For JavaScript polyfills
-- **regenerator-runtime**: For async/await support
-
-### CSS Support
-
-- **CSS Grid**: Supported in all modern browsers
-- **CSS Flexbox**: Widely supported
-- **CSS Custom Properties**: Supported in modern browsers
-- **Tailwind CSS**: Utility-first approach
+The layout works from phone width up (slide-out menu below the `lg` breakpoint).
 
 ---
 
 ## Performance Features
 
-### Build Optimization
-
-1. **Code Splitting**
-   - Automatic route-based splitting
-   - Dynamic imports for large components
-   - Vendor chunk separation
-
-2. **Tree Shaking**
-   - Unused code elimination
-   - Dead code removal
-   - Optimized bundle size
-
-3. **Asset Optimization**
-   - Image compression
-   - CSS minification
-   - JavaScript minification
-
-### Runtime Performance
-
-1. **React Optimization**
-   - React.memo for component memoization
-   - useMemo for expensive calculations
-   - useCallback for function memoization
-
-2. **Bundle Analysis**
-   ```bash
-   # Analyze bundle size
-   npm run build -- --analyze
-   ```
-
-3. **Performance Monitoring**
-   - React DevTools Profiler
-   - Lighthouse audits
-   - Core Web Vitals monitoring
+- **Chunking**: vendor, router, ui and charts code are split into separate chunks
+- **Caching**: hashed files under `assets/` are cached for a year; `index.html` is not cached, so a new deploy shows at once
+- **Polling**: the service status in the sidebar checks `/health` once a minute
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
-
 1. **Port Already in Use**
    ```bash
-   # Kill process on port 3000
    npx kill-port 3000
-   # Or change port in vite.config.js
+   # Or change the port in vite.config.js
    ```
 
 2. **Dependency Issues**
    ```bash
-   # Clear npm cache
    npm cache clean --force
-   # Remove node_modules and reinstall
    rm -rf node_modules package-lock.json
    npm install
    ```
 
-3. **Build Failures**
-   ```bash
-   # Check for linting errors
-   npm run lint
-   # Check for TypeScript errors (if using TS)
-   npx tsc --noEmit
-   ```
+3. **API Connection Issues**
+   - Check the backend is running on port 8000
+   - Check the proxy in `vite.config.js` and `VITE_API_BASE_URL`
 
-4. **API Connection Issues**
-   - Verify backend is running on port 8000
-   - Check proxy configuration in vite.config.js
-   - Verify environment variables
+4. **Production page is blank or a reload shows "not found"**
+   - Use the hash address (`index.html#/quality`, not `/quality`)
+   - Make sure the build used `--mode production`, so `VITE_ROUTER_MODE=hash` was set
 
-### Debug Mode
+5. **Settings cannot be saved**
+   - Unlock with the admin token; a wrong token is refused (401)
+   - If the backend has no `ADMIN_TOKEN`, Settings is read-only (403)
 
-Enable debug mode for development:
-```javascript
-// In vite.config.js
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3000,
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-          });
-        },
-      }
-    }
-  }
-})
-```
-
-### Performance Issues
-
-1. **Slow Development Server**
-   - Check for large dependencies
-   - Use Vite's dependency optimization
-   - Consider using pnpm for faster installs
-
-2. **Large Bundle Size**
-   - Analyze bundle with `npm run build -- --analyze`
-   - Implement code splitting
-   - Remove unused dependencies
-
-3. **Memory Issues**
-   - Increase Node.js memory limit: `NODE_OPTIONS="--max-old-space-size=4096"`
-   - Use production builds for testing
+6. **No "Upload to Decipher" on Add tracking**
+   - Save a Decipher API key on Settings (or set `DECIPHER_API_KEY` on the backend)
 
 ---
 
 ## Additional Resources
 
-### Documentation
 - [React Documentation](https://react.dev/)
 - [Vite Documentation](https://vitejs.dev/)
 - [Tailwind CSS Documentation](https://tailwindcss.com/)
 - [React Router Documentation](https://reactrouter.com/)
-
-### Tools
-- [React DevTools](https://chrome.google.com/webstore/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi)
-- [Vite DevTools](https://github.com/vitejs/vite-plugin-inspect)
-- [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
-
-### Community
-- [React Community](https://reactjs.org/community/support.html)
-- [Vite Community](https://github.com/vitejs/vite/discussions)
-- [Tailwind CSS Community](https://tailwindcss.com/community)
-
----
-
-*Last updated: June 29, 2025* 

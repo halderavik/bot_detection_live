@@ -1,242 +1,114 @@
-# Bot Detection API
+# Bot Detection Live
 
-A comprehensive bot detection system with behavioral analysis, survey platform integration, fraud detection, and real-time monitoring capabilities.
+Bot and fraud detection for online surveys. A tracker added to the survey records how each respondent answers (typing, mouse and touch, timing, grids, open ends); the service judges each session as human or bot, checks open-end quality and fraud, writes the results back into the survey data, and shows them on a live dashboard.
 
-## ✅ **IMPLEMENTATION STATUS - COMPLETED & READY TO DEPLOY**
+This folder is self-contained: it has no dependency on Quant OS (Quant_Sys). It stays compatible with surveys Quant OS tracked (same `QOS_` variables; it recognises Quant OS tracking and replaces it instead of adding a second copy).
 
-**All fraud detection features are fully implemented, tested, and ready for production deployment:**
-
-### Core Features ✅ **COMPLETED**
-- ✅ **Fraud Detection Service**: Complete implementation with all 5 detection methods ✅ **COMPLETED**
-  - IP Address Tracking
-  - Device Fingerprinting  
-  - Duplicate Response Detection
-  - Geolocation Consistency Checking
-  - Velocity Checking
-- ✅ **Composite Bot Detection**: 40% behavioral, 30% text quality, 30% fraud detection ✅ **COMPLETED**
-- ✅ **Hierarchical Fraud Endpoints**: Survey/platform/respondent/session-level fraud summaries ✅ **COMPLETED**
-- ✅ **Database Schema**: `fraud_indicators` table with hierarchical indexes ✅ **COMPLETED**
-- ✅ **Frontend Integration**: Hierarchical fraud widgets in all detail views ✅ **COMPLETED**
-- ✅ **Unit Tests**: 10/10 passing for fraud detection service ✅ **COMPLETED**
-- ✅ **API Tests**: All fraud detection endpoints tested and verified ✅ **COMPLETED**
-- ✅ **Database Migration**: Migration script created and ready ✅ **COMPLETED**
-- ✅ **Production Deployment**: Dashboard redeployed February 2026 with fraud/grid/timing in API Playground and Report Builder
-
-**Production URLs:**
-- Backend: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
-- Frontend: `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
-- API Docs: `https://bot-backend-119522247395.northamerica-northeast2.run.app/docs`
-
-**Frontend Deployment Status:** ✅ **VERIFIED** (February 2026)
-- ✅ Frontend successfully deployed to Cloud Storage (`bot-detection-frontend-20251208`)
-- ✅ All API endpoints verified and returning data from Cloud SQL
-- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
-- ✅ Fraud detection widget integrated and operational
-- ✅ API Playground: Endpoint templates for fraud (flat + hierarchical), grid analysis, and timing analysis
-- ✅ Report Builder: Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports (including CSV); click respondent ID to open full-detail popup; CSV includes every analysis per respondent (text responses of interest, fraud/grid/timing explanations)
-- ✅ All 6 frontend-used endpoints tested and working correctly
+**Production**
+- Dashboard: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html (pages use addresses like `index.html#/quality`)
+- Backend API: https://bot-backend-119522247395.northamerica-northeast2.run.app (docs at `/docs`, health at `/health`)
+- Deployed 2026-11-26 from commits `cfc4499` (backend image) and `6244608` (dashboard); see [Deployment](#-deployment).
 
 ## 🚀 Features
 
-- **Advanced Bot Detection**: Rule-based analysis of user behavior patterns with 5 detection methods
-- **OpenAI Text Quality Analysis**: GPT-4o-mini powered analysis of open-ended survey responses ✅ **100% Test Accuracy**
-- **Grid/Matrix Question Analysis**: Straight-lining detection, pattern detection (diagonal, zigzag), variance scoring, and satisficing behavior analysis ✅ **DEPLOYED**
-- **Enhanced Timing Analysis**: Speeder/flatliner detection, timing anomaly detection, and adaptive threshold calculation ✅ **DEPLOYED**
-- **Fraud Detection Service**: Complete fraud detection system with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking ✅ **COMPLETED**
-- **Composite Bot Detection**: Unified scoring algorithm (40% behavioral + 30% text quality + 30% fraud detection) ✅ **COMPLETED**
-- **Text Analysis Dashboard**: Real-time text quality analysis with filtering, pagination, and CSV export
-- **Grid Analysis Dashboard**: Grid/matrix question analysis widgets with straight-lining and pattern detection ✅ **DEPLOYED**
-- **Timing Analysis Dashboard**: Response timing analysis widgets with speeder/flatliner alerts ✅ **DEPLOYED**
-- **Fraud Detection Dashboard**: Hierarchical fraud widgets integrated into all detail views ✅ **COMPLETED**
-- **Multi-Platform Integration**: Support for Qualtrics and Decipher survey platforms
-- **Live Quality dashboard**: Per-survey quality rules, live bot and fraud results with charts and a respondent table, CSV export, and `LQ_` flags added to a Decipher data file (see [Live quality](#live-quality))
-- **Decipher XML tracking**: Upload a Decipher survey XML in the dashboard and download it with live tracking added, ready to import (see [Add tracking to a Decipher survey](#add-tracking-to-a-decipher-survey))
-- **Real-time Analytics**: Live dashboard with session monitoring and detection statistics
-- **Enhanced Report Builder**: Comprehensive reporting system with text quality, fraud & duplicate detection, grid/matrix analysis, and timing analysis metrics in summary and detailed reports; clickable respondent ID opens a popup with full details, responses of interest, and decision reasons; CSV export includes all analyses per respondent
-- **Scalable Architecture**: FastAPI backend with PostgreSQL deployed on Google Cloud Platform
-- **Client SDKs**: Python and JavaScript client libraries for easy integration
-- **Enhanced JavaScript SDK**: Automatic question/answer capture with text quality tracking
-- **Webhook Support**: Automated survey response processing
-- **Monitoring & Logging**: Comprehensive observability with Prometheus and Grafana
-- **Performance Testing**: Locust load testing and async performance validation
-- **Error Handling**: Comprehensive validation and user-friendly error messages
-- **Architecture Documentation**: Comprehensive system architecture and interaction patterns
-- **Frontend Dashboard**: Complete React-based monitoring interface with real-time updates
-- **Integration Management**: Webhook testing, status monitoring, and setup guides
-- **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access ✅ **DEPLOYED**
-- **Grid Analysis Hierarchical Endpoints**: Survey/platform/respondent/session-level grid analysis summaries ✅ **DEPLOYED**
-- **Timing Analysis Hierarchical Endpoints**: Survey/platform/respondent/session-level timing analysis summaries ✅ **DEPLOYED**
-- **Fraud Detection Hierarchical Endpoints**: Survey/platform/respondent/session-level fraud summaries ✅ **COMPLETED**
-- **Production Ready**: Fully deployed on GCP with health monitoring and metrics
+**For researchers**
+- **Add tracking to a Decipher survey**: upload the survey XML, get it back with tracking, and upload it straight to Decipher (new survey, the one used last time, or an existing survey's path). Files Decipher would refuse are caught before anything is sent. See [Add tracking to a Decipher survey](#add-tracking-to-a-decipher-survey).
+- **Live Quality**: one survey's live results under its own quality rules (bot threshold, decisive signals, speeders, straight-lining, open-end reasons, fraud), with charts, a respondent table, CSV export, and `LQ_` flags added to an SPSS, CSV or Excel data file. See [Live quality](#live-quality).
+- **Results in the survey data**: 21 `QOS_` variables (verdict, scores, reasons) are written into each completed respondent's Decipher record, matched by Decipher's `uuid`.
+- **Overview, Sessions and session details**: every survey's bot rate, starts and bots per day, the latest bots, and each session's verdict with the reasons behind it.
+- **Open-end quality** (OpenAI GPT-4o-mini, with a built-in fallback) and **Reports** (summary and detailed, CSV and PDF).
+
+**Detection**
+- Behaviour analysis (typing, mouse, timing, device, network) with decisive signals: automated browser, scripted input, no input, honeypot, open ends that appeared without typing.
+- Composite score: 40% behaviour, 30% open-end quality, 30% fraud. Fraud checks: IP reuse, device fingerprint, copied answers, location mismatch, velocity, data-centre/VPN IPs.
+- Grid analysis (straight-lining, patterns) and timing analysis (speeders, flatliners).
+- **Bot rate** means the same on every page: sessions judged bots out of sessions checked, each session counted once.
+
+**Operations**
+- **Settings page** that really saves: Decipher, Qualtrics and OpenAI keys, tracker address, signing secret and bot threshold; saved values override the environment, are encrypted, and apply without a restart. Saving needs `ADMIN_TOKEN`. See [Settings page](#settings-page).
+- Hierarchical API (survey, platform, respondent, session), webhooks for Qualtrics and Decipher, Prometheus metrics, client SDKs.
 
 ## 🏗️ Architecture
 
-For detailed architecture information, see [Architecture Documentation](architecture.md).
+See [architecture.md](architecture.md) for details.
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend API   │    │   Database      │
-│   (React)       │◄──►│   (FastAPI)     │◄──►│   (PostgreSQL)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌─────────────────┐              │
-         │              │   Redis Cache   │              │
-         │              └─────────────────┘              │
-         │                                              │
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Client SDKs   │    │   Integrations  │    │   Monitoring    │
-│   (Python/JS)   │    │   (Webhooks)    │    │   (Prometheus)  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+Survey (Decipher) -- tracker script --> Backend API (FastAPI, Cloud Run) --> PostgreSQL (Cloud SQL)
+       ^                                   |      |
+       +---- QOS_ results on last page ----+      +--> OpenAI (open-end scoring)
+Dashboard (React, Cloud Storage) <---- REST API ---+
 ```
-
-### Key Architectural Features
-
-- **Async/Await Pattern**: Non-blocking I/O operations throughout the system
-- **Layered Architecture**: Clear separation between API, business logic, and data layers
-- **Real-time Updates**: WebSocket support for live dashboard updates
-- **Error Handling**: Comprehensive error handling at all layers
-- **Performance Optimization**: Database optimization, caching, and frontend optimizations
-- **Security**: Multi-layered security approach with validation and protection
-- **Frontend Integration**: Seamless React dashboard with comprehensive UI components
 
 ## 📁 Project Structure
 
 ```
-bot_iden_live/
-├── backend/                    # FastAPI backend
+bot_detection_live/
+├── backend/                      # FastAPI service
+│   ├── main.py                   # App, CORS, startup (creates tables, loads saved settings)
 │   ├── app/
-│   │   ├── config.py          # Configuration settings
-│   │   ├── database.py        # Database setup
-│   │   ├── models/            # SQLAlchemy models
-│   │   │   ├── survey_question.py    # Survey question model
-│   │   │   └── survey_response.py    # Survey response model
-│   │   ├── services/          # Business logic
-│   │   │   ├── openai_service.py     # OpenAI API integration
-│   │   │   └── text_analysis_service.py # Text quality analysis
-│   │   ├── controllers/       # API controllers
-│   │   │   └── text_analysis_controller.py # Text analysis endpoints
-│   │   ├── utils/             # Utility functions
-│   │   └── routes/            # API routes
-│   ├── main.py               # Application entry point
-│   ├── requirements.txt      # Python dependencies
-│   ├── requirements-test.txt # Test dependencies
-│   ├── create_test_data.py  # Test data generation
-│   ├── performance_test.py  # Async performance testing
-│   ├── locustfile.py        # Load testing configuration
-│   └── .env.example         # Environment variables
-├── frontend/                  # React frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── components/       # React components
-│   │   │   ├── Dashboard.jsx # Main dashboard
-│   │   │   ├── Integrations.jsx # Integration management
-│   │   │   ├── Settings.jsx  # System settings
-│   │   │   ├── ApiPlayground.jsx # API testing interface
-│   │   │   ├── QuickStartGuide.jsx # Getting started guide
-│   │   │   ├── SessionDetails.jsx # Session analysis view
-│   │   │   └── TextQualityWidget.jsx # Text quality analysis display
-│   │   ├── services/         # API services
-│   │   ├── utils/            # Utility functions
-│   │   └── styles/           # CSS styles
-│   ├── package.json
-│   └── vite.config.js
-├── client-sdk/               # Client SDKs
-│   ├── python/               # Python client
-│   └── javascript/           # JavaScript client
-├── docker-compose.yml        # Docker orchestration
-├── architecture.md           # System architecture documentation
-├── API.md                    # API reference documentation
-├── planning.md               # Technical planning document
-├── prd.md                    # Product requirements document
-├── task.md                   # Development tasks and progress
-└── README.md                # This file
+│   │   ├── assets/live_quality_tracker.js   # Tracker added to Decipher surveys
+│   │   ├── controllers/          # API routes (detection, dashboard, reports, surveys,
+│   │   │                         #  fraud, text analysis, tracking, quality, settings)
+│   │   ├── models/               # SQLAlchemy models (sessions, events, results, fraud,
+│   │   │                         #  tracked_surveys, survey_quality_rules, app_settings)
+│   │   ├── services/             # Detection engine, reports, Decipher tracking/upload,
+│   │   │                         #  live quality, quality rules, data-file merge, runtime settings
+│   │   └── utils/
+│   ├── tests/                    # pytest suite; fixtures/ has example Decipher surveys
+│   ├── requirements.txt, requirements-test.txt
+│   ├── .gcloudignore, .dockerignore   # keep .env, venvs and test data out of builds
+│   └── Dockerfile
+├── frontend/                     # React + Vite dashboard
+│   └── src/
+│       ├── App.jsx               # Routes (hash addresses in production)
+│       ├── components/layout/AppShell.jsx   # Sidebar and phone menu
+│       ├── components/ui/        # Shared page header, cards, buttons, badges, states
+│       ├── components/quality/   # Live Quality parts, rules editor, data-file merge
+│       ├── components/           # Overview, LiveQuality, SessionList, SessionDetails,
+│       │                         #  SurveyTracking, Settings, Integrations, Reports, ...
+│       └── services/apiService.js
+├── client-sdk/                   # Python and JavaScript clients
+├── API.md, API_V2.md             # API reference
+├── architecture.md, database.md  # Design and schema
+├── BOT_DETECTION_METHODOLOGY.md, bot_detection_flow.md
+├── decipher_guide.md, decipher_simple_guide.md
+├── SELECTIVE_DEPLOYMENT_GUIDE.md, rollback-procedures.md
+└── planning.md, prd.md, task.md
 ```
 
 ## 🛠️ Tech Stack
 
-### Backend
-- **FastAPI**: Modern, fast web framework with async support
-- **SQLAlchemy**: Database ORM with async support and relationship management
-- **PostgreSQL**: Primary database with optimized schemas
-- **Redis**: Caching and session storage
-- **Pydantic**: Data validation and settings management
-- **Uvicorn**: ASGI server for production deployment
-- **OpenAI**: GPT-4o-mini integration for text quality analysis
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy (async), PostgreSQL (SQLite for tests and local previews), Pydantic, OpenAI, pandas/pyreadstat/openpyxl (data files), cryptography (encrypted settings)
+- **Frontend**: React 18, Vite, Tailwind CSS, React Router, Recharts, Lucide icons
+- **Infrastructure**: Google Cloud Run, Cloud SQL, Secret Manager, Cloud Build, Artifact Registry, Cloud Storage
 
-### Frontend
-- **React**: UI framework with modern hooks
-- **Vite**: Build tool and dev server for fast development
-- **Tailwind CSS**: Utility-first CSS framework with responsive design
-- **Axios**: HTTP client for API communication
-- **React Router**: Client-side routing
-- **React Toastify**: Toast notifications
-- **Lucide React**: Icon library
-- **Centralized Configuration**: Environment-based config system for zero-code environment switching
+## 🚀 Quick Start (local)
 
-### Infrastructure
-- **Docker**: Containerization for consistent environments
-- **Docker Compose**: Multi-container orchestration
-- **Prometheus**: Metrics collection and monitoring
-- **Grafana**: Monitoring dashboards and visualization
+Prerequisites: Python 3.11+, Node.js 18+.
 
-### Testing & Performance
-- **Locust**: Load testing and performance validation
-- **Pytest**: Unit testing framework
-- **AsyncIO**: Asynchronous performance testing
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker and Docker Compose
-- Node.js 18+ (for frontend development)
-- Python 3.11+ (for backend development)
-- OpenAI API key (for text quality analysis)
-
-### 1. Clone the Repository
 ```bash
 git clone https://github.com/halderavik/bot_detection_live.git
-cd bot_iden_live
+cd bot_detection_live
+
+# Backend
+cd backend
+python -m venv .venv && .venv/Scripts/activate   # or: source .venv/bin/activate
+pip install -r requirements.txt -r requirements-test.txt
+cp .env.example .env                             # then edit
+# Local database without Postgres:
+DATABASE_URL=sqlite+aiosqlite:///./local.db SECRET_KEY=dev ADMIN_TOKEN=dev uvicorn main:app --port 8000
+
+# Frontend (second terminal)
+cd frontend
+npm install
+VITE_API_BASE_URL=http://localhost:8000/api/v1 npx vite --port 3000
 ```
 
-### 2. Environment Setup
-```bash
-# Copy environment files
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-
-# Edit configuration files with your settings
-```
-
-### 3. Start with Docker Compose
-```bash
-# Start all services
-docker-compose up -d
-
-# Start with monitoring
-docker-compose --profile monitoring up -d
-
-# Start production stack
-docker-compose --profile production up -d
-```
-
-### 4. Access Services
-
-#### Local Development
-- **API Documentation**: http://localhost:8000/docs
-- **Frontend Dashboard**: http://localhost:3000
-- **Grafana Monitoring**: http://localhost:3001 (if monitoring enabled)
-
-#### Production (GCP)
-- **Backend API**: https://bot-backend-119522247395.northamerica-northeast2.run.app
-- **API Documentation**: https://bot-backend-119522247395.northamerica-northeast2.run.app/docs
-- **Frontend Dashboard**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
-- **Health Check**: https://bot-backend-119522247395.northamerica-northeast2.run.app/health
-- **Metrics Endpoint**: https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics
-- **Text Analysis Health**: https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1/text-analysis/health
+Open http://localhost:3000 (local development uses normal paths such as `/quality`). Docker Compose (`docker-compose.yml`) is also available.
 
 ## Add tracking to a Decipher survey
 
-Open **Add Tracking** in the dashboard (`/tracking`), choose the survey's XML file (exported from Decipher's XML editor, `.xml` or `.txt` holding the XML, up to 5 MB), pick the options, and click **Add tracking**. You get:
+Open **Add tracking** in the dashboard (`/tracking`; in production `index.html#/tracking`), choose the survey's XML file (exported from Decipher's XML editor, `.xml` or `.txt` holding the XML, up to 5 MB), pick the options, and click **Add tracking**. You get:
 
 - a summary of what was added, with the survey id, question and page counts, and any warnings;
 - **Download** for the tracked XML (`<name>_tracked.xml`): in Decipher, replace the survey's XML with it and save;
@@ -330,7 +202,7 @@ SECRET_KEY=test python -m pytest tests/test_decipher_tracking.py tests/test_trac
 
 ## Live quality
 
-Open **Live Quality** in the dashboard (`/quality`, or `/quality?survey=<survey id>`). The left list shows surveys that had tracking added through **Add Tracking** (switch to **All surveys** for surveys sending data through other integrations). For the chosen survey you get, refreshed every 8 seconds while the tab is visible (Pause stops it):
+Open **Live Quality** in the dashboard (`/quality`, or `/quality?survey=<survey id>`). The left list shows surveys that had tracking added through **Add tracking** (switch to **All surveys** for surveys sending data through other integrations). For the chosen survey you get, refreshed every 8 seconds while the tab is visible (Pause stops it):
 
 - tiles for started, checked, flagged, bot-like, low-quality text, straight-liners, speeders and duplicates;
 - starts over time (clean and flagged, by hour or by day), open-end quality as a histogram, and the number of respondents with each flag (click a bar to filter the table);
@@ -351,7 +223,7 @@ Open **Live Quality** in the dashboard (`/quality`, or `/quality?survey=<survey 
 | High fraud risk threshold | 0.7 | Fraud score at which a respondent is high risk |
 | Flag duplicates / data-centre IPs | on / on | |
 
-Rules apply on every read, so the dashboard, the CSV export and the `LQ_` variables follow them as soon as they are saved. They don't change what the service stores, or the `QOS_*` values the tracker writes into the Decipher data (those use the standard scoring). Ending the survey on a bot signal and the privacy notice are chosen on **Add Tracking**.
+Rules apply on every read, so the dashboard, the CSV export and the `LQ_` variables follow them as soon as they are saved. They don't change what the service stores, or the `QOS_*` values the tracker writes into the Decipher data (those use the standard scoring). Ending the survey on a bot signal and the privacy notice are chosen on **Add tracking**.
 
 **Add flags to a data file.** Upload the survey's Decipher export (SPSS `.sav`, `.csv` or `.xlsx`, up to 50 MB) and you get the same file back as `<name>_quality.<ext>` with these variables added at the end. Records match on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid` (the tracker reports respondents under it), so exports without the `QOS_` columns still match.
 
@@ -392,7 +264,7 @@ The dashboard has a left sidebar (a menu button on phones), grouped by task:
 - **Set up**: **Add tracking** (Decipher XML), **Integrations**, **Settings**.
 - **Developers**: **Quick start** and **API playground**.
 
-The old `/dashboard` and `/surveys` addresses open the Overview. Clicking a session opens its page: the verdict and the decisive signals behind it first, then behaviour scores, the session facts, fraud, open ends, grids and timing, with the raw event log and analysis output folded away at the bottom.
+The old `/dashboard` and `/surveys` addresses open the Overview. In production every address is behind `index.html#` (for example `index.html#/sessions?verdict=bot`), because the dashboard is a static page in a storage bucket. Clicking a session opens its page: the verdict and the decisive signals behind it first, then behaviour scores, the session facts, fraud, open ends, grids and timing, with the raw event log and analysis output folded away at the bottom.
 
 **Bot rate** means the same everywhere: sessions judged bots out of sessions that were checked (analysed). A session analysed more than once counts once.
 
@@ -418,117 +290,59 @@ Tests: `backend/tests/test_runtime_settings.py` (admin token, encryption at rest
 
 ## 📚 Documentation
 
-### Core Documentation
-- **[Architecture Documentation](architecture.md)**: Comprehensive system architecture and interaction patterns
-- **[API Reference](API.md)**: Complete API documentation with examples
-- **[Technical Planning](planning.md)**: Production deployment and scaling considerations
-- **[Product Requirements](prd.md)**: Product specifications and success metrics
-- **[Development Tasks](task.md)**: Current progress and upcoming features
+- [architecture.md](architecture.md): system design and data flow
+- [API.md](API.md) and [API_V2.md](API_V2.md): API reference
+- [database.md](database.md): schema
+- [BOT_DETECTION_METHODOLOGY.md](BOT_DETECTION_METHODOLOGY.md) and [bot_detection_flow.md](bot_detection_flow.md): how detection and judging work
+- [decipher_guide.md](decipher_guide.md) and [decipher_simple_guide.md](decipher_simple_guide.md): adding tracking to Decipher surveys
+- [SELECTIVE_DEPLOYMENT_GUIDE.md](SELECTIVE_DEPLOYMENT_GUIDE.md) and [rollback-procedures.md](rollback-procedures.md): deploying and rolling back
+- [planning.md](planning.md), [prd.md](prd.md), [task.md](task.md): plans, requirements, progress
 
-### API Documentation
+### API overview
 
-#### Core Endpoints
+All paths are under `/api/v1` unless noted. Full details in [API.md](API.md).
 
-#### Sessions
 ```http
-POST /api/v1/detection/sessions
-GET /api/v1/detection/sessions/{session_id}/status
-GET /api/v1/detection/sessions/{session_id}/ready-for-analysis
+# Detection (used by the tracker)
+POST /detection/sessions
+POST /detection/sessions/{session_id}/events
+POST /detection/sessions/{session_id}/analyze
+POST /detection/sessions/{session_id}/composite-analyze
+GET  /detection/sessions/{session_id}/status
+
+# Dashboard
+GET  /dashboard/overview?days=7                 # sessions, detections (checked, bots_detected, bot_rate)
+GET  /dashboard/sessions                        # latest verdict per session; filters: is_bot, risk_level (incl. unknown), platform, survey_id, search
+GET  /dashboard/sessions/{session_id}/details
+GET  /dashboard/analytics/trends?days=14        # per day: sessions, checked, bots
+
+# Decipher XML tracking
+POST /tracking/decipher                         # survey XML in, tracked XML out
+POST /tracking/decipher/upload                  # send tracked XML to Decipher
+GET  /tracking/decipher/options
+
+# Live quality (survey id in the query string)
+GET  /quality/surveys
+GET  /quality/results?survey_id=
+GET  /quality/export?survey_id=
+GET|PUT|DELETE /quality/rules?survey_id=
+POST /quality/merge?survey_id=                  # data file in, same file with LQ_ variables out
+
+# Settings (PUT and POST /check need header X-Admin-Token)
+GET  /settings
+POST /settings/check
+PUT  /settings
+
+# Surveys (hierarchical), fraud, text analysis, reports, integrations
+GET  /surveys, /surveys/{survey_id}, .../platforms/{platform_id}/respondents/...
+GET  /fraud/sessions/{session_id}, /fraud/dashboard/summary, ...
+POST /text-analysis/questions, /text-analysis/responses; GET /text-analysis/dashboard/summary, ...
+GET  /reports/surveys, /reports/summary/{survey_id}, /reports/detailed/{survey_id}[/csv]
+POST /integrations/webhooks/qualtrics, /integrations/webhooks/decipher; GET /integrations/status
+
+# Health (no /api/v1 prefix)
+GET  /health, /metrics
 ```
-
-#### Events
-```http
-POST /api/v1/detection/sessions/{session_id}/events
-```
-
-#### Analysis
-```http
-POST /api/v1/detection/sessions/{session_id}/analyze
-POST /api/v1/detection/sessions/{session_id}/composite-analyze
-```
-
-#### Dashboard
-```http
-GET /api/v1/dashboard/overview
-GET /api/v1/dashboard/sessions
-GET /api/v1/dashboard/sessions/{session_id}/details
-```
-
-#### Text Quality Analysis
-```http
-POST /api/v1/text-analysis/questions
-POST /api/v1/text-analysis/responses
-GET /api/v1/text-analysis/sessions/{session_id}/summary
-GET /api/v1/text-analysis/stats
-GET /api/v1/text-analysis/dashboard/summary
-GET /api/v1/text-analysis/dashboard/respondents
-GET /api/v1/text-analysis/health
-```
-
-#### Integrations
-```http
-POST /api/v1/integrations/webhooks/qualtrics
-POST /api/v1/integrations/webhooks/decipher
-POST /api/v1/tracking/decipher              # Upload a Decipher survey XML, get it back with tracking
-POST /api/v1/tracking/decipher/upload       # Send tracked XML to Decipher (new survey or existing path)
-GET  /api/v1/tracking/decipher/options      # Bot signals and defaults for the upload screen
-GET /api/v1/integrations/status
-```
-
-#### Report Builder
-```http
-GET /api/v1/reports/surveys
-GET /api/v1/reports/summary/{survey_id}
-GET /api/v1/reports/detailed/{survey_id}
-GET /api/v1/reports/detailed/{survey_id}/csv
-GET /api/v1/reports/summary/{survey_id}/pdf
-POST /api/v1/reports/generate
-```
-
-#### Hierarchical API (V2) ✅ **COMPLETED**
-```http
-GET /api/v1/surveys
-GET /api/v1/surveys/{survey_id}
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions
-GET /api/v1/surveys/{survey_id}/text-analysis/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/text-analysis/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/text-analysis/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/text-analysis
-```
-
-#### Fraud Detection API ✅ **COMPLETED & DEPLOYED**
-```http
-# Flat endpoints (session-based)
-GET /api/v1/fraud/sessions/{session_id}
-GET /api/v1/fraud/ip/{ip_address}
-GET /api/v1/fraud/fingerprint/{fingerprint}
-GET /api/v1/fraud/dashboard/summary
-GET /api/v1/fraud/dashboard/duplicates
-POST /api/v1/fraud/analyze/{session_id}
-
-# Hierarchical endpoints (V2)
-GET /api/v1/surveys/{survey_id}/fraud/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/fraud/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/fraud/summary
-GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/fraud
-```
-
-**Note**: Fraud detection endpoints use `/api/v1/fraud/` prefix (not `/api/v1/fraud-detection/`).
-
-#### Health & Monitoring
-```http
-GET /health
-GET /metrics
-```
-
-**Production Status**: ✅ All endpoints operational
-- **Health**: 200 OK - `{"status":"healthy","service":"bot-detection-api"}`
-- **Metrics**: 200 OK - Prometheus-compatible metrics exposed
-- **Reports**: 200 OK - Report builder fully functional with CSV exports and text quality metrics
-- **Text Analysis Dashboard**: 200 OK - Real-time text quality analysis with filtering and pagination
-- **OpenAI Integration**: 200 OK - GPT-4o-mini service operational with 100% test accuracy
 
 ### Example Usage
 
@@ -671,333 +485,106 @@ curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/ap
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Backend environment (`backend/.env`, or Cloud Run variables and secrets)
 
-#### Backend (.env)
 ```env
-# Database
 DATABASE_URL=postgresql+asyncpg://user:password@localhost/bot_detection
-
-# Security
-SECRET_KEY=your-super-secret-key
-TRACKING_TOKEN_SECRET=shared-secret-for-signed-survey-tokens
-TRACKER_API_BASE=https://your-api-domain.com/api/v1   # URL the survey tracker calls
-ADMIN_TOKEN=a-long-random-token   # lets the Settings page save changes; unset = read-only
+SECRET_KEY=change-me                 # also derives the key that encrypts saved secrets
+ADMIN_TOKEN=a-long-random-token      # lets the Settings page save; unset = read-only (env only)
 ALLOWED_ORIGINS=["http://localhost:3000"]
 
-# Integrations
-QUALTRICS_API_TOKEN=your-qualtrics-token
-DECIPHER_API_KEY=your-decipher-key
+# Can also be set on the Settings page (saved values override these)
+DECIPHER_API_KEY=
 DECIPHER_API_BASE=https://selfserve.decipherinc.com/api/v1
 DECIPHER_COMPANY=self
-
-# Bot Detection
-DETECTION_THRESHOLD=0.7
-SESSION_TIMEOUT_MINUTES=30
-
-# OpenAI settings (for text quality analysis)
-# If not set, text analysis will use fallback mode with basic scoring
-OPENAI_API_KEY=your-openai-api-key
+QUALTRICS_API_TOKEN=
+OPENAI_API_KEY=                      # without it, open ends get a neutral fallback score (50)
 OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_TOKENS=500
-OPENAI_TEMPERATURE=0.3
-OPENAI_TIMEOUT=30
-OPENAI_MAX_RETRIES=3
-
-# Debug Mode
-DEBUG=true
+TRACKER_API_BASE=                    # public https address the tracker calls, ending in /api/v1
+TRACKING_TOKEN_SECRET=               # optional: signs trackers
+DETECTION_THRESHOLD=0.7              # bot probability for the stored verdict
 ```
 
-#### Text Analysis Configuration
+`backend/.env.example` lists every variable.
 
-The text analysis feature uses OpenAI GPT-4o-mini for advanced quality scoring. If `OPENAI_API_KEY` is not set:
+### Frontend (`frontend/.env`, `frontend/.env.production`)
 
-- Text analysis endpoints will still be available
-- Analysis will use fallback scoring (quality score: 50, no flags)
-- All endpoints return 200 responses with basic analysis results
-- Check `/api/v1/text-analysis/stats` to see OpenAI availability status
-
-#### Frontend (.env)
 ```env
-# Local Development
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_FRONTEND_BASE_URL=http://localhost:3000
-VITE_APP_NAME=Bot Detection Dashboard
-
-# Production (.env.production)
 VITE_API_BASE_URL=https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1
 VITE_FRONTEND_BASE_URL=https://storage.googleapis.com/bot-detection-frontend-20251208
 VITE_APP_NAME=Bot Detection Dashboard
+VITE_ROUTER_MODE=hash                # production only: index.html#/path addresses for bucket hosting
 ```
-
-#### Centralized Configuration
-The frontend uses a centralized configuration system (`frontend/src/config/config.ts`) that automatically derives all URLs from environment variables:
-
-- **API URLs**: Automatically constructed from `VITE_API_BASE_URL`
-- **Webhook URLs**: Dynamically generated for integrations
-- **Documentation URLs**: Auto-linked to API docs
-- **Frontend URLs**: Used for integration guides and links
-
-This enables zero-code environment switching by simply changing environment variables.
 
 ## 🧪 Testing
 
-### Backend Tests
 ```bash
 cd backend
-pip install -r requirements.txt
-pip install -r requirements-test.txt
-pytest
+pip install -r requirements.txt -r requirements-test.txt
+SECRET_KEY=test python -m pytest tests          # 275 tests; uses SQLite via aiosqlite
 ```
 
-### Performance Testing
-```bash
-# Run Locust load testing
-cd backend
-locust -f locustfile.py
-
-# Run async performance test
-python performance_test.py
-```
-
-### Create Test Data
-```bash
-cd backend
-python create_test_data.py
-```
-
-### Frontend Tests
-```bash
-cd frontend
-npm install
-npm test
-```
-
-### Integration Tests
-```bash
-# Run with Docker
-docker-compose exec backend pytest tests/integration/
-```
+`backend/tests/fixtures/coffee_demo_survey.xml` is a complete demo survey that has been run end to end (tracked, uploaded to Decipher, taken as a respondent, results seen on Live Quality and in Decipher's data). Load testing: `locust -f backend/locustfile.py`.
 
 ## 📊 Monitoring
 
-### Metrics
-The application exposes Prometheus metrics at `/metrics`:
-- Request duration
-- Error rates
-- Session counts
-- Detection accuracy
-- Processing time statistics
-
-### Logging
-Structured logging with configurable levels:
-```python
-import logging
-from app.utils.logger import setup_logger
-
-logger = setup_logger(__name__)
-logger.info("Application started")
-```
-
-### Health Checks
-- **Health endpoint**: `/health` - Basic system status ✅ **OPERATIONAL**
-- **Metrics endpoint**: `/metrics` - Prometheus-compatible metrics ✅ **OPERATIONAL**
-- **Database connectivity**: Automatic connection testing ✅ **VERIFIED**
-- **API responsiveness**: Response time monitoring ✅ **SUB-100MS**
+- `/health`: status, plus how many data-centre IP networks are loaded
+- `/metrics`: Prometheus metrics
+- Cloud Run logs: `gcloud logging read 'resource.labels.service_name="bot-backend"' --project survey-bot-detection --limit 50`
 
 ## 🔒 Security
 
-### Authentication
-- API key authentication for external integrations
-- JWT tokens for user sessions (planned)
-- CORS configuration for cross-origin requests
-
-### Data Protection
-- Input validation and sanitization with Pydantic
-- SQL injection prevention with parameterized queries
-- XSS protection
-- Rate limiting (configurable)
-
-### Error Handling
-- Comprehensive 400/404/500 error responses
-- User-friendly error messages
-- Detailed logging for debugging
-- Input validation with clear feedback
+- The dashboard and API have no user login. Changing settings requires `ADMIN_TOKEN` (header `X-Admin-Token`); saved secrets are encrypted at rest and never returned to the browser.
+- Decipher API keys are sent only to Decipher and removed from any error text.
+- Signed trackers (`TRACKING_TOKEN_SECRET`, optional) stop others from adding sessions under a survey's name.
+- Rate limits on session creation and event writes; input validation with Pydantic; parameterised queries.
+- `.gcloudignore` and `.dockerignore` keep `.env` and local data out of builds and images.
 
 ## 🚀 Deployment
 
-### Local Development
-```bash
-# Build and deploy
-docker-compose --profile production up -d
+Production runs in Google Cloud project `survey-bot-detection`, region `northamerica-northeast2`.
 
-# With monitoring
-docker-compose --profile production --profile monitoring up -d
+**Backend (Cloud Run service `bot-backend`)**: 1 CPU, 1 GiB memory, 1 to 10 instances, Cloud SQL `bot-db` and `bot-db-v2`, VPC connector `serverless-connector`, secrets `DATABASE_URL`, `SECRET_KEY`, `OPENAI_API_KEY`, `ADMIN_TOKEN`. Build an image tagged with the commit, then deploy only the image (other settings are kept):
+
+```bash
+gcloud meta list-files-for-upload backend        # check: no .env, .venv, *.db, tests
+gcloud builds submit ./backend --tag northamerica-northeast2-docker.pkg.dev/survey-bot-detection/backend/bot-backend:$(git rev-parse --short HEAD) --project survey-bot-detection
+gcloud run deploy bot-backend --image northamerica-northeast2-docker.pkg.dev/survey-bot-detection/backend/bot-backend:$(git rev-parse --short HEAD) --region northamerica-northeast2 --project survey-bot-detection
 ```
 
-### Production Deployment (GCP)
-The application is currently deployed on Google Cloud Platform:
+Add `--update-env-vars` / `--update-secrets` only for values that change. **Don't run `deploy-backend.ps1` as written**: it replaces all environment variables and secrets and attaches only `bot-db`, which would drop the `bot-db-v2` connection. New tables are created at startup; no migration is needed for this release.
 
-#### Backend (Cloud Run)
-- **URL**: https://bot-backend-119522247395.northamerica-northeast2.run.app
-- **Database**: Cloud SQL PostgreSQL
-- **Secrets**: Secret Manager (including OPENAI_API_KEY)
-- **Networking**: VPC Connector
-- **OpenAI Integration**: Fully operational with `openai_available: true`
+**Dashboard (Cloud Storage bucket `bot-detection-frontend-20251208`)**:
 
-#### Frontend (Cloud Storage)
-- **URL**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
-- **CDN**: Cloud CDN enabled
-- **Caching**: Optimized for static assets
-- **Data Flow**: ✅ Verified - All endpoints pulling data correctly from Cloud SQL (February 2026)
-- **Configuration**: Centralized config system with correct production API URLs
-- **Components**: Fraud detection widget integrated and operational
+```bash
+cd frontend && npx vite build --mode production && cd ..
+gcloud storage rsync -r frontend/dist gs://bot-detection-frontend-20251208 --project survey-bot-detection
+gcloud storage objects update gs://bot-detection-frontend-20251208/index.html --cache-control="no-cache"
+gcloud storage objects update "gs://bot-detection-frontend-20251208/assets/**" --cache-control="public, max-age=31536000, immutable"
+```
 
-#### Deployment Scripts
-- `provision-cloudsql.ps1` - Database and networking setup
-- `deploy-backend.ps1` - Backend deployment to Cloud Run
-- `deploy-frontend.ps1` - Frontend deployment to Cloud Storage
-- `cloudbuild.yaml` - CI/CD pipeline configuration
+Don't delete unmatched files in the bucket: `tracking-client.js` there may be used by surveys in the field.
 
-#### Frontend Deployment Verification (February 2026)
-**Status:** ✅ **VERIFIED**
-- ✅ Frontend successfully built and deployed to Cloud Storage
-- ✅ All API endpoints verified returning data from Cloud SQL
-- ✅ Data flow verified: Cloud SQL → Backend API → Frontend Dashboard
-- ✅ Fraud detection widget integrated and operational
-- ✅ All 6 frontend-used endpoints tested and working:
-  - Dashboard Overview (`/api/v1/dashboard/overview`)
-  - Fraud Dashboard Summary (`/api/v1/fraud/dashboard/summary`)
-  - Fraud Duplicates (`/api/v1/fraud/dashboard/duplicates`)
-  - Sessions List (`/api/v1/dashboard/sessions`)
-  - Surveys List (`/api/v1/surveys`)
-  - Text Analysis Summary (`/api/v1/text-analysis/dashboard/summary`)
-- ✅ Cache headers configured for optimal performance
-- ✅ Frontend configuration updated with correct production URLs
+**After a fresh deploy**: read the admin token with `gcloud secrets versions access latest --secret ADMIN_TOKEN --project survey-bot-detection`, open the deployed Settings page (`index.html#/settings`), unlock, and enter the Decipher API key to turn on Upload to Decipher.
 
-### Environment-Specific Configs
-- **Development**: `docker-compose.yml`
-- **Staging**: `docker-compose.staging.yml`
-- **Production**: GCP Cloud Run + Cloud Storage
+**Rollback**: the previous backend revision is `bot-backend-00068-2rf`:
 
-## 🤝 Contributing
+```bash
+gcloud run services update-traffic bot-backend --to-revisions bot-backend-00068-2rf=100 --region northamerica-northeast2 --project survey-bot-detection
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-### Development Guidelines
-- Follow PEP 8 for Python code
-- Use TypeScript for frontend
-- Write comprehensive tests
-- Update documentation
-- Run performance tests before submitting
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-### Documentation
-- [Architecture Guide](architecture.md)
-- [API Reference](API.md)
-- [Integration Guide](API.md#integration-apis)
-- [Deployment Guide](planning.md)
-
-### Community
-- [Issues](https://github.com/halderavik/bot_detection_live/issues)
-- [Discussions](https://github.com/halderavik/bot_detection_live/discussions)
-
-### Contact
-- Email: support@botdetection.com
-- Slack: #bot-detection
+More in [SELECTIVE_DEPLOYMENT_GUIDE.md](SELECTIVE_DEPLOYMENT_GUIDE.md) and [rollback-procedures.md](rollback-procedures.md).
 
 ## 🗺️ Roadmap
 
-### Phase 1 (Current) ✅
-- ✅ Core bot detection engine
-- ✅ Basic API endpoints
-- ✅ Survey platform integrations
-- ✅ Dashboard UI with comprehensive features
-- ✅ Performance testing
-- ✅ Error handling improvements
-- ✅ Client SDKs
-- ✅ Architecture documentation
-- ✅ Comprehensive API documentation
-- ✅ Frontend integration fixes and enhancements
-- ✅ Integration management interface
-- ✅ API playground and quick start guide
-- ✅ **Production deployment on GCP**
-- ✅ **Cloud Run backend with Cloud SQL**
-- ✅ **Cloud Storage frontend with CDN**
-- ✅ **Automated deployment scripts**
-- ✅ **Metrics endpoint deployed and operational**
-- ✅ **Full system health verification completed**
-- ✅ **Centralized Configuration System** - Environment-based config for zero-code switching
-- ✅ **Environment-Agnostic Frontend** - All URLs dynamically derived from environment variables
-- ✅ **OpenAI Text Quality Analysis** - GPT-4o-mini powered analysis of open-ended responses
-- ✅ **Composite Bot Detection** - Unified scoring combining behavioral + text quality
-- ✅ **Enhanced JavaScript SDK** - Automatic question/answer capture and text quality tracking
-- ✅ **OpenAI API Key Integration** - Production OpenAI service fully operational
-- ✅ **100% Test Classification Accuracy** - All test cases passing with perfect accuracy
-- ✅ **Text Analysis Health Monitoring** - Real-time OpenAI service status tracking
-- ✅ **Text Analysis Dashboard Integration** - Complete backend and frontend implementation
-- ✅ **Enhanced Report Service** - Text quality, fraud, grid, and timing metrics in summary/detailed reports and CSV export
-- ✅ **Comprehensive Test Suite** - 14 passing tests for all new functionality
-- ✅ **Production Deployment** - All new features deployed and operational
-- ✅ **Hierarchical API Structure** - Survey → Platform → Respondent → Session hierarchy implemented
-- ✅ **Database Migration** - `platform_id` column and composite indexes deployed
-- ✅ **Respondent Aggregation** - All respondent endpoints tested and verified working
-- ✅ **Fraud Detection Service** - Complete implementation with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking
-- ✅ **Fraud Detection Database Schema** - `fraud_indicators` table with hierarchical fields and composite indexes ✅ **COMPLETED**
-- ✅ **Composite Bot Detection** - Updated to 40% behavioral, 30% text quality, 30% fraud detection
-- ✅ **Fraud Detection Hierarchical Endpoints** - Survey/platform/respondent/session-level fraud summaries operational
-- ✅ **Fraud Detection Frontend Integration** - Hierarchical fraud widgets integrated into all detail views
-- ✅ **Unit Tests** - Comprehensive test suite with 100% passing rate for fraud detection
-- ✅ **Database Migration** - Fraud detection schema migration executed successfully
+Done: behaviour, text, fraud, grid and timing analysis; composite scoring; hierarchical API; reports; Decipher XML tracking and upload; Live Quality with per-survey rules and data-file flags; Settings that save; redesigned dashboard; production deployment.
 
-### Phase 2 (Next)
-- 🔄 Machine learning models
-- 🔄 Advanced analytics
-- 🔄 Mobile SDK
-- 🔄 Real-time alerts
-- 🔄 Authentication system
-- 🔄 Rate limiting
+Next:
+- Fix `deploy-backend.ps1` to update settings instead of replacing them
+- User accounts (today only settings changes are protected)
+- Real-time alerts for surveys with rising bot rates
+- Machine-learning models alongside the rule-based engine
 
-### Phase 3 (Future)
-- 📋 Multi-language support
-- 📋 Advanced reporting
-- 📋 Enterprise features
-- 📋 API marketplace
-- 📋 Billing system
-- 📋 Multi-tenant support
+## 📄 License
 
-## 🎯 Performance Achievements
-
-- **Response Times**: Sub-100ms for most endpoints
-- **Database**: Async operations with connection pooling
-- **Error Handling**: Comprehensive validation and user-friendly messages
-- **Scalability**: Modular architecture ready for horizontal scaling
-- **Testing**: Automated performance validation with Locust
-- **Architecture**: Well-documented system design with clear interaction patterns
-- **Frontend**: Fast, responsive React dashboard with real-time updates
-- **Integration**: Seamless survey platform integration with webhook testing
-- **Production**: Successfully deployed on GCP with Cloud Run and Cloud Storage
-- **Infrastructure**: Automated deployment with PowerShell scripts and Cloud Build
-- **Monitoring**: Health checks and metrics exposed for production monitoring ✅ **VERIFIED**
-- **System Health**: All endpoints operational, database connected, full analysis pipeline tested
-- **Configuration**: Centralized config system enables zero-code environment switching
-- **Environment Management**: All URLs dynamically derived from environment variables
-- **Text Quality Analysis**: GPT-4o-mini integration with caching, rate limiting, and cost optimization ✅ **100% TEST ACCURACY ACHIEVED**
-- **Fraud Detection**: Complete fraud detection system with IP tracking, device fingerprinting, duplicate detection, geolocation, and velocity checking ✅ **FULLY OPERATIONAL**
-- **Composite Detection**: Unified bot detection combining behavioral patterns (40%), text quality (30%), and fraud detection (30%) ✅ **FULLY OPERATIONAL**
-- **Real-time Processing**: Automatic question/answer capture and immediate text analysis
-- **OpenAI Integration**: Production-ready with 100% classification accuracy on test cases ✅ **VERIFIED**
-- **Hierarchical Fraud Detection**: Survey/platform/respondent/session-level fraud summaries with efficient database queries ✅ **COMPLETED**
-
----
-
-**Built with ❤️ for secure and reliable bot detection** 
+MIT License. See [LICENSE](LICENSE).

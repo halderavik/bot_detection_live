@@ -2,13 +2,16 @@
 
 This guide explains how to push only specific changes to GitHub instead of pushing all modifications at once. This is useful for incremental deployments, feature rollouts, or when you want to deploy only certain components.
 
+Pushing to GitHub does not deploy anything. The production backend (Cloud Run) and frontend (Cloud Storage) are deployed by hand with the commands in [Deploying to Production](#deploying-to-production).
+
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Checking Current Changes](#checking-current-changes)
 3. [Selective Staging](#selective-staging)
 4. [Common Deployment Scenarios](#common-deployment-scenarios)
-5. [Best Practices](#best-practices)
-6. [Troubleshooting](#troubleshooting)
+5. [Deploying to Production](#deploying-to-production)
+6. [Best Practices](#best-practices)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -156,11 +159,13 @@ git push origin main
 
 ### Scenario 3: Deploy Only Database Migrations
 
+New tables do not need a migration. The backend creates any missing table at startup (`Base.metadata.create_all` in `backend/main.py`). This is how `tracked_surveys`, `survey_quality_rules` and `app_settings` were added. A migration script is only needed when an existing table changes (a new column or index, for example). The example below is from the earlier fraud detection change.
+
 ```powershell
 # 1. Check migration files
 git status backend/migrations/
 
-# 2. Stage migration files only
+# 2. Stage migration files only (example)
 git add backend/migrations/add_fraud_detection_tables.sql
 git add backend/run_fraud_detection_migration.py
 
@@ -367,6 +372,84 @@ git push origin main
 
 ---
 
+## Deploying to Production
+
+Production runs in project `survey-bot-detection`, region `northamerica-northeast2`.
+
+- Backend: Cloud Run service `bot-backend`, https://bot-backend-119522247395.northamerica-northeast2.run.app
+- Frontend: bucket `bot-detection-frontend-20251208`, https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
+
+### Warning: do not run deploy-backend.ps1 as written
+
+`deploy-backend.ps1` uses `--set-env-vars` and `--set-secrets`. These replace all environment variables and secrets on the service. It also passes `--add-cloudsql-instances` with only `bot-db` and sets `--memory 512Mi`. Running it as is drops settings (such as `ADMIN_TOKEN`), drops the `bot-db-v2` connection and lowers memory below what the service needs. Use the commands below instead. They change only the image (and anything you pass with `--update-*`) and keep everything else.
+
+### Backend
+
+1. Check what will be uploaded. `backend/.gcloudignore` keeps `.env` files, virtualenvs, `*.db`, `tests/`, logs and caches out of the upload. `backend/.dockerignore` keeps the same files out of the image.
+   ```powershell
+   gcloud meta list-files-for-upload backend
+   ```
+   Make sure no `.env` file or local database is in the list.
+
+2. Build the image, tagged with the short git sha of the commit you are deploying:
+   ```powershell
+   $sha = git rev-parse --short HEAD
+   gcloud builds submit ./backend --tag northamerica-northeast2-docker.pkg.dev/survey-bot-detection/backend/bot-backend:$sha --project survey-bot-detection
+   ```
+
+3. Deploy the image:
+   ```powershell
+   gcloud run deploy bot-backend --image northamerica-northeast2-docker.pkg.dev/survey-bot-detection/backend/bot-backend:$sha --region northamerica-northeast2 --project survey-bot-detection
+   ```
+   Add only what changes, for example:
+   - `--memory 1Gi` (the service runs with 1 GiB; pandas needs more than 512 MiB)
+   - `--update-secrets ADMIN_TOKEN=ADMIN_TOKEN:latest` to add or change one secret
+   - `--update-env-vars KEY=value` to add or change one environment variable
+
+   Never use `--set-env-vars` or `--set-secrets` here.
+
+4. Check the new revision:
+   ```powershell
+   gcloud run services describe bot-backend --region northamerica-northeast2 --project survey-bot-detection --format="value(status.traffic[].revisionName,status.traffic[].percent)"
+   curl https://bot-backend-119522247395.northamerica-northeast2.run.app/health
+   ```
+
+The service runs with 1 CPU, 1 GiB memory, min 1 / max 10 instances, Cloud SQL instances `bot-db` and `bot-db-v2`, and VPC connector `serverless-connector`. Its secrets are `DATABASE_URL`, `SECRET_KEY`, `OPENAI_API_KEY` and `ADMIN_TOKEN`.
+
+New tables are created at startup, so a backend deploy needs no migration step unless an existing table changed.
+
+### ADMIN_TOKEN
+
+`ADMIN_TOKEN` unlocks saving on the Settings page. Without it the page is read-only. To read it:
+```powershell
+gcloud secrets versions access latest --secret ADMIN_TOKEN --project survey-bot-detection
+```
+After a fresh deploy, open the deployed Settings page, unlock it with this token, and enter the Decipher API key to turn on Upload to Decipher.
+
+### Frontend
+
+```powershell
+cd frontend
+npx vite build --mode production
+cd ..
+gcloud storage rsync -r frontend/dist gs://bot-detection-frontend-20251208
+gcloud storage objects update gs://bot-detection-frontend-20251208/index.html --cache-control="no-cache"
+gcloud storage objects update "gs://bot-detection-frontend-20251208/assets/**" --cache-control="public, max-age=31536000, immutable"
+```
+
+- Do not delete unmatched files (no `--delete-unmatched-destination-objects`). `tracking-client.js` in the bucket is not part of the build and may be used by live surveys.
+- The production build uses hash addresses (`VITE_ROUTER_MODE=hash` in `frontend/.env.production`), for example `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/quality`. Local dev uses normal paths.
+
+### Rollback
+
+The live revision is `bot-backend-00069-28j` (image tag `cfc4499`). The rollback target is `bot-backend-00068-2rf`:
+```powershell
+gcloud run services update-traffic bot-backend --to-revisions bot-backend-00068-2rf=100 --region northamerica-northeast2 --project survey-bot-detection
+```
+See `rollback-procedures.md` for the full steps.
+
+---
+
 ## Best Practices
 
 ### 1. **Always Review Before Committing**
@@ -389,13 +472,17 @@ git commit -m "changes"
 ```
 
 ### 3. **Test Before Pushing**
-- Run tests locally before pushing
-- Verify migrations work correctly
+- Run the backend tests locally before pushing (see `backend/README_TESTING.md`):
+  ```powershell
+  cd backend
+  $env:SECRET_KEY = "test"; python -m pytest tests
+  ```
+- Verify migrations work correctly (only when an existing table changed)
 - Test API endpoints if backend changes
 - Test UI if frontend changes
 
 ### 4. **Deploy in Logical Groups**
-- Database migrations first
+- Database migrations first (when an existing table changed; new tables are created at startup)
 - Backend services before API endpoints
 - Backend before frontend
 - Features before documentation
@@ -600,11 +687,11 @@ git log origin/main -1
 ## Notes
 
 - **Never commit sensitive data**: Always check `.env` files, API keys, passwords
-- **Test migrations separately**: Database migrations should be tested before pushing
+- **Test migrations separately**: Database migrations should be tested before pushing. New tables need no migration; they are created at startup
 - **Coordinate with team**: Let team members know what you're deploying
 - **Use branches for major changes**: Feature branches make selective deployment easier
 - **Keep commits small**: Smaller, focused commits are easier to review and rollback
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: November 2026

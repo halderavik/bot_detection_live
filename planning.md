@@ -79,19 +79,19 @@
 - **API Integration** - Seamless backend communication
 - **Error Handling** - User-friendly error messages
 - **Performance Optimization** - Fast loading and updates
-- **Integration Management** - Webhook testing and status monitoring
-- **Settings Interface** - System configuration management
+- **Integration Management** - Webhook URLs, setup guides and real configuration status (the simulated webhook test was removed in November 2026)
+- **Settings Interface** - Saves selected settings (Decipher, Qualtrics, OpenAI, tracker address, detection threshold) behind `ADMIN_TOKEN`; see Settings model below
+- **Layout** - Grouped left sidebar (Monitor, Analyse, Set up, Developers); Overview, Live Quality, Sessions, Add tracking pages (November 2026)
 - **Toast Notifications** - User feedback and alerts
 - **Icon Integration** - Lucide React icons with proper imports
 - **Component Architecture** - Modular, reusable UI components
 
 ## 12. Integration & Webhooks ✅
 - **Qualtrics Integration** - Webhook handlers with mock mode
-- **Decipher Integration** - Survey platform support
+- **Decipher Integration** - Survey platform support; tracking added to survey XML and uploaded to Decipher with pre-checks (November 2026)
 - **Error Handling** - Graceful failure with fallback data
 - **Testing Support** - Easy integration testing
-- **Webhook Testing** - Interactive webhook testing interface
-- **Status Monitoring** - Real-time integration status
+- **Status Monitoring** - Integration status read from the backend configuration
 
 ## 13. Client SDKs ✅
 - **Python SDK** - Easy integration for Python applications
@@ -152,6 +152,44 @@
 - **Report Builder** - Fraud, grid, and timing in summary and detailed reports/CSV; respondent detail popup (click respondent ID) and full CSV per respondent with all analyses (February 2026)
 - **Dashboard Deployment (February 2026)** - Frontend redeployed to GCS with API Playground and Report Builder fraud/grid/timing features
 - **Quick Start Guide** - Comprehensive onboarding documentation
+
+- **Live Quality, Decipher XML tracking, real Settings and dashboard redesign (November 2026)** - Deployed 2026-11-26 as Cloud Run revision `bot-backend-00069-28j` and to the frontend bucket
+
+## Current Architecture & Constraints (November 2026)
+
+### Self-contained, Quant OS compatible
+- The folder has no dependency on Quant_Sys (Quant OS).
+- It stays compatible with surveys Quant OS tracked: same `QOS_` labels, it recognises the Quant OS tracking marker and re-tracks instead of tracking twice, and it uses the same device-fingerprint text.
+- `TRACKING_TOKEN_SECRET` is optional. Share it only if both systems should issue matching tokens.
+
+### Stack
+- **Backend**: FastAPI with async SQLAlchemy on Cloud SQL PostgreSQL. pandas, pyreadstat and openpyxl read and write .sav, .csv and .xlsx files for the LQ_ merge.
+- **Frontend**: React (Vite, Tailwind CSS). Shared UI kit in `frontend/src/components/ui/index.jsx`; layout in `frontend/src/components/layout/AppShell.jsx` (grouped left sidebar, top bar and slide-out menu on phones).
+- **Routing**: production uses hash addresses (`index.html#/quality`) because the dashboard is served from a storage bucket with no server-side rewrites (`VITE_ROUTER_MODE=hash` in `frontend/.env.production`). Local dev uses normal paths.
+- **Decipher**: tracking is added to the survey XML itself (tracker script, `${uuid}` as respondent id, hidden page with 21 `QOS_` variables). Upload uses Decipher's API with `validate=true` and `overwriteLive=false`, so a live survey is never overwritten. Settings Decipher would refuse (`compat` missing, below 143, or 151+ without `delphi="1"`) are caught before anything is sent.
+- **Live Quality**: per-survey rules (table `survey_quality_rules`) are applied on every read (dashboard, CSV, LQ_ variables). They never change stored results or the QOS_ values already written into Decipher.
+
+### Settings model
+- A small set of keys can be edited on the Settings page: DECIPHER_API_KEY, DECIPHER_API_BASE, DECIPHER_COMPANY, QUALTRICS_API_TOKEN, OPENAI_API_KEY, OPENAI_MODEL, TRACKER_API_BASE, TRACKING_TOKEN_SECRET, DETECTION_THRESHOLD.
+- A saved value (table `app_settings`) overrides the environment variable of the same name. It applies at once on that instance; every instance re-reads every 30 s. Removing the saved value goes back to the environment.
+- Secrets are encrypted at rest with a key derived from SECRET_KEY and are never returned to the browser.
+- Saving needs header `X-Admin-Token` matching env `ADMIN_TOKEN`. `ADMIN_TOKEN` is env only; without it the page is read-only.
+- `DETECTION_THRESHOLD` (default 0.7) is used by the detection engine for the stored verdict.
+
+### Numbers
+- Bot rate everywhere = sessions judged bots / sessions checked, counting distinct sessions.
+
+### Database
+- New tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`) are created at startup by `create_all`. Existing tables were not changed, so no migration was needed.
+
+### Deployment approach
+- Project `survey-bot-detection`, region `northamerica-northeast2`.
+- Backend: Cloud Run service `bot-backend` (1 CPU, 1 GiB memory, min 1 / max 10 instances, Cloud SQL instances `bot-db` and `bot-db-v2`, VPC connector `serverless-connector`). Secrets: DATABASE_URL, SECRET_KEY, OPENAI_API_KEY, ADMIN_TOKEN.
+- Build with `gcloud builds submit ./backend --tag .../bot-backend:<git-sha>`, then `gcloud run deploy bot-backend --image ...:<git-sha>`, passing only what changes (`--update-env-vars`, `--update-secrets`). Do not use `--set-env-vars`/`--set-secrets`, which replace everything.
+- The top-level `deploy-backend.ps1` still uses `--set-env-vars`/`--set-secrets` and only connects `bot-db`; running it as is drops settings and the `bot-db-v2` connection.
+- `backend/.gcloudignore` and `backend/.dockerignore` keep `.env`, virtualenvs, `*.db`, tests and caches out of the upload and image.
+- Frontend: `npx vite build --mode production`, then `gcloud storage rsync -r frontend/dist gs://bot-detection-frontend-20251208` without deleting unmatched files (`tracking-client.js` may be used by live surveys). Cache headers: index.html `no-cache`, assets immutable.
+- Rollback: send traffic back to the previous Cloud Run revision with `gcloud run services update-traffic`.
 
 ## Next Steps
 1. **Authentication & Security** - Implement JWT and rate limiting

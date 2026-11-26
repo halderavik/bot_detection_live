@@ -1,6 +1,6 @@
 # Database: Data Collection and Storage
 
-This document describes how every field in the deployed bot detection database is collected and stored. The production database follows the schema in `backend/schema_bot_detection_v2.sql` plus migrations for fraud detection, grid analysis, and timing analysis.
+This document describes how every field in the deployed bot detection database is collected and stored. The production database follows the schema in `backend/schema_bot_detection_v2.sql` plus migrations for fraud detection, grid analysis, and timing analysis. Three newer tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`) have no migration: the backend creates them at startup with SQLAlchemy `create_all`, which adds missing tables and leaves existing tables unchanged.
 
 ---
 
@@ -12,6 +12,8 @@ This document describes how every field in the deployed bot detection database i
   - **API**: Session creation, event ingestion, text analysis (questions/responses), composite analysis.
   - **Webhooks**: Qualtrics/Decipher survey completion (update session with `survey_id`, `respondent_id`, `platform_id`).
   - **Client SDK**: JavaScript tracking client sends behavior events and can send question/response data; all stored via backend API.
+  - **Live quality tracker**: the script added to a Decipher survey XML (Add tracking page) sends the same behavior, question, response, and analysis calls from the respondent's browser.
+  - **Dashboard**: the Add tracking page, the Live Quality rules editor, and the Settings page write `tracked_surveys`, `survey_quality_rules`, and `app_settings`.
 
 ---
 
@@ -79,7 +81,7 @@ One row per bot detection analysis run for a session (behavioral analysis only o
 |--------|------|------------------------------|
 | **id** | VARCHAR(36) | App-generated uuid on insert. |
 | **session_id** | VARCHAR(36) | From the session being analyzed (URL path for analyze endpoints). |
-| **is_bot** | BOOLEAN | Set by **BotDetectionEngine.analyze_session()**: TRUE if `confidence_score > 0.7`. |
+| **is_bot** | BOOLEAN | Set by **BotDetectionEngine.analyze_session()**: TRUE if `confidence_score` is at or above `DETECTION_THRESHOLD` (default 0.7; changeable on the Settings page). |
 | **confidence_score** | DOUBLE PRECISION | From `calculate_confidence_score(method_scores)` over the five method scores (0.0–1.0). |
 | **risk_level** | VARCHAR(20) | From `determine_risk_level(confidence_score, is_bot)` — one of `'low'`, `'medium'`, `'high'`, `'critical'`. |
 | **detection_methods** | JSONB | List of method names: `['keystroke_analysis','mouse_analysis','timing_analysis','device_analysis','network_analysis']`. |
@@ -234,6 +236,57 @@ One row per question per session with response-time metrics and speeder/flatline
 
 ---
 
+### 9. `tracked_surveys`
+
+One row per survey id that had tracking added through the Decipher XML upload (Add tracking page, `POST /api/v1/tracking/decipher`). Adding tracking to the same survey id again updates the row, so the id, and the dashboard its responses go to, stay the same.
+
+| Column | Type | How it's collected and stored |
+|--------|------|------------------------------|
+| **survey_id** | VARCHAR(255), PK | The tracking survey id used in the tracked XML (form field `survey_id` on the Add tracking page). |
+| **title** | VARCHAR(255) | Currently set to the survey id. |
+| **source_filename** | VARCHAR(255) | Name of the uploaded XML file. |
+| **platform_id** | VARCHAR(50) | Default `'decipher'`. |
+| **signed** | BOOLEAN | TRUE if the tracker was given a signed token (only when `TRACKING_TOKEN_SECRET` is set). |
+| **terminate** | BOOLEAN | TRUE if the in-survey early end on a clear bot signal was switched on. |
+| **privacy_notice** | BOOLEAN | TRUE if the privacy notice was added to the survey. |
+| **decipher_path** | VARCHAR(255) | Decipher survey the tracked XML was last uploaded to (for example `selfserve/123/456789`), set by `POST /api/v1/tracking/decipher/upload`. Used as the default target the next time. |
+| **uploads** | INTEGER | Number of times tracking was added for this survey id (starts at 1). |
+| **created_at** | TIMESTAMPTZ | DB default `now()`. |
+| **updated_at** | TIMESTAMPTZ | DB default `now()`; updated on every change. |
+
+**Where rows are created/updated:** SurveyTrackingController (`/api/v1/tracking/decipher` and `/api/v1/tracking/decipher/upload`). Live Quality uses the table to list tracked surveys first.
+
+---
+
+### 10. `survey_quality_rules`
+
+The quality rules saved for one survey id. A survey without a row uses the recommended defaults. Rules decide how the Live Quality dashboard, its CSV export, and the `LQ_` variables added to a data file judge each respondent. They are applied on every read and do not change stored detection results or the `QOS_` values written into Decipher.
+
+| Column | Type | How it's collected and stored |
+|--------|------|------------------------------|
+| **survey_id** | VARCHAR(255), PK | Survey the rules belong to (`?survey_id=`). |
+| **rules** | JSON | The full rules object (bot threshold and signals, speeder settings, straight-lining rows, text reasons, pasted answers, fraud threshold, duplicates, data-centre IPs), validated by `quality_rules.py`. |
+| **updated_at** | TIMESTAMPTZ | DB default `now()`; updated on every change. |
+
+**Where rows are created/updated/deleted:** `PUT` and `DELETE /api/v1/quality/rules?survey_id=` (LiveQualityController). Deleting the row returns the survey to the defaults.
+
+---
+
+### 11. `app_settings`
+
+Settings changed on the dashboard's Settings page. One row per setting. A row overrides the environment variable of the same name; deleting the row ("Remove saved value") goes back to the environment value.
+
+| Column | Type | How it's collected and stored |
+|--------|------|------------------------------|
+| **key** | VARCHAR(100), PK | Setting name, one of the editable keys: `DECIPHER_API_KEY`, `DECIPHER_API_BASE`, `DECIPHER_COMPANY`, `QUALTRICS_API_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TRACKER_API_BASE`, `TRACKING_TOKEN_SECRET`, `DETECTION_THRESHOLD`. |
+| **value** | TEXT | The saved value. For secrets (API keys, tokens, the tracking secret) it is encrypted with Fernet, using a key derived from `SECRET_KEY`. Secret values are never returned to the browser. |
+| **is_secret** | BOOLEAN | TRUE if the value is stored encrypted. |
+| **updated_at** | TIMESTAMPTZ | DB default `now()`; updated on every change. |
+
+**Where rows are created/updated/deleted:** `PUT /api/v1/settings` (SettingsController), which needs the `X-Admin-Token` header to match the `ADMIN_TOKEN` environment variable. Every backend instance reads the table at startup and again every 30 seconds (`runtime_settings.py`). If `SECRET_KEY` changes, saved secrets can no longer be decrypted and the environment values are used instead.
+
+---
+
 ## Data flow summary
 
 | Data | Collected from | Stored via |
@@ -248,6 +301,21 @@ One row per question per session with response-time metrics and speeder/flatline
 | Response text + text quality | SDK/survey → POST /text-analysis/responses (OpenAI) | survey_responses |
 | Grid analysis | Backend: grid analysis service reads survey_questions + survey_responses | grid_responses |
 | Timing analysis | Backend: timing service reads survey_responses + survey_questions | timing_analysis |
+| Tracked surveys | Add tracking page → POST /tracking/decipher (and /tracking/decipher/upload) | tracked_surveys |
+| Per-survey quality rules | Live Quality page → PUT/DELETE /quality/rules | survey_quality_rules |
+| Setting overrides | Settings page → PUT /settings (admin token) | app_settings |
+
+---
+
+## How counts and bot rates are calculated
+
+The aggregation queries (`/dashboard/overview`, `/dashboard/analytics/trends`, `/surveys`, `/surveys/{id}`, and the platform and respondent levels in `aggregation_service.py`) count **distinct sessions** in `detection_results`, not rows. A session that was analysed more than once counts once.
+
+- **Checked** = distinct sessions with at least one detection result.
+- **Bots** = distinct sessions with a detection result where `is_bot` is TRUE.
+- **Bot rate** = bots / checked.
+- **Humans** (`human_count` on `/surveys`) = checked − bots.
+- Daily trend buckets are aligned to midnight UTC.
 
 ---
 
@@ -268,5 +336,6 @@ One row per question per session with response-time metrics and speeder/flatline
 
 - **add_fraud_detection_tables.sql:** Creates fraud_indicators; adds sessions.device_fingerprint; adds detection_results.fraud_score and fraud_indicators (JSONB); hierarchical columns on fraud_indicators.
 - **add_grid_analysis_tables.sql:** Creates grid_responses and timing_analysis with hierarchical columns and indexes as above.
+- **No migration:** `tracked_surveys`, `survey_quality_rules`, and `app_settings` are created at startup by `create_all` (`backend/main.py`). Existing tables were not changed.
 
 This matches the deployed database behavior for the bot detection backend and frontend.

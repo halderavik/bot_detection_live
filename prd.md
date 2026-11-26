@@ -35,6 +35,15 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/timing-analysis/summary` – timing analysis summary at platform level ✅
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/timing-analysis/summary` – timing analysis summary at respondent level ✅
   - `GET /api/v1/surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/sessions/{session_id}/timing-analysis` – timing analysis at session level ✅
+  - `POST /api/v1/tracking/decipher` – add tracking to a Decipher survey XML (`?format=xml` returns the file) ✅
+  - `POST /api/v1/tracking/decipher/upload` – create a Decipher survey or replace `survey.xml` of an existing one (never overwrites a live survey) ✅
+  - `GET /api/v1/tracking/decipher/options` – tracking options and whether Decipher upload is configured ✅
+  - `GET /api/v1/quality/surveys` – every survey, tracked ones first ✅
+  - `GET /api/v1/quality/results?survey_id=` – Live Quality dashboard data under the survey's rules ✅
+  - `GET /api/v1/quality/export?survey_id=` – CSV, one row per respondent ✅
+  - `GET|PUT|DELETE /api/v1/quality/rules?survey_id=` – per-survey quality rules ✅
+  - `POST /api/v1/quality/merge?survey_id=` – return an uploaded .sav/.csv/.xlsx data file with `LQ_` variables added ✅
+  - `GET /api/v1/settings`, `POST /api/v1/settings/check`, `PUT /api/v1/settings` – read and save runtime settings (check and save need `X-Admin-Token`) ✅
 - **Classification Engine**: Rule-based checks with thresholds, returns `is_bot`, `confidence_score`, `risk_level`, plus performance metadata ✅
 - **Text Quality Engine**: GPT-4o-mini powered analysis for gibberish, copy-paste, relevance, generic answers, and quality scoring ✅
 - **Data Persistence**: PostgreSQL tables for sessions, behavior_data, detection_results, survey_questions, survey_responses including extra columns for `processing_time_ms` and `event_count` ✅
@@ -43,11 +52,12 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
   - Latency analysis (ms) ✅
   - Event volume per session ✅
   - Bot/human rates over time ✅
+  - Bot rate = sessions judged bots / sessions checked, counting distinct sessions, the same on every page ✅
   - Session overview and trends ✅
 - **Architecture Documentation**: Comprehensive system design and interaction patterns ✅
 - **API Documentation**: Complete API reference with examples ✅
 - **Frontend Dashboard**: Complete React-based monitoring interface with comprehensive features ✅
-- **Integration Management**: Webhook testing, status monitoring, and setup guides ✅
+- **Integration Management**: Webhook URLs, real configuration status, and setup guides ✅
 
 ## 3. Key Features ✅
 1. **Session Management**: Unique `session_id` via UUID ✅
@@ -83,12 +93,21 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 12. **Integration Support**: Qualtrics and Decipher webhook handlers with mock mode ✅
 13. **Architecture Design**: Well-documented system architecture with clear interaction patterns ✅
 14. **Frontend Integration**: Complete React dashboard with real-time updates and comprehensive features ✅
-15. **Integration Management**: Webhook testing interface and status monitoring ✅
+15. **Integration Management**: Webhook URLs and real configuration status (simulated webhook test removed November 2026) ✅
 16. **API Playground**: Interactive API testing interface ✅
 17. **Quick Start Guide**: Step-by-step integration instructions ✅
 18. **User Experience**: Toast notifications, responsive design, and error handling ✅
 19. **Composite Scoring**: Unified bot detection combining behavioral + text quality analysis ✅
 20. **Report Builder Respondent Detail**: Click respondent ID in detailed report to open popup with full details, responses of interest, and decision reasons; CSV export includes all analyses per respondent (text responses of interest, fraud/grid/timing explanations) ✅
+21. **Decipher XML Tracking (Add tracking page)**: Upload a complete Decipher survey XML and get it back with tracking added: tracker script, Decipher's `${uuid}` as respondent id, and a hidden page with 21 `QOS_` variables. Optional privacy notice (on by default). Optional early end on a clear bot signal (off by default, decisive signals only, only on a page break every respondent reaches). Removing the tracking gives back the original file byte for byte. Survey-body fragments are refused ✅
+22. **Upload to Decipher**: Create a new Decipher survey or replace the XML of an existing one from the Add tracking page. Decipher validates the file and a live survey is never overwritten. Settings Decipher would refuse (`compat` missing, below 143, or 151+ without `delphi="1"`) are caught first and nothing is sent. Decipher's own error messages are shown in full. QOS_ variables are added to saved data layouts ✅
+23. **Live Quality (per survey)**: Totals, open-end, fraud, grid and timing summaries, 9 flags (Bot-like behaviour, Low-quality open ends, Pasted answers, Straight-lining, Speeder, Flatliner, Duplicate, High fraud risk, Data-centre IP), quality distribution, trend, and one row per session ✅
+24. **Per-survey Quality Rules**: Bot threshold, bot signals, speeder limits, straight-lining rows, open-end reasons, pasted answers, fraud threshold, duplicates and data-centre IPs can be set per survey (defaults: bot threshold 0.7, fraud threshold 0.7). Rules apply to the dashboard, CSV and LQ_ variables, and never change stored results or the QOS_ values in Decipher ✅
+25. **Quality CSV and LQ_ Merge**: Download a CSV with one row per respondent, or upload the survey's data file (.sav, .csv, .xlsx, up to 50 MB) and get the same file back with `LQ_` variables. Records match on QOS_SESSION, then QOS_RESPONDENT, then Decipher's `uuid`. SPSS labels are kept and LQ_ variables are labelled ✅
+26. **Settings that Save**: Decipher, Qualtrics and OpenAI keys, OpenAI model, tracker address, tracking token secret and detection threshold can be saved from the Settings page. A saved value overrides the environment and applies within 30 s on every instance. Secrets are encrypted at rest and never shown. Saving needs `ADMIN_TOKEN`; without it the page is read-only ✅
+27. **Dashboard Layout**: Grouped left sidebar (Monitor, Analyse, Set up, Developers) with service status; Overview (last 7 days, surveys with bot rate, starts and bots per day, latest bots); Sessions list with filters kept in the URL and pagination; Session details with verdict and decisive signals first. Works on phones. Production addresses use a hash (`index.html#/quality`) so every page loads from the storage bucket ✅
+28. **Quant OS Compatibility**: Self-contained, with no dependency on Quant OS, but uses the same `QOS_` labels, recognises Quant OS tracking (re-tracks instead of tracking twice), and uses the same device-fingerprint text ✅
+29. **No Placeholder Content**: The dashboard shows only real data; made-up trends, simulated webhook tests, fake integration logs, a fixed "Production Ready" badge, a mocked session comparison and a non-working dark-mode toggle were removed ✅
 
 ## 4. Success Metrics ✅
 - <200 ms median `processing_time_ms` per request ✅ (Achieved: ~100ms average)
@@ -161,11 +180,10 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 
 ## 11. Integration Capabilities ✅
 - **Qualtrics Integration**: Webhook handlers with graceful error handling
-- **Decipher Integration**: Survey platform support with mock mode
+- **Decipher Integration**: Survey platform support with mock mode; tracking added to survey XML and uploaded to Decipher with pre-checks
 - **Error Handling**: Comprehensive error management for external services
 - **Testing Support**: Easy integration testing and validation
-- **Webhook Testing**: Interactive webhook testing interface
-- **Status Monitoring**: Real-time integration status
+- **Status Monitoring**: Integration status read from the backend configuration
 
 ## 12. Client SDKs ✅
 - **Python SDK**: Easy integration for Python applications
@@ -183,10 +201,11 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 
 ## 14. Frontend Implementation ✅
 - **React Dashboard**: Complete monitoring interface with real-time updates
-- **Integration Management**: Webhook testing and status monitoring interface
+- **Integration Management**: Webhook URLs, setup guides and real configuration status
+- **Live Quality and Add tracking**: Per-survey quality dashboard, rules, CSV and LQ_ merge; Decipher XML tracking and upload
 - **API Playground**: Interactive API testing interface
 - **Quick Start Guide**: Step-by-step integration instructions
-- **Settings Interface**: System configuration management
+- **Settings Interface**: Saves selected settings behind `ADMIN_TOKEN`; read-only without it
 - **Toast Notifications**: User feedback and alerts
 - **Responsive Design**: Mobile-friendly interface with Tailwind CSS
 - **Error Handling**: User-friendly error messages and fallback states
@@ -219,22 +238,24 @@ Enhance the Bot-vs-Human Detection API + Dashboard to include real-time fraud si
 - **Grid & Timing Analysis**: Complete implementation with 8 new hierarchical endpoints and 3 frontend widgets (February 2026)
 - **Test Coverage**: 40 comprehensive tests covering grid and timing analysis (100% passing rate) (February 2026)
 - **Dashboard Redeploy (February 2026)**: Frontend redeployed to GCS with API Playground fraud/grid/timing endpoint templates and Report Builder fraud, grid, and timing in summary blocks and detailed table/CSV; respondent detail popup (click respondent ID) and full CSV per respondent (text responses of interest, decision reasons)
+- **Live Quality and Decipher Tracking (November 2026)**: Per-survey Live Quality with rules, CSV and LQ_ merge; Decipher XML tracking and upload with pre-checks; Settings that save behind ADMIN_TOKEN; redesigned dashboard with consistent bot rate; 275 backend tests passing
 
 ## 16. Production Deployment Status ✅
 - **Backend Service**: Deployed on Google Cloud Run at `https://bot-backend-119522247395.northamerica-northeast2.run.app`
-- **Frontend Dashboard**: Deployed on Cloud Storage with CDN at `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html`
+- **Frontend Dashboard**: Deployed as a static site in Cloud Storage at `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html` (pages use hash addresses, e.g. `index.html#/quality`)
 - **Database**: Cloud SQL PostgreSQL with hierarchical schema and composite indexes
 - **Networking**: VPC Connector with optimized egress routing for Cloud SQL and external APIs
-- **Secrets**: Secret Manager integration for DATABASE_URL, SECRET_KEY, and OPENAI_API_KEY
+- **Secrets**: Secret Manager integration for DATABASE_URL, SECRET_KEY, OPENAI_API_KEY and ADMIN_TOKEN
 - **OpenAI Integration**: Fully operational with GPT-4o-mini for text quality analysis
 - **Health Monitoring**: Real-time health checks and metrics endpoints
-- **Deployment Automation**: PowerShell scripts for backend and frontend deployment
+- **Deployment Automation**: PowerShell scripts for backend and frontend deployment. The top-level `deploy-backend.ps1` replaces all env vars and secrets and connects only `bot-db`; current deploys use `gcloud run deploy` with `--update-env-vars`/`--update-secrets`
 - **Testing**: Production test suite with 100% passing rate
 - **Documentation**: Complete integration guides for Decipher and other survey platforms
 - **Stage 3 Deployment**: Fraud & Duplicate Detection fully operational with comprehensive testing completed (February 2026)
 - **Frontend Deployment**: Frontend deployed to Cloud Storage with all components verified operational (February 2026)
 - **Dashboard Update (February 2026)**: API Playground includes fraud, grid, and timing templates; Report Builder includes Fraud & Duplicate, Grid Analysis, and Timing Analysis in summary and detailed reports/CSV; clickable respondent ID opens full-detail popup; CSV includes every analysis per respondent (text responses of interest, fraud/grid/timing explanations)
 - **Cloud SQL Data Flow**: All frontend endpoints verified pulling data correctly from Cloud SQL database (February 2026)
+- **November 2026 Release**: Live Quality, Decipher XML tracking and upload, saving Settings and the redesigned dashboard deployed 2026-11-26 as Cloud Run revision `bot-backend-00069-28j` (1 GiB memory; rollback target `bot-backend-00068-2rf`) and to the frontend bucket. New tables `tracked_surveys`, `survey_quality_rules`, `app_settings` are created at startup. Upload to Decipher turns on once the Decipher API key is entered on the deployed Settings page
 
 ## 17. Next Phase Requirements
 - **Authentication & Security**: JWT tokens, API keys, rate limiting

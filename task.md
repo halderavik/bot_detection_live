@@ -93,6 +93,58 @@
 
 ## Discovered During Work
 
+### Live Quality, Decipher XML tracking, real Settings, dashboard redesign and deployment (2026-11-26)
+Commits `cfc4499` and `6244608` on `main`. Deployed 2026-11-26.
+- [x] **Self-contained**: The folder has no dependency on Quant_Sys (Quant OS). It stays compatible with surveys Quant OS tracked: same `QOS_` labels, recognises the Quant OS tracking marker and re-tracks instead of tracking twice, same device-fingerprint text. `TRACKING_TOKEN_SECRET` is optional and only shared if both systems should issue matching tokens.
+- [x] **Decipher XML tracking** (`services/decipher_tracking.py`, `quality_variables.py`, `controllers/survey_tracking_controller.py`, `assets/live_quality_tracker.js`, frontend `SurveyTracking.jsx`)
+  - [x] `POST /api/v1/tracking/decipher` adds the tracker script (`respview.client.js` style, `mode="after"`), uses Decipher's `${uuid}` as respondent id, and adds a hidden results page with 21 `QOS_` variables; `?format=xml` returns the file itself
+  - [x] Optional privacy notice (`QOS_privacy`, on by default) and optional early end on a clear bot signal (`QOS_EARLY` + `QOS_bot_term`, off by default, decisive signals only, only on a page break every respondent reaches)
+  - [x] Removing the tracking gives back the original file byte for byte
+  - [x] `GET /api/v1/tracking/decipher/options` (signals, default privacy text, whether signed, whether upload is configured, max upload 5 MB)
+  - [x] Only complete Decipher surveys (`<survey>` root) are accepted; fragments are refused as not well-formed
+  - [x] Tracker API address from `TRACKER_API_BASE`, else the address the upload came in on; must be https except localhost
+  - [x] Table `tracked_surveys`
+- [x] **Upload to Decipher with pre-checks** (`services/decipher_upload.py`)
+  - [x] `POST /api/v1/tracking/decipher/upload` creates a new Decipher survey or replaces `survey.xml` of a given path (or the path used last time for that survey id); `validate=true`, `overwriteLive=false`
+  - [x] Adds the QOS_ variables to saved data layouts (`layouts.json`) if any exist
+  - [x] Survey settings Decipher refuses are caught first (no `compat`, `compat` below 143, or `compat` 151+ without `delphi="1"`): Add tracking warns; upload stops with HTTP 422 and "nothing was sent to Decipher", so no empty survey is created
+  - [x] Decipher's own error messages, including script errors (`Exec (page N): ...`), are shown in full
+  - [x] Example files `backend/tests/fixtures/espresso_machine_tracker.xml` and `coffee_demo_survey.xml` pass Decipher's checks; the coffee demo was run end to end (tracked, uploaded, taken as a respondent, seen on Live Quality, QOS_ values found in Decipher's data export)
+- [x] **Live Quality** (`services/live_quality.py`, `quality_rules.py`, `quality_merge.py`, `controllers/live_quality_controller.py`, frontend `LiveQuality.jsx`, `components/quality/*`)
+  - [x] `GET /api/v1/quality/surveys` (tracked surveys first) and `GET /api/v1/quality/results?survey_id=` (totals, text/fraud/grid/timing summaries, 9 flag counts, quality distribution, trend, one row per session)
+  - [x] Per-survey rules: `GET|PUT|DELETE /api/v1/quality/rules?survey_id=`, stored in table `survey_quality_rules`; applied on every read and never change stored results or the QOS_ values written into Decipher
+  - [x] CSV export: `GET /api/v1/quality/export?survey_id=`, one row per respondent
+  - [x] LQ_ merge: `POST /api/v1/quality/merge?survey_id=` takes .sav, .csv or .xlsx (up to 50 MB) and returns the same file with `LQ_` variables; matches on QOS_SESSION, then QOS_RESPONDENT, then Decipher's `uuid`; SPSS labels kept; re-upload replaces existing LQ_ columns; report in the `X-Quality-Report` header
+  - [x] Added pandas, pyreadstat and openpyxl to `requirements.txt`
+- [x] **Settings that really save** (`services/runtime_settings.py`, `controllers/settings_controller.py`, `models/app_setting.py`, frontend `Settings.jsx`)
+  - [x] Editable: DECIPHER_API_KEY, DECIPHER_API_BASE, DECIPHER_COMPANY, QUALTRICS_API_TOKEN, OPENAI_API_KEY, OPENAI_MODEL, TRACKER_API_BASE, TRACKING_TOKEN_SECRET, DETECTION_THRESHOLD
+  - [x] Saved value overrides the environment variable, applies at once on that instance, every instance re-reads every 30 s; "Remove saved value" goes back to the environment
+  - [x] Secrets encrypted at rest (key derived from SECRET_KEY) and never returned to the browser
+  - [x] Saving and checking need header `X-Admin-Token` matching env `ADMIN_TOKEN`; no ADMIN_TOKEN means read-only (403), wrong token 401
+  - [x] `DETECTION_THRESHOLD` (0.3–0.99, default 0.7) is now used by the detection engine for the stored verdict
+  - [x] Table `app_settings`
+  - [x] Removed settings nothing used: notifications, data retention, debug mode, per-method switches, min events
+- [x] **Dashboard redesign** (`components/layout/AppShell.jsx`, `components/ui/index.jsx`)
+  - [x] Grouped left sidebar (Monitor, Analyse, Set up, Developers) with service status at the bottom; top bar and slide-out menu on phones
+  - [x] Overview replaces the old Dashboard and Surveys list (`/dashboard` and `/surveys` redirect to `/`): last-7-days tiles, surveys table with bot rate and links to Live Quality, starts and bots per day (14 days), latest bots
+  - [x] Sessions page: latest verdict, risk, bot score, platform, events; filters (verdict, risk, platform, search) kept in the URL; pagination
+  - [x] Session details: verdict and decisive signals first, behaviour scores with plain labels, session facts, fraud, open ends, grid, timing, collapsible event log and raw analysis output
+  - [x] Unknown paths show a "page doesn't exist" view
+- [x] **Consistent bot rate**: sessions judged bots / sessions checked, counting distinct sessions, on `/dashboard/overview`, `/surveys` (adds `checked_count`), `/surveys/{id}` and platform/respondent aggregations; `/dashboard/sessions` filters (`platform`, `risk_level` incl. `unknown`, `is_bot`, `survey_id`, `search`) work; trends use day buckets aligned to midnight UTC
+- [x] **Removed fake features**: hard-coded "from last week" trends, random "Test Webhook" result, made-up integration logs, fixed "Production Ready" badge, mocked session comparison, non-working dark-mode toggle
+- [x] **Fixes**: Integrations always showed "Not Configured" (response read wrongly); grid, timing and hierarchical fraud widgets refetched in an endless loop
+- [x] **Hash routing for the bucket**: production uses `index.html#/...` addresses (`VITE_ROUTER_MODE=hash` in `frontend/.env.production`); local dev uses normal paths
+- [x] **Ignore files**: `backend/.gcloudignore` and `backend/.dockerignore` keep `.env`, virtualenvs, `*.db`, tests and caches out of the upload and image
+- [x] **Tests**: 275 backend tests pass (`cd backend && SECRET_KEY=test python -m pytest tests`, needs `aiosqlite`). New: test_decipher_tracking.py, test_tracking_upload_endpoint.py, test_decipher_upload.py, test_quality_variables.py, test_live_quality.py, test_live_quality_endpoints.py, test_quality_merge.py, test_runtime_settings.py, test_dashboard_numbers.py
+- [x] **Backend deployment**: image tag `cfc4499` built with Cloud Build and deployed to Cloud Run as revision `bot-backend-00069-28j` (rollback target `bot-backend-00068-2rf`); memory raised to 1 GiB for pandas; new secret `ADMIN_TOKEN` added with `--update-secrets`; other env vars, secrets and Cloud SQL connections (`bot-db`, `bot-db-v2`) kept
+- [x] **Database**: new tables `tracked_surveys`, `survey_quality_rules`, `app_settings` created at startup by `create_all`; no migration needed; existing tables unchanged
+- [x] **Frontend deployment**: built with `npx vite build --mode production`, synced to `gs://bot-detection-frontend-20251208` without deleting unmatched files (`tracking-client.js` may be used by live surveys); cache headers set (index.html `no-cache`, assets immutable)
+
+Open follow-ups:
+- [ ] Enter the Decipher API key on the deployed Settings page (unlock with ADMIN_TOKEN) to turn on Upload to Decipher
+- [ ] Fix top-level `deploy-backend.ps1`: it still uses `--set-env-vars`/`--set-secrets` (replaces all env vars and secrets) and `--add-cloudsql-instances` with only `bot-db`; running it as is drops settings and the `bot-db-v2` connection. Switch to `--update-env-vars`/`--update-secrets` and pass only what changes
+- [ ] Open-end scoring needs `OPENAI_API_KEY` in any environment where it is unset (it can be entered on the Settings page)
+
 ### Report Builder respondent detail popup and full CSV (2026-02-11)
 - [x] **Backend**: Extended `RespondentDetail` with `text_responses_of_interest`, `fraud_flag_reasons`, `fraud_velocity_summary`, `grid_explanation`, `timing_explanation`; report service builds these in `_create_respondent_detail` and adds columns in `generate_csv_report`.
 - [x] **Frontend**: Clickable respondent ID in detailed report table opens modal with session info, bot detection, text quality + responses of interest, fraud, grid, timing (including decision reasons).
@@ -412,6 +464,8 @@ Added: 2025-09-29 — End-to-end steps to deploy on Google Cloud Platform
 - [x] Cloud Run Backend URL: `https://bot-backend-119522247395.northamerica-northeast2.run.app`
 - [x] Frontend Production URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/`
 - [x] Frontend Direct URL: `https://storage.googleapis.com/bot-detection-frontend-20250929/index.html`
+- [x] Current frontend URL (2026-11-26): `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html` (hash addresses, e.g. `#/quality`)
+- [x] Current backend revision (2026-11-26): `bot-backend-00069-28j`; also reachable at `https://bot-backend-i56xopdg6q-pd.a.run.app`
 - [x] Load Balancer IP: `http://34.95.104.61` (HTTP only, for testing)
 - [x] Metrics Endpoint: `https://bot-backend-119522247395.northamerica-northeast2.run.app/metrics` ✅ Operational
 - [x] Set frontend `.env`:
@@ -488,6 +542,7 @@ Added: 2025-09-29 — Static hosting for Vite React build on GCS with global CDN
 Notes:
 - Console setup is faster for LB+CDN; Terraform recommended for infra-as-code later.
 - For single-page apps, ensure SPA routing: add rewrite to `index.html` (LB URL map or Cloud CDN/Cloud Run routing). For bucket-only hosting, keep client-side routes under `/` paths that exist.
+- [x] Bucket-only SPA routing solved with hash addresses (`VITE_ROUTER_MODE=hash`), e.g. `https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/quality` (2026-11-26).
 
 ### D) CORS and Backend Config ✅
 - [x] Update backend allowed origins to your frontend domain:
@@ -529,7 +584,7 @@ Notes:
 - **Frontend Integration**: Hierarchical fraud widgets in all detail views ✅ **COMPLETED**
 - **Unit Tests**: 100% passing rate ✅ **COMPLETED**
 - **Documentation**: Fully updated ✅ **COMPLETED**
-- **Status**: Implementation complete, ready for production deployment ⏳
+- **Status**: Implementation complete and deployed to production (February 2026) ✅
 
 The project has achieved significant milestones with a fully functional bot detection system including:
 - ✅ Complete backend API with async operations
@@ -908,6 +963,7 @@ The deploy script automatically runs `prepare_database_for_deploy.ps1` first (us
 
 - [ ] **Real-Time Filtering Service (Hierarchical)**
   - [ ] Implement auto-flagging rules with hierarchical scope (survey/platform level)
+    - Survey-level flag rules exist since 2026-11-26 in Live Quality (`/api/v1/quality/rules?survey_id=`); platform-level scope is not built
   - [ ] Build quality-based quotas with hierarchical tracking
   - [ ] Create manual review queue with hierarchical organization
   - [ ] Add filtering audit trail with hierarchical context

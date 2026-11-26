@@ -1,5 +1,7 @@
 # Production Database Migration Guide
 
+> **Current state (November 2026):** This is a record of a one-off migration that added the `platform_id` column to `sessions`. It is not part of a normal deploy. New tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`) are created when the backend starts (`Base.metadata.create_all` in `main.py`), so they need no migration. Existing tables were not changed. Only run SQL like this when an existing table changes. For deploy and rollback steps, see `SELECTIVE_DEPLOYMENT_GUIDE.md` and `rollback-procedures.md` in the repository root.
+
 ## Issue
 Production database is missing the `platform_id` column in the `sessions` table, causing session creation to fail with HTTP 500 errors.
 
@@ -78,7 +80,9 @@ python test_production_text_analysis.py
 
 The tests should now pass with proper text analysis results.
 
-## Current Status
+## Status When This Guide Was Written
 
 - ✅ Local database: Has `platform_id` column
 - ⚠️ Production database: Needs `platform_id` column (run migration above)
+
+This was the status before the migration. The SQL above is safe to re-run: it checks for the column first.

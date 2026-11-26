@@ -7,13 +7,16 @@
 4. [Text Quality Analysis APIs](#text-quality-analysis-apis)
 5. [Integration APIs](#integration-apis)
 6. [Dashboard APIs](#dashboard-apis)
-7. [Health & Monitoring](#health--monitoring)
-8. [Error Handling](#error-handling)
-9. [Integration Guides](#integration-guides)
-10. [Client SDKs](#client-sdks)
-11. [Rate Limits & Best Practices](#rate-limits--best-practices)
-12. [Frontend Integration](#frontend-integration)
-13. [Hierarchical API (V2)](#hierarchical-api-v2)
+7. [Survey Tracking APIs (Decipher)](#survey-tracking-apis-decipher)
+8. [Live Quality APIs](#live-quality-apis)
+9. [Settings APIs](#settings-apis)
+10. [Health & Monitoring](#health--monitoring)
+11. [Error Handling](#error-handling)
+12. [Integration Guides](#integration-guides)
+13. [Client SDKs](#client-sdks)
+14. [Rate Limits & Best Practices](#rate-limits--best-practices)
+15. [Frontend Integration](#frontend-integration)
+16. [Hierarchical API (V2)](#hierarchical-api-v2)
 
 ---
 
@@ -31,6 +34,9 @@ The Bot Detection API provides comprehensive bot detection capabilities through 
 - **Real-time Analysis**: Perform bot detection analysis with confidence scoring
 - **Survey Integration**: Seamless integration with Qualtrics and Decipher
 - **Dashboard Analytics**: Comprehensive monitoring and reporting
+- **Decipher Tracking**: Add live tracking to a Decipher survey XML and upload it to Decipher
+- **Live Quality**: Per-survey quality rules, live results, CSV export, and `LQ_` variables added to a data file
+- **Settings**: Integration keys, tracking and the bot threshold, saved from the dashboard
 - **Client SDKs**: Python and JavaScript libraries for easy integration
 - **Frontend Dashboard**: Complete React-based monitoring interface
 - **Integration Management**: Webhook testing and status monitoring
@@ -66,7 +72,7 @@ https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 Note: Interactive API docs are available at `/docs` in both development and production. Use the curl examples below for production testing.
 
 ### Authentication
-Currently, the API uses basic authentication. In production, this should be replaced with JWT tokens or API keys.
+Most endpoints do not require authentication. Changing settings (`POST /settings/check`, `PUT /settings`) needs the `X-Admin-Token` header to match the `ADMIN_TOKEN` environment variable; see [Settings APIs](#settings-apis).
 
 ### Headers
 ```http
@@ -605,107 +611,638 @@ GET /integrations/status
 
 ## Dashboard APIs
 
+### How Bot Numbers Are Counted
+Every dashboard number counts sessions, not detection rows. A session analysed more than once counts once.
+- **Checked**: sessions with at least one detection result (analysed).
+- **Bots**: checked sessions with a detection that judged them a bot.
+- **Bot rate**: bots / checked x 100. It is 0 when nothing has been checked. Sessions that were never analysed are not part of the rate.
+
+The survey, platform and respondent aggregations in [API_V2.md](API_V2.md) use the same rule.
+
 ### 1. Dashboard Overview
 ```http
 GET /dashboard/overview
 ```
 
-**Description:** Returns high-level statistics and metrics.
+**Description:** Returns statistics for sessions created in the last `days` days.
+
+**Query Parameters:**
+- `days`: Number of days to cover (default: 7)
 
 **Response:**
 ```json
 {
-  "total_sessions": 1250,
-  "active_sessions": 45,
-  "bot_detection_rate": 0.12,
-  "average_confidence": 0.78,
-  "total_events": 125000,
+  "period": {
+    "start_date": "2026-11-19T10:00:00",
+    "end_date": "2026-11-26T10:00:00",
+    "days": 7
+  },
+  "sessions": {
+    "total": 1250,
+    "active": 45,
+    "completed": 1100,
+    "completion_rate": 88.0
+  },
+  "detections": {
+    "total": 1000,
+    "checked": 1000,
+    "bots_detected": 120,
+    "high_confidence": 300,
+    "bot_rate": 12.0
+  },
+  "events": {
+    "total": 125000,
+    "by_type": { "keystroke": 40000, "mouse_move": 70000 }
+  },
   "platforms": {
     "qualtrics": 850,
     "decipher": 400
-  },
-  "risk_distribution": {
-    "low": 1050,
-    "medium": 150,
-    "high": 50
   }
 }
 ```
+
+`detections` covers sessions created in the period:
+- `checked`: sessions that were analysed. `total` has the same value and is kept for older clients.
+- `bots_detected`: checked sessions judged bots.
+- `high_confidence`: checked sessions with a detection whose confidence score is 0.8 or higher.
+- `bot_rate`: `bots_detected / checked x 100` (a percentage, 0 when nothing was checked).
+
+`events` counts events received in the period; `platforms` counts sessions per `platform` value.
 
 ### 2. Session List
 ```http
 GET /dashboard/sessions
 ```
 
-**Description:** Returns a paginated list of sessions.
+**Description:** Returns a paginated list of sessions, newest first, each with its latest detection result.
 
 **Query Parameters:**
 - `page`: Page number (default: 1)
-- `limit`: Items per page (default: 20)
-- `status`: Filter by status (active, completed, expired)
-- `platform`: Filter by platform (qualtrics, decipher)
-- `risk_level`: Filter by risk level (low, medium, high)
+- `limit`: Items per page (default: 50, max: 100)
+- `platform`: Sessions whose `platform` or `platform_id` equals this value
+- `risk_level`: Latest risk level (for example `low`, `medium`, `high`; case does not matter). `unknown` returns sessions that have not been analysed.
+- `is_bot`: `true` or `false`, the latest bot verdict. Sessions that have not been analysed match neither.
+- `survey_id`: Sessions of this survey
+- `search`: Sessions whose session id, respondent id or survey id contains this text
+
+Filters can be combined. `pagination.total` counts the sessions that match the filters.
 
 **Response:**
 ```json
 {
   "sessions": [
     {
-      "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
-      "created_at": "2025-06-29T00:10:01.707621+00:00",
-      "status": "active",
-      "platform": "qualtrics",
+      "id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+      "created_at": "2026-11-26T00:10:01.707621",
+      "last_activity": "2026-11-26T00:15:30.000000",
+      "is_active": true,
+      "platform": "decipher",
+      "survey_id": "coffee_demo",
+      "respondent_id": "a1b2c3d4",
       "event_count": 150,
-      "latest_detection": {
-        "is_bot": false,
-        "confidence_score": 0.85,
-        "risk_level": "LOW"
-      }
+      "analyzed": true,
+      "is_bot": false,
+      "risk_level": "low",
+      "confidence_score": 0.15,
+      "analyzed_at": "2026-11-26T00:15:31.000000"
     }
   ],
   "pagination": {
     "page": 1,
-    "limit": 20,
+    "limit": 50,
     "total": 1250,
-    "pages": 63
+    "pages": 25
   }
 }
 ```
+
+- `platform` falls back to `platform_id` when `platform` is empty.
+- `risk_level` is lowercase, and `unknown` when the session has not been analysed. `is_bot`, `confidence_score` and `analyzed_at` are `null` then, and `analyzed` is `false`.
 
 ### 3. Session Details
 ```http
 GET /dashboard/sessions/{session_id}/details
 ```
 
-**Description:** Returns detailed information about a specific session.
+**Description:** Returns a session with all its events and detection results.
+
+**Response (shortened):**
+```json
+{
+  "session": {
+    "id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
+    "created_at": "2026-11-26T00:10:01.707621",
+    "last_activity": "2026-11-26T00:15:30.000000",
+    "is_active": true,
+    "is_completed": false,
+    "user_agent": "Mozilla/5.0 ...",
+    "ip_address": "203.0.113.10",
+    "referrer": null,
+    "platform": "decipher",
+    "survey_id": "coffee_demo",
+    "respondent_id": "a1b2c3d4"
+  },
+  "behavior_data": [
+    {
+      "id": "...",
+      "event_type": "keystroke",
+      "timestamp": "2026-11-26T00:10:05.000000",
+      "element_id": "q1",
+      "element_type": "input",
+      "page_url": "https://example.com/survey",
+      "screen_width": 1920,
+      "screen_height": 1080,
+      "event_data": {}
+    }
+  ],
+  "detection_results": [
+    {
+      "id": "...",
+      "is_bot": false,
+      "confidence_score": 0.15,
+      "risk_level": "low",
+      "processing_time_ms": 42.0,
+      "event_count": 150,
+      "analysis_summary": "...",
+      "method_scores": {},
+      "flagged_patterns": {},
+      "analyzed_at": "2026-11-26T00:15:31.000000"
+    }
+  ],
+  "statistics": {
+    "total_events": 150,
+    "total_detections": 1,
+    "session_duration_minutes": 5.5
+  }
+}
+```
+
+`session.platform` falls back to `platform_id` when `platform` is empty.
+
+**Errors:** `404` when the session does not exist.
+
+### 4. Analytics Trends
+```http
+GET /dashboard/analytics/trends
+```
+
+**Description:** Sessions started per day, with how many of them were checked and judged bots.
+
+**Query Parameters:**
+- `days`: Number of days to cover (default: 30)
+- `interval`: Accepted for compatibility; buckets are always one day
 
 **Response:**
 ```json
 {
-  "session_id": "e41c423d-cdfb-4228-bd25-3fee8459e591",
-  "created_at": "2025-06-29T00:10:01.707621+00:00",
-  "status": "active",
-  "platform": "qualtrics",
-  "survey_id": "SV_1234567890abcdef",
-  "respondent_id": "RSP_1234567890abcdef",
-  "event_count": 150,
-  "last_event_at": "2025-06-29T00:15:30.000Z",
-  "detection_history": [
-    {
-      "is_bot": false,
-      "confidence_score": 0.85,
-      "risk_level": "LOW",
-      "created_at": "2025-06-29T00:15:30.000Z"
-    }
+  "period": {
+    "start_date": "2026-10-27T10:00:00",
+    "end_date": "2026-11-26T10:00:00",
+    "interval": "day"
+  },
+  "trends": [
+    { "date": "2026-11-25", "sessions": 40, "checked": 35, "bots": 4, "detections": 35 },
+    { "date": "2026-11-26", "sessions": 12, "checked": 9, "bots": 1, "detections": 9 }
+  ]
+}
+```
+
+- Each bucket runs from midnight UTC to the next midnight UTC, from the start day through today, empty days included.
+- Sessions are counted by the day they started. `checked` and `bots` are those sessions that were analysed and judged bots, each session counted once.
+- `detections` equals `checked` and is kept for older clients.
+
+---
+
+## Survey Tracking APIs (Decipher)
+
+Add live tracking to a Decipher survey XML, and optionally send the tracked file to Decipher. Removing the tracking gives back the original file byte for byte.
+
+### 1. Tracking Options
+```http
+GET /tracking/decipher/options
+```
+
+**Description:** Defaults the Add tracking page shows.
+
+**Response:**
+```json
+{
+  "signals": [
+    { "code": "automation", "label": "Automated or headless browser" },
+    { "code": "scripted_input", "label": "Clicks and key presses generated by script" },
+    { "code": "no_input", "label": "Pages answered with no mouse or keyboard use" },
+    { "code": "honeypot", "label": "Hidden honeypot field filled in" },
+    { "code": "untyped_answers", "label": "Open ends that appeared without typing" }
   ],
-  "event_summary": {
-    "keystrokes": 45,
-    "mouse_moves": 80,
-    "clicks": 15,
-    "focus_events": 10
+  "default_privacy_text": "...",
+  "default_after_page": 2,
+  "signed": false,
+  "decipher_upload": true,
+  "max_upload_mb": 5
+}
+```
+
+- `signed`: whether `TRACKING_TOKEN_SECRET` is set, so trackers carry a signed survey token. Signing is optional.
+- `decipher_upload`: whether a Decipher API key is configured, so `POST /tracking/decipher/upload` can be used.
+
+### 2. Add Tracking to a Decipher Survey
+```http
+POST /tracking/decipher
+Content-Type: multipart/form-data
+```
+
+**Description:** Returns the uploaded survey with live tracking added once. If the file is already tracked (including by Quant OS), the old tracking is replaced, not added twice.
+
+**Form Fields:**
+- `file` (required): The Decipher survey XML (`.xml`, or `.txt` holding the XML), up to 5 MB. It must be a complete survey with a `<survey>` root element.
+- `survey_id` (optional): Tracking survey id. Default: taken from the survey title.
+- `terminate` (optional, default `false`): End the survey early on a clear bot signal.
+- `after_page` (optional, default `2`): Page whose submit runs the in-survey check when `terminate` is on.
+- `signals` (optional): Comma-separated bot signal codes that end the survey (see options). Default: all five.
+- `privacy_notice` (optional, default `true`): Show a short privacy notice at the top of the first page (`QOS_privacy`).
+- `privacy_text` (optional): Notice text. Default: `default_privacy_text`.
+
+**Query Parameters:**
+- `format`: `json` (default) or `xml`. `xml` returns the tracked file itself as an attachment named `<name>_tracked.xml`.
+
+**What is added:**
+- The tracker script as a `respview.client.js` style with `mode="after"`, so it runs on every page alongside the survey's own scripts.
+- Decipher's `${uuid}` as the respondent id, so results match the `uuid` column in Decipher's data exports.
+- A hidden results page with 21 variables: `QOS_RESPONDENT`, `QOS_SESSION`, `QOS_FLAG`, `QOS_SCORE`, `QOS_RISK`, `QOS_STATUS`, `QOS_BEHAV`, `QOS_OES`, `QOS_FRAUD`, `QOS_DUP`, `QOS_DUP_SCORE`, `QOS_IP_RISK`, `QOS_DEVICE_RISK`, `QOS_GEO_RISK`, `QOS_VELOCITY`, `QOS_DATACENTER`, `QOS_SPEEDER`, `QOS_STRAIGHTLINE`, `QOS_FLAGCOUNT`, `QOS_REASON`, `QOS_REASONS`.
+- When `privacy_notice` is on: the notice (`QOS_privacy`).
+- When `terminate` is on: an early check (`QOS_EARLY` and `QOS_bot_term`). It acts only on the chosen decisive signals and only on a page break every respondent reaches.
+
+The tracker calls `TRACKER_API_BASE`, or else the address the upload came in on. It must be https, except for localhost.
+
+**Response (JSON):**
+```json
+{
+  "survey_id": "coffee_demo",
+  "filename": "coffee_demo_tracked.xml",
+  "xml": "<survey ...>...</survey>",
+  "replaced_existing_tracking": false,
+  "new_survey_record": true,
+  "existing_sessions": 0,
+  "signed": false,
+  "api_base": "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1",
+  "added": ["Tracker script, as a respview.client.js style with mode=\"after\" ..."],
+  "survey": { "questions": 6, "pages": 4, "loops": 0, "blocks": 1 },
+  "options": { "terminate": false, "after_page": null, "signals": [], "privacy_notice": true },
+  "early_check": { "requested": false, "page": null, "note": null },
+  "hidden_fields": ["QOS_RESPONDENT", "QOS_SESSION", "..."],
+  "warnings": [],
+  "dashboard_path": "/surveys/coffee_demo",
+  "decipher_upload": { "configured": true, "last_path": null }
+}
+```
+
+`warnings` includes survey settings Decipher will refuse, starting "Decipher will refuse this file: ...": no `compat` attribute (read as 0), `compat` below 143 (retired), or `compat` 151 or higher without `delphi="1"`. The tracked file is still returned. Surveys that use quota sheets, data files (`File("x.dat")`) or `${res.X}` resources need those files in the target Decipher survey.
+
+**Errors:**
+- `400`: Wrong file type, unknown bot signal, or another invalid option
+- `413`: File larger than 5 MB
+- `422`: Not a Decipher survey (for example a survey-body fragment without a `<survey>` tag, which is refused as not well-formed)
+- `500`: The tracker address is not usable; set `TRACKER_API_BASE` to the service's public https URL ending in `/api/v1`
+
+### 3. Upload a Tracked Survey to Decipher
+```http
+POST /tracking/decipher/upload
+Content-Type: application/json
+```
+
+**Description:** Sends tracked survey XML to Decipher. The target is, in order: a new survey when `create_new` is true; `survey_path` when given; the path this survey id was last uploaded to; otherwise a new survey (created in Research Hub under `DECIPHER_COMPANY`). Decipher validates the file before saving it (`validate=true`) and never overwrites a live survey (`overwriteLive=false`). If the target survey has saved data layouts (`layouts.json`), the `QOS_` variables are added to them.
+
+**Request Body:**
+```json
+{
+  "xml": "<survey ...>...</survey>",
+  "survey_id": "coffee_demo",
+  "survey_path": "selfserve/123/456789",
+  "create_new": false
+}
+```
+
+- `xml` (required): The tracked XML returned by `POST /tracking/decipher` (up to 5 MB).
+- `survey_id` (required): Must match the survey id the XML is tracked as.
+- `survey_path` (optional): An existing Decipher survey path (`selfserve/123/456789`) or survey link.
+- `create_new` (optional, default `false`): Create a new survey even if one was used before.
+
+**Response:**
+```json
+{
+  "survey_id": "coffee_demo",
+  "survey_path": "selfserve/123/456789",
+  "survey_url": "https://selfserve.decipherinc.com/survey/selfserve/123/456789",
+  "created": true,
+  "message": "...",
+  "layouts_updated": 0,
+  "warnings": []
+}
+```
+
+**Errors:**
+- `400`: `survey_path` is not a Decipher survey path, or Decipher refused the file or path. Decipher's own messages, including script errors such as `Exec (page N): ...`, are returned in full.
+- `422`: Not a Decipher survey; the XML has no tracking yet; the XML is tracked under a different survey id; or survey settings Decipher would refuse (the message says "nothing was sent to Decipher", and no empty survey is created)
+- `502`: Any other Decipher error (for example a rejected API key)
+- `503`: Decipher upload is not configured (no Decipher API key)
+
+Errors from Decipher and from the settings check return `detail` as an object:
+```json
+{
+  "detail": {
+    "message": "Decipher would refuse this file, so nothing was sent to Decipher. ...",
+    "errors": ["..."],
+    "survey_path": null,
+    "survey_url": null
   }
 }
 ```
+If Decipher created a new survey and then refused the XML, that `survey_path` is remembered, so a retry updates the same survey.
+
+---
+
+## Live Quality APIs
+
+Per-survey quality rules, live bot and fraud results, a CSV export, and adding the results to a survey data file. The survey id is always a query parameter (`?survey_id=`), because survey ids are often titles with spaces and punctuation. It must be 1 to 255 characters; otherwise the endpoints return `422`.
+
+Rules apply every time results are read (dashboard, CSV, `LQ_` variables). They do not change stored detection results or the `QOS_` values written into Decipher.
+
+### 1. List Surveys
+```http
+GET /quality/surveys
+```
+
+**Description:** Every survey with sessions, plus tracked surveys nobody has started yet. Tracked surveys come first, then by latest activity.
+
+**Response:**
+```json
+{
+  "surveys": [
+    {
+      "survey_id": "coffee_demo",
+      "title": "coffee_demo",
+      "sessions": 25,
+      "bots": 2,
+      "last_session": "2026-11-26T09:12:00",
+      "tracked": true,
+      "custom_rules": false
+    }
+  ]
+}
+```
+
+`tracked` means the survey was tracked with `POST /tracking/decipher`; `custom_rules` means it has saved rules.
+
+**Errors:** `500` the list could not be loaded.
+
+### 2. Results
+```http
+GET /quality/results?survey_id={survey_id}
+```
+
+**Description:** The Live Quality dashboard payload under the survey's rules.
+
+**Response (shortened):**
+```json
+{
+  "survey_id": "coffee_demo",
+  "updated_at": "2026-11-26T10:00:00+00:00",
+  "rules": { "bot_threshold": 0.7, "...": "..." },
+  "totals": {
+    "sessions": 25, "in_progress": 2, "checked": 22, "dropped": 1, "bots": 2,
+    "flagged": 5, "duplicates": 0, "speeders": 1, "straight_liners": 1, "low_quality_text": 2
+  },
+  "text": { "responses": 50, "avg_quality": 71.5, "flagged": 4, "flagged_pct": 8.0 },
+  "fraud": { "analyzed": 22, "avg_score": 0.21, "high_risk": 1, "duplicates": 0, "methods": {} },
+  "grid": { "responses": 22, "straight_lined_pct": 4.5 },
+  "timing": { "analyses": 22, "speeders_pct": 4.5, "flatliners_pct": 0 },
+  "flag_counts": [
+    { "flag": "Bot-like behaviour", "count": 2 },
+    { "flag": "Low-quality open ends", "count": 2 }
+  ],
+  "quality_distribution": {},
+  "trend": {
+    "unit": "hour",
+    "buckets": [{ "start": "2026-11-26T09:00:00+00:00", "started": 6, "flagged": 1 }]
+  },
+  "respondents": [
+    {
+      "session_id": "e41c423d-...",
+      "respondent_id": "a1b2c3d4",
+      "started": "2026-11-26T09:05:00",
+      "status": "completed",
+      "verdict": "human",
+      "risk": "low",
+      "confidence": 0.15,
+      "seconds": 312.4,
+      "pages": 4,
+      "fraud_score": 0.1,
+      "duplicate": false,
+      "straight_lining": false,
+      "speeder": false,
+      "flatliner": false,
+      "flags": []
+    }
+  ]
+}
+```
+
+- `flag_counts` always lists all nine flags in this order, zeros included: Bot-like behaviour, Low-quality open ends, Pasted answers, Straight-lining, Speeder, Flatliner, Duplicate, High fraud risk, Data-centre IP.
+- `trend` uses hour buckets when all starts fall within 48 hours, otherwise day buckets; at most 120 buckets, ending at the latest start.
+- `respondents` has one row per session. `verdict` is `bot`, `human` or `pending` (not checked yet); `risk` is `unknown` when not checked. Rows also carry bot signals, open-end details, fraud reasons and grid and timing explanations.
+
+**Errors:** `422` invalid survey id; `500` the results could not be built.
+
+### 3. CSV Export
+```http
+GET /quality/export?survey_id={survey_id}
+```
+
+**Description:** The same results as CSV, one row per respondent, as an attachment named `quality-<survey_id>.csv`. Columns: `respondent_id`, `session_id`, `started`, `status`, `verdict`, `risk`, `confidence`, `seconds`, `pages`, `text_responses`, `text_quality`, `text_flagged`, `fraud_score`, `fraud_risk`, `duplicate`, `straight_lining`, `speeder`, `flags` (separated by `; `), `flagged_answers` (separated by ` | `).
+
+**Errors:** As for results.
+
+### 4. Quality Rules
+```http
+GET    /quality/rules?survey_id={survey_id}
+PUT    /quality/rules?survey_id={survey_id}
+DELETE /quality/rules?survey_id={survey_id}
+```
+
+**Description:** `GET` returns the rules in force (the defaults until rules are saved). `PUT` saves the survey's complete rules. `DELETE` goes back to the defaults. All three return the same shape.
+
+**PUT Request Body** (these are the defaults; omitted fields take the default value):
+```json
+{
+  "bot_threshold": 0.7,
+  "bot_signals": ["automation", "scripted_input", "no_input", "honeypot", "untyped_answers"],
+  "speeder_page_seconds": 3.5,
+  "speeder_median_share": 0.5,
+  "straightline_min_rows": 3,
+  "text_reasons": ["gibberish", "generic", "irrelevant", "copy_paste", "low_quality"],
+  "flag_pasted": true,
+  "fraud_threshold": 0.7,
+  "flag_duplicates": true,
+  "flag_datacenter": true
+}
+```
+
+| Field | Allowed values | Meaning |
+|-------|----------------|---------|
+| `bot_threshold` | 0.3 to 0.99 | Bot score at or above which a session counts as a bot |
+| `bot_signals` | codes from `bot_signals` | Signals that make a session a bot |
+| `speeder_page_seconds` | 0.5 to 60 | Seconds per page below which a respondent is a speeder |
+| `speeder_median_share` | 0 to 0.9 | Also a speeder when faster than this share of the median time; needs 5 checked respondents; 0 turns it off |
+| `straightline_min_rows` | 2 to 30 | Grid rows needed before straight-lining counts |
+| `text_reasons` | codes from `text_reasons` | Reasons that make an open end low quality |
+| `flag_pasted` | true / false | Flag pasted answers |
+| `fraud_threshold` | 0.3 to 0.99 | Fraud score at or above which a respondent is high fraud risk |
+| `flag_duplicates` | true / false | Flag duplicates |
+| `flag_datacenter` | true / false | Flag data-centre IP addresses |
+
+**Response:**
+```json
+{
+  "rules": { "bot_threshold": 0.8, "...": "..." },
+  "defaults": { "bot_threshold": 0.7, "...": "..." },
+  "changed": ["bot_threshold"],
+  "bot_signals": { "automation": "Automated or headless browser", "...": "..." },
+  "text_reasons": { "gibberish": "Gibberish", "generic": "Generic (\"good\", \"nothing\")", "irrelevant": "Off-topic", "copy_paste": "Copied or repeated text", "low_quality": "Low effort" }
+}
+```
+
+**Errors:** `422` invalid survey id, a value out of range, or an unknown signal or reason code.
+
+### 5. Add Results to a Data File
+```http
+POST /quality/merge?survey_id={survey_id}
+Content-Type: multipart/form-data
+```
+
+**Description:** Upload a survey data file (field `file`: SPSS `.sav`, `.csv` or `.xlsx`, up to 50 MB) and get the same file back with `LQ_` variables added under the survey's rules. Records match on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid`. SPSS files keep their labels, and the `LQ_` variables get labels and value labels. Uploading a file that already has `LQ_` columns replaces them.
+
+`LQ_` variables: `LQ_MATCHED`, `LQ_STATUS`, `LQ_VERDICT`, `LQ_BOT_SCORE`, `LQ_BOT_RISK`, `LQ_BOT_SIGNALS`, `LQ_SECONDS`, `LQ_PAGES`, `LQ_SEC_PER_PAGE`, `LQ_TEXT_QUALITY`, `LQ_FRAUD_SCORE`, `LQ_FRAUD_RISK`, one 0/1 per flag (`LQ_F_BOT`, `LQ_F_TEXT`, `LQ_F_PASTED`, `LQ_F_STRAIGHT`, `LQ_F_SPEEDER`, `LQ_F_FLATLINE`, `LQ_F_DUPLICATE`, `LQ_F_FRAUD`, `LQ_F_DATACENTRE`), `LQ_NFLAGS`, `LQ_FLAGS`.
+
+**Response:** The merged file as an attachment. The merge report is JSON in the `X-Quality-Report` response header (exposed to browsers through CORS):
+```json
+{
+  "survey_id": "coffee_demo",
+  "records": 25,
+  "tracked": 25,
+  "matched": 24,
+  "unmatched": 1,
+  "flagged": 5,
+  "bots": 2,
+  "match_columns": ["QOS_SESSION", "QOS_RESPONDENT", "uuid"],
+  "variables": ["LQ_MATCHED", "LQ_STATUS", "..."],
+  "merged_at": "2026-11-26T10:00:00+00:00",
+  "message": "Added live quality flags for 24 of 25 tracked records (5 flagged, 2 bots) as LQ_ variables. ..."
+}
+```
+
+**Errors:**
+- `413`: File over 50 MB
+- `422`: Invalid survey id, unsupported file type, empty file, no live quality results for the survey yet, or a file with no `QOS_SESSION`, `QOS_RESPONDENT` or `uuid` values to match on
+- `500`: The results could not be built
+
+---
+
+## Settings APIs
+
+A setting saved here overrides the environment variable of the same name. A change applies at once on the instance that saved it; every instance re-reads saved settings every 30 seconds. Removing a saved value goes back to the environment value. Secret values are encrypted at rest and never returned.
+
+Editable keys: `DECIPHER_API_KEY`, `DECIPHER_API_BASE`, `DECIPHER_COMPANY`, `QUALTRICS_API_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TRACKER_API_BASE`, `TRACKING_TOKEN_SECRET`, `DETECTION_THRESHOLD` (0.3 to 0.99, default 0.7; the threshold the detection engine uses for the stored verdict of new analyses).
+
+**Admin token:** `POST /settings/check` and `PUT /settings` need the header `X-Admin-Token` to match the `ADMIN_TOKEN` environment variable. `ADMIN_TOKEN` can only be set in the environment.
+- `ADMIN_TOKEN` not set: settings are read-only and these endpoints return `403`.
+- Header missing or wrong: `401`.
+
+### 1. Get Settings
+```http
+GET /settings
+```
+
+**Description:** Every editable setting with its source. No token needed. Secrets only say whether they are set and where the value comes from.
+
+**Response (shortened):**
+```json
+{
+  "settings": [
+    {
+      "key": "DECIPHER_API_KEY",
+      "label": "Decipher API key",
+      "group": "Decipher",
+      "kind": "secret",
+      "help": "REST API key used for Upload to Decipher. Sent only to Decipher.",
+      "placeholder": null,
+      "minimum": null,
+      "maximum": null,
+      "is_set": true,
+      "source": "saved",
+      "value": null,
+      "environment_value": null
+    },
+    {
+      "key": "DETECTION_THRESHOLD",
+      "label": "Bot threshold",
+      "group": "Detection",
+      "kind": "number",
+      "help": "...",
+      "placeholder": "0.7",
+      "minimum": 0.3,
+      "maximum": 0.99,
+      "is_set": true,
+      "source": "environment",
+      "value": 0.7,
+      "environment_value": 0.7
+    }
+  ],
+  "editable": true,
+  "refresh_seconds": 30
+}
+```
+
+- `kind`: `secret`, `url`, `text` or `number`. For secrets, `value` and `environment_value` are always `null`.
+- `source`: `saved`, `environment` or `not set`.
+- `editable`: whether `ADMIN_TOKEN` is set.
+
+### 2. Check Admin Token
+```http
+POST /settings/check
+X-Admin-Token: <token>
+```
+
+**Description:** Checks the admin token without changing anything.
+
+**Response:** `{"ok": true}`
+
+**Errors:** `401` wrong or missing token; `403` `ADMIN_TOKEN` not set.
+
+### 3. Save Settings
+```http
+PUT /settings
+X-Admin-Token: <token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "changes": {
+    "DECIPHER_API_KEY": "new-key-value",
+    "TRACKER_API_BASE": null
+  }
+}
+```
+
+A value saves an override; `null` removes the saved value and goes back to the environment. If any value is refused, nothing is saved.
+
+**Response:** The same shape as `GET /settings`, after the change.
+
+**Errors:**
+- `401`: Wrong or missing token
+- `403`: `ADMIN_TOKEN` not set (read-only)
+- `422`: Unknown key, or a value that is not allowed (for example a number out of range, an address that is not https except for localhost, or a secret shorter than 8 characters)
 
 ---
 
@@ -782,31 +1319,24 @@ curl -X GET "https://bot-backend-119522247395.northamerica-northeast2.run.app/me
 - `200 OK`: Request successful
 - `201 Created`: Resource created successfully
 - `400 Bad Request`: Invalid request data
-- `401 Unauthorized`: Authentication required
+- `401 Unauthorized`: Admin token missing or wrong (settings)
+- `403 Forbidden`: Settings are read-only because `ADMIN_TOKEN` is not set
 - `404 Not Found`: Resource not found
+- `413 Payload Too Large`: Uploaded file over the limit (5 MB survey XML, 50 MB data file)
 - `422 Unprocessable Entity`: Validation error
 - `500 Internal Server Error`: Server error
+- `502 Bad Gateway`: Decipher returned an error
+- `503 Service Unavailable`: Decipher upload is not configured
 
 ### Error Response Format
+Errors use FastAPI's standard format, with a plain-English message in `detail`:
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid event data",
-    "details": {
-      "field": "event_type",
-      "issue": "Required field missing"
-    }
-  }
+  "detail": "Session not found"
 }
 ```
 
-### Common Error Codes
-- `SESSION_NOT_FOUND`: Session does not exist
-- `INSUFFICIENT_DATA`: Not enough events for analysis
-- `INVALID_EVENT_TYPE`: Unsupported event type
-- `WEBHOOK_SIGNATURE_INVALID`: Invalid webhook signature
-- `INTEGRATION_ERROR`: External service error
+Request validation errors (`422`) return `detail` as a list of field errors. Decipher upload errors return `detail` as an object with `message`, `errors`, `survey_path` and `survey_url` (see [Upload a Tracked Survey to Decipher](#3-upload-a-tracked-survey-to-decipher)).
 
 ---
 
@@ -1057,27 +1587,27 @@ console.log(`Confidence: ${result.confidence_score}`);
 The system includes a comprehensive React-based dashboard for monitoring and management:
 
 #### Key Features
-- **Real-time Updates**: Live session monitoring and analysis results
-- **Integration Management**: Webhook testing and status monitoring
+- **Live results**: Overview, Live Quality and Sessions refresh while open
+- **Integration status**: Webhook URLs and whether each platform is configured
 - **API Playground**: Interactive API testing interface
 - **Quick Start Guide**: Step-by-step integration instructions
-- **Settings Interface**: System configuration management
+- **Settings**: Saves keys and options behind the admin token
 - **Toast Notifications**: User feedback and alerts
 
 #### Dashboard Components
-- **Dashboard.jsx**: Main dashboard with charts and statistics
-- **Integrations.jsx**: Integration management and webhook testing
-- **Settings.jsx**: System configuration and settings
-- **ApiPlayground.jsx**: Interactive API testing interface
-- **QuickStartGuide.jsx**: Getting started guide
-- **SessionDetails.jsx**: Detailed session analysis view
+- **layout/AppShell.jsx**: Sidebar (phone: top bar and menu) and service status
+- **Overview.jsx**: Home page: last 7 days, surveys with bot rate, starts and bots per day, latest bots
+- **LiveQuality.jsx** and **quality/**: One survey's live results, quality rules, data-file merge
+- **SessionList.jsx** and **SessionDetails.jsx**: Sessions with verdicts, and one session's verdict, reasons and evidence
+- **SurveyTracking.jsx**: Add tracking to a Decipher survey XML and upload it
+- **Integrations.jsx**, **Settings.jsx**, **ApiPlayground.jsx**, **QuickStartGuide.jsx**, **ReportBuilder.jsx**, **TextAnalysis.jsx**
 
 #### Usage
 ```javascript
 // Access the dashboard at http://localhost:3000
 // Navigate between different sections using the navigation menu
 // Use the API playground to test endpoints interactively
-// Monitor integrations and test webhooks in real-time
+// Check integration status and webhook URLs on Integrations
 ```
 
 ---
@@ -1193,9 +1723,12 @@ GET /surveys
       "survey_id": "SV_1234567890abcdef",
       "respondent_count": 1250,
       "session_count": 2500,
+      "checked_count": 2400,
       "bot_count": 300,
-      "human_count": 2200,
-      "bot_rate": 12.0
+      "human_count": 2100,
+      "bot_rate": 12.5,
+      "first_session": "2025-01-01T00:00:00Z",
+      "last_session": "2025-01-15T23:59:59Z"
     }
   ],
   "total": 1,
@@ -1203,6 +1736,8 @@ GET /surveys
   "offset": 0
 }
 ```
+
+`checked_count` is the number of sessions that were analysed; `human_count` is `checked_count - bot_count`; `bot_rate` is `bot_count / checked_count x 100`, counting each session once (see [How Bot Numbers Are Counted](#how-bot-numbers-are-counted)).
 
 #### Get Survey Details
 ```http
@@ -1219,7 +1754,10 @@ GET /surveys/{survey_id}
   "total_respondents": 1250,
   "total_platforms": 2,
   "bot_detection": {
-    "bot_rate": 12.0,
+    "total_detections": 2400,
+    "bot_count": 300,
+    "human_count": 2100,
+    "bot_rate": 12.5,
     "avg_confidence": 0.78
   },
   "platform_distribution": {
@@ -1281,8 +1819,10 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents
     {
       "respondent_id": "RSP_1234567890abcdef",
       "session_count": 2,
-      "bot_rate": 0.0,
-      "avg_confidence": 0.85
+      "bot_count": 0,
+      "human_count": 2,
+      "first_session": "2025-01-01T00:00:00Z",
+      "last_session": "2025-01-01T01:00:00Z"
     }
   ],
   "total": 1,
@@ -1290,6 +1830,8 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents
   "offset": 0
 }
 ```
+
+In this list `human_count` is `session_count - bot_count`, so sessions that were never analysed count as human. Use the respondent details or summary for checked-based numbers and the bot rate.
 
 #### Get Respondent Details
 ```http
@@ -1470,7 +2012,7 @@ All existing endpoints continue to work as before.
 
 ---
 
-*Last updated: February 2026*
+*Last updated: November 2026*
 
 ---
 
@@ -1507,6 +2049,15 @@ All 6 frontend-used endpoints tested and working correctly:
 ---
 
 ## Changelog
+
+### November 2026
+- Added Decipher tracking endpoints (`/tracking/decipher`, `/tracking/decipher/upload`, `/tracking/decipher/options`)
+- Added Live Quality endpoints (`/quality/surveys`, `/quality/results`, `/quality/export`, `/quality/rules`, `/quality/merge`)
+- Added Settings endpoints (`/settings`, `/settings/check`) with the `X-Admin-Token` header
+- Bot rate everywhere is bots / checked (analysed) sessions, counting each session once
+- `/dashboard/sessions` returns the latest verdict per session; `risk_level`, `is_bot`, `survey_id` and `search` filters work
+- `/dashboard/analytics/trends` returns `checked` and `bots` per day, with days aligned to midnight UTC
+- `/surveys` returns `checked_count`
 
 ### February 2026
 - ✅ Frontend deployment verified - All endpoints pulling data correctly from Cloud SQL

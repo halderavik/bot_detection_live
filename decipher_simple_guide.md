@@ -1,27 +1,86 @@
 # Simple Decipher Integration Guide
 
-This guide shows you exactly how to add bot detection to your Decipher survey in 3 simple steps. No complex options - just copy, paste, and you're done.
+This guide shows you how to add bot detection to your Decipher survey. The easy way needs no code: you upload the survey XML on the dashboard and get it back with tracking added. A copy-paste JavaScript method is described further down for cases where you cannot use the easy way.
 
-## 🚀 How to Use This Guide
+## What This Does
 
-### For Beginners (Never used Decipher before):
+Our system watches how people answer your survey (typing, mouse movements, scrolling, how open ends are entered) and checks the quality of their open-ended answers to decide whether they are real people or automated bots. It also checks for fraud signals such as duplicate respondents and data-centre IP addresses. Results show up on the dashboard while the survey is in field, and in your Decipher data.
+
+## The Easy Way: Add Tracking on the Dashboard (Recommended)
+
+### What you'll need
+- The survey XML from Decipher (open the survey's XML editor and copy or download the whole file)
+- The dashboard: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/tracking
+- About 5 minutes
+
+### Steps
+1. **Get the XML.** In Decipher, open your survey's XML editor and save the whole file as a `.xml` file (a `.txt` file holding the XML also works, up to 5 MB). It must be the complete survey, starting with `<survey ...>`, not just part of it.
+2. **Open Add tracking** on the dashboard (left menu: Set up > Add tracking) and choose the file, or drop it on the page.
+3. **Survey id (optional).** Leave it empty to use the survey title. This is the name your results are grouped under on the dashboard.
+4. **Choose options:**
+   - **Show a privacy notice on the first page** is on by default. It tells respondents the survey checks how answers are entered. You can leave the default wording or write your own.
+   - **End the survey on a clear bot signal** is off by default. If you turn it on, pick the page after which the check runs and which signals end the survey. A score alone never ends the survey; only clear signals such as an automated browser do. Pick a page every respondent reaches (not inside a loop or a conditional block).
+5. **Click Add tracking.** The page shows what was added and any warnings.
+6. **Send it to Decipher.** Either:
+   - click **Upload to Decipher** and choose **Create a new Decipher survey**, **Update the survey uploaded last time**, or **Replace the XML of an existing survey** (paste its path or link). Decipher checks the file first and never replaces the XML of a live survey. This button appears once an admin has saved a Decipher API key on the Settings page; or
+   - click **Download**, then in Decipher open the survey's XML editor, replace the XML with the downloaded file, and save.
+7. **Test it.** Take the survey yourself. Your session appears on the dashboard within a few seconds.
+
+To change the options later, upload the tracked file again. The old tracking is replaced, not added twice.
+
+### What gets added to your survey
+- A small tracking script that runs alongside your survey's own scripts
+- Decipher's `uuid` as the respondent id, so every result matches a record in your Decipher data
+- A final page of hidden questions named `QOS_...` (for example `QOS_FLAG`, `QOS_SCORE`, `QOS_RISK`, `QOS_REASON`) that hold each respondent's result. Respondents never see them.
+- The privacy notice (`QOS_privacy`), if you chose it
+- The early end on a clear bot signal (`QOS_EARLY`, `QOS_bot_term`), if you chose it
+
+Nothing else in your survey changes.
+
+### If Decipher refuses the file
+The dashboard checks for the common problems first. You'll see a warning starting with "Decipher will refuse this file:", and Upload to Decipher stops with "nothing was sent to Decipher", so no empty survey is created.
+
+- **No `compat` setting, or `compat` below 143:** Decipher no longer accepts these. Export the XML from Decipher again (it always includes a current compat), or update the survey's compat in Decipher first.
+- **`compat` 151 or higher without `delphi="1"`:** Decipher requires `delphi="1"` on the `<survey>` tag. Export from Decipher again, or add it.
+- **Only part of a survey:** files without the `<survey>` tag are refused. Export the whole survey XML.
+- **The survey uses quota sheets, data files (`File("x.dat")`) or resources (`${res.X}`):** those files are kept in the original Decipher survey, so a brand-new survey doesn't have them. Upload into the original survey (or a copy of it) with **Replace the XML of an existing survey**.
+
+Any other message from Decipher, including script errors such as `Exec (page N): ...`, is shown in full so you can fix it in the survey.
+
+### Try it first with the example survey
+The file `backend/tests/fixtures/coffee_demo_survey.xml` in this project is a short coffee survey (a screener, a rating grid and two open ends) that Decipher accepts. Add tracking to it, upload it as a new survey, take it as a respondent, and check the results on Live Quality and in Decipher's data download.
+
+### Where to see the results
+- **Live Quality** on the dashboard (https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/quality): bots and quality flags for each survey, per respondent, while the survey is in field. You can adjust the rules for each survey and export a CSV.
+- **Your Decipher data export:** the `QOS_` columns for each respondent.
+- **Your own data file:** on Live Quality, **Add flags to a data file** takes a `.sav`, `.csv` or `.xlsx` file and gives it back with `LQ_` variables (verdict, scores and one 0/1 column per flag) added for each matched respondent.
+
+---
+
+## The Copy-Paste Method (Alternative)
+
+Use this only if you cannot use the easy way. You add three pieces of JavaScript and some hidden fields by hand, and the results go into those hidden fields (not the `QOS_` variables).
+
+### How to Use This Method
+
+#### For Beginners (Never used Decipher before):
 1. **Start with the Quick Start section** below to get familiar
 2. **Follow each step exactly** - don't skip any steps
 3. **Test with a simple survey first** before using on important surveys
 4. **Read the troubleshooting section** if you run into issues
 
-### For Experienced Decipher Users:
+#### For Experienced Decipher Users:
 1. **Jump to Step 1** to copy the JavaScript code
 2. **Create the hidden fields** from Step 2
 3. **Add the analysis code** from Step 3
 4. **Test and deploy**
 
-### What You'll Need:
+#### What You'll Need:
 - Access to your Decipher survey editor
 - Basic knowledge of where to add JavaScript in Decipher
 - 15-30 minutes to complete the setup
 
-## Quick Start for Testing (TL;DR)
+### Quick Start for Testing (TL;DR)
 
 1. **Create a test survey** with 2-3 questions
 2. **Copy the code** from Step 1 into your survey header
@@ -29,26 +88,17 @@ This guide shows you exactly how to add bot detection to your Decipher survey in
 4. **Copy the code** from Step 3 into your final page
 5. **Test your survey** - check the data export for bot detection results
 
-That's it! The full guide below explains everything in detail.
+The full steps below explain everything in detail. The open-ended answer check uses OpenAI's model (set by `OPENAI_MODEL` on the service).
 
-## What This Does
-Our system watches how people interact with your survey (typing, mouse movements, scrolling) and uses AI to analyze the quality of their text responses to determine if they're real humans or automated bots. We detect low-quality responses like gibberish, copy-pasted text, irrelevant answers, or generic responses using OpenAI's GPT-4o-mini model.
+### What the copy-paste method covers
 
-**✅ Production Status**: OpenAI integration fully operational with 100% test accuracy achieved!
-**✅ Text Analysis Dashboard**: New dashboard endpoints deployed and operational!
-**✅ Enhanced Reporting**: Text quality metrics integrated into all reports!
-**✅ Hierarchical Text Analysis**: V2 endpoints available for querying text analysis at survey/platform/respondent/session levels!
-**✅ Grid & Timing Analysis**: Stage 2 detection features deployed - grid/matrix question analysis and enhanced timing analysis available!
-
-### Survey-specific analysis – what’s in this guide
-
-| Component | Covered in this guide? | How |
-|-----------|------------------------|-----|
-| **Behavioral** (keystrokes, mouse, scroll, focus) | ✅ Yes | Step 1: events sent to `POST .../events` automatically |
-| **Text quality** (open-ended questions) | ✅ Yes | Step 1: questions captured on focus, responses analyzed on blur via `POST .../text-analysis/questions` and `.../responses` |
-| **Grid/Matrix** (straight-lining, patterns) | ✅ Yes (optional) | Step 1f: register grid with `question_type: 'grid'`, then send one response per cell |
-| **Timing** (speeders, flatliners, per-question time) | ✅ Yes | Response time is sent with every open-ended response and with grid responses; the backend uses it for timing analysis |
-| **Fraud** (IP, device, duplicates, velocity) | ✅ Yes (automatic) | No extra steps: the backend uses session + events when you call composite-analyze (Step 3) |
+| Component | Covered? | How |
+|-----------|----------|-----|
+| **Behavioral** (keystrokes, mouse, scroll, focus) | Yes | Step 1: events sent to `POST .../events` automatically |
+| **Text quality** (open-ended questions) | Yes | Step 1: questions captured on focus, responses analyzed on blur via `POST .../text-analysis/questions` and `.../responses` |
+| **Grid/Matrix** (straight-lining, patterns) | Yes (optional) | Step 1f: register grid with `question_type: 'grid'`, then send one response per cell |
+| **Timing** (speeders, flatliners, per-question time) | Yes | Response time is sent with every open-ended response and with grid responses; the backend uses it for timing analysis |
+| **Fraud** (IP, device, duplicates, velocity) | Yes (automatic) | No extra steps: the backend uses session + events when you call composite-analyze (Step 3) |
 
 All of the above are combined in the **composite score** when you run the analysis at the end of the survey (Step 3). For other question types (e.g. multiple choice), you can optionally register the question with `POST /text-analysis/questions` (e.g. `question_type: 'multiple_choice'`) and send one `POST /text-analysis/responses` with `response_time_ms` when the user answers, so that question is included in timing analysis.
 
@@ -758,11 +808,11 @@ bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_sc
 - Verify the JavaScript code is running (check browser console)
 
 ### 🔍 Need more help?
-- **Check our API Playground:** Test the system directly at the Integration tab
+- **Check our API Playground:** Test the system directly on the dashboard (Developers > API playground)
 - **Contact your technical team** with specific error messages
 - **Test with our demo:** Use the API Playground to understand how the system works
 
-## How to Test Your Integration
+## How to Test the Copy-Paste Method
 
 ### Quick Test (5 minutes)
 
@@ -775,9 +825,9 @@ bot_result: {"composite_score": 0.23, "behavioral_score": 0.15, "text_quality_sc
 ### What to Look For When Testing
 
 **In the browser console (F12 → Console tab):**
-- Look for messages like "Bot detection setup successful"
+- No "Bot detection setup failed" or "Bot analysis failed" messages (the script only logs when something goes wrong)
 - No red error messages
-- Events being logged as you type and move your mouse
+- In the Network tab, requests to `/detection/sessions/.../events` every few seconds as you type and move your mouse
 
 **In your data export:**
 - `bot_session_id`: Should have a long ID like "abc123-def456-..."
@@ -835,8 +885,8 @@ bot_result: {"composite_score": 0.45, "behavioral_score": 0.25, "text_quality_sc
 
 You can also test the bot detection system directly using our API Playground:
 
-1. **Go to:** https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
-2. **Click:** "API Playground" in the navigation
+1. **Go to:** https://storage.googleapis.com/bot-detection-frontend-20251208/index.html#/api-playground
+2. **Or click:** "API playground" under Developers in the left menu
 3. **Test endpoints:**
    - Click "Create Session" to create a test session
    - Click "Ingest Events" to simulate user behavior
@@ -877,13 +927,13 @@ This helps you understand how the system works before integrating it into your s
 
 ## That's It!
 
-Copy the code from Step 1 to your survey start, create the hidden fields from Step 2, and add the code from Step 3 to your survey end. The system will automatically handle everything else, including:
+The easy way: upload your survey XML on Add tracking, upload the result to Decipher, and test.
+
+The copy-paste method: copy the code from Step 1 to your survey start, create the hidden fields from Step 2, and add the code from Step 3 to your survey end. The system will automatically handle everything else, including:
 
 - **Behavioral tracking:** Keystrokes, mouse movements, scrolling patterns
 - **Text quality analysis:** AI-powered analysis of open-ended responses
 - **Real-time processing:** Immediate analysis as users type
 - **Composite scoring:** Combined behavioral + text quality bot detection
 
-**Remember:** Always test with a small survey first before adding bot detection to your main surveys!
-
-**New Features:** The system now automatically detects text input fields, captures questions, and analyzes response quality using OpenAI's AI model. This provides much more accurate bot detection than behavioral analysis alone.
+**Remember:** Always test with a small survey first (for example the coffee demo survey) before adding bot detection to your main surveys.

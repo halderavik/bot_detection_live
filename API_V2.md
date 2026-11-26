@@ -31,6 +31,17 @@ Survey ID
 - **Backward Compatibility**: All V1 endpoints remain unchanged
 - **Efficient Queries**: Composite indexes for fast hierarchical queries
 
+### How Bot Numbers Are Counted
+
+All survey, platform and respondent aggregations count sessions, not detection rows. A session that was analysed more than once counts once, using any of its analyses.
+
+- **Checked**: sessions that have at least one detection result (`checked_count` in the survey list, `total_detections` inside `bot_detection`).
+- **Bots**: checked sessions with a detection that judged them a bot (`bot_count`).
+- **Humans**: checked minus bots (`human_count`).
+- **Bot rate**: bots / checked x 100, rounded to two decimals (`bot_rate`). It is 0 when nothing has been checked. Sessions that were never analysed are not part of the rate.
+
+This is the same rule as `GET /dashboard/overview` (see [API.md](API.md#1-dashboard-overview)).
+
 ---
 
 ## Base URL
@@ -81,9 +92,10 @@ GET /surveys
       "survey_id": "SV_1234567890abcdef",
       "respondent_count": 1250,
       "session_count": 2500,
+      "checked_count": 2400,
       "bot_count": 300,
-      "human_count": 2200,
-      "bot_rate": 12.0,
+      "human_count": 2100,
+      "bot_rate": 12.5,
       "first_session": "2025-01-01T00:00:00Z",
       "last_session": "2025-01-15T23:59:59Z"
     }
@@ -93,6 +105,8 @@ GET /surveys
   "offset": 0
 }
 ```
+
+Surveys are ordered by session count, highest first. `checked_count` is the number of the survey's sessions that have been analysed; `human_count` is `checked_count - bot_count`; `bot_rate` is `bot_count / checked_count x 100`. `total` is the number of surveys in this page, not the number of surveys overall.
 
 **Example:**
 ```bash
@@ -327,6 +341,8 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents
   "offset": 0
 }
 ```
+
+In this list `bot_count` is the respondent's sessions judged bots and `human_count` is `session_count - bot_count`, so sessions that were never analysed count as human here. Use the respondent details or summary endpoints for checked-based numbers and the bot rate.
 
 ### Get Respondent Details
 
@@ -1012,18 +1028,22 @@ platform_timing = response.json()
 
 For questions or issues with the hierarchical API:
 
-- **Documentation**: See `API.md` for V1 endpoints
+- **Documentation**: See `API.md` for V1 endpoints, including the dashboard, Add tracking (`/tracking`), Live Quality (`/quality`) and Settings (`/settings`) endpoints
 - **Frontend Integration**: Check `frontend/src/services/apiService.js` for service methods
 - **Backend Implementation**: See `backend/app/controllers/hierarchical_controller.py`
 - **Text Analysis (flat endpoints)**: See `backend/app/controllers/text_analysis_controller.py`
 
 ---
 
-*Last updated: February 2026*
+*Last updated: November 2026*
 
 ---
 
 ## Changelog
+
+### November 2026
+- Bot rate on survey, platform and respondent aggregations is bots / checked (analysed) sessions, counting each session once
+- `GET /surveys` returns `checked_count`; `human_count` is checked minus bots
 
 ### February 2026
 - ✅ Frontend deployment verified - All hierarchical endpoints pulling data correctly from Cloud SQL
