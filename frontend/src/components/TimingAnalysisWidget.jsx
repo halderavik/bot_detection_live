@@ -24,7 +24,10 @@ const TimingAnalysisWidget = ({
 
   useEffect(() => {
     loadTimingData();
-  }, [surveyId, platformId, respondentId, sessionId, filters]);
+    // Reason: compare filters by value; a default {} is a new object on every render and
+    // made this effect refetch in an endless loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, platformId, respondentId, sessionId, JSON.stringify(filters)]);
 
   const loadTimingData = async () => {
     if (!surveyId) return;
@@ -59,7 +62,7 @@ const TimingAnalysisWidget = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Timing Analysis Summary
@@ -74,7 +77,7 @@ const TimingAnalysisWidget = ({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Timing Analysis Summary
@@ -88,7 +91,7 @@ const TimingAnalysisWidget = ({
 
   if (!timingData || timingData.total_analyses === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Timing Analysis Summary
@@ -99,7 +102,7 @@ const TimingAnalysisWidget = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <Clock className="w-5 h-5 text-blue-600" />
         Timing Analysis Summary

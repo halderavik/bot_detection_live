@@ -124,16 +124,11 @@ class OpenAIService:
     
     def __init__(self):
         """Initialize OpenAI service."""
-        self.is_available = bool(settings.OPENAI_API_KEY)
-        
-        if self.is_available:
-            self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-            logger.info(f"OpenAI service initialized with model: {settings.OPENAI_MODEL}")
-        else:
-            self.client = None
-            logger.warning("OpenAI service initialized without API key - text analysis will use fallback mode")
-        
+        self._key = None
+        self.client = None
+        self.is_available = False
         self.model = settings.OPENAI_MODEL
+        self.reload()
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE
         self.timeout = settings.OPENAI_TIMEOUT
@@ -148,6 +143,21 @@ class OpenAIService:
         self.input_cost_per_1k = 0.00015  # $0.15 per 1M tokens
         self.output_cost_per_1k = 0.0006   # $0.60 per 1M tokens
     
+    def reload(self) -> None:
+        """Pick up the API key and model in force (environment or the Settings page)."""
+        key = settings.OPENAI_API_KEY
+        self.model = settings.OPENAI_MODEL
+        if key == self._key and (self.client is not None or not key):
+            return
+        self._key = key
+        self.is_available = bool(key)
+        if key:
+            self.client = AsyncOpenAI(api_key=key)
+            logger.info(f"OpenAI service initialized with model: {settings.OPENAI_MODEL}")
+        else:
+            self.client = None
+            logger.warning("OpenAI service initialized without API key - text analysis will use fallback mode")
+
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:
         """
         Analyze text using OpenAI API with caching and rate limiting.

@@ -1,7 +1,7 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import Navigation from './components/Navigation'
-import Dashboard from './components/Dashboard'
+import { BrowserRouter as Router, Navigate, Routes, Route, Link } from 'react-router-dom'
+import AppShell from './components/layout/AppShell'
+import Overview from './components/Overview'
 import SessionList from './components/SessionList'
 import SessionDetails from './components/SessionDetails'
 import Integrations from './components/Integrations'
@@ -10,43 +10,58 @@ import ApiPlayground from './components/ApiPlayground'
 import QuickStartGuide from './components/QuickStartGuide'
 import ReportBuilder from './components/ReportBuilder'
 import TextAnalysis from './components/TextAnalysis'
-import SurveyList from './components/SurveyList'
 import SurveyDetails from './components/SurveyDetails'
 import PlatformDetails from './components/PlatformDetails'
 import RespondentDetails from './components/RespondentDetails'
+import SurveyTracking from './components/SurveyTracking'
+import LiveQuality from './components/LiveQuality'
+import { EmptyState, buttonClass } from './components/ui'
 import { ToastContainer } from 'react-toastify'
+import { Compass } from 'lucide-react'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/App.css'
+
+function NotFound() {
+  return (
+    <EmptyState
+      action={<Link className={buttonClass('primary')} to="/">Go to Overview</Link>}
+      icon={Compass}
+      title="This page doesn't exist"
+    >
+      The address may be old or mistyped.
+    </EmptyState>
+  )
+}
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/sessions" element={<SessionList />} />
-            <Route path="/sessions/:sessionId" element={<SessionDetails />} />
-            <Route path="/text-analysis" element={<TextAnalysis />} />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/api-playground" element={<ApiPlayground />} />
-            <Route path="/quick-start" element={<QuickStartGuide />} />
-            <Route path="/reports" element={<ReportBuilder />} />
-            {/* Hierarchical API Routes (V2) */}
-            <Route path="/surveys" element={<SurveyList />} />
-            <Route path="/surveys/:surveyId" element={<SurveyDetails />} />
-            <Route path="/surveys/:surveyId/platforms/:platformId" element={<PlatformDetails />} />
-            <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId" element={<RespondentDetails />} />
-            <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId/sessions/:sessionId" element={<SessionDetails />} />
-          </Routes>
-          <ToastContainer position="bottom-right" autoClose={3000} />
-        </main>
-      </div>
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<Overview />} />
+          {/* Old addresses: the dashboard and survey list are now the Overview. */}
+          <Route path="/dashboard" element={<Navigate replace to="/" />} />
+          <Route path="/surveys" element={<Navigate replace to="/" />} />
+          <Route path="/quality" element={<LiveQuality />} />
+          <Route path="/sessions" element={<SessionList />} />
+          <Route path="/sessions/:sessionId" element={<SessionDetails />} />
+          <Route path="/text-analysis" element={<TextAnalysis />} />
+          <Route path="/reports" element={<ReportBuilder />} />
+          <Route path="/tracking" element={<SurveyTracking />} />
+          <Route path="/integrations" element={<Integrations />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/quick-start" element={<QuickStartGuide />} />
+          <Route path="/api-playground" element={<ApiPlayground />} />
+          <Route path="/surveys/:surveyId" element={<SurveyDetails />} />
+          <Route path="/surveys/:surveyId/platforms/:platformId" element={<PlatformDetails />} />
+          <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId" element={<RespondentDetails />} />
+          <Route path="/surveys/:surveyId/platforms/:platformId/respondents/:respondentId/sessions/:sessionId" element={<SessionDetails />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppShell>
+      <ToastContainer position="bottom-right" autoClose={3000} />
     </Router>
   )
 }
 
-export default App 
+export default App

@@ -1,0 +1,15 @@
+# Files Cloud Build does not upload (gcloud builds submit ./backend).
+# Same rules as .dockerignore: no secrets, local environments or test output.
+.gcloudignore
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+*.sqlite
+*.log
+tests/

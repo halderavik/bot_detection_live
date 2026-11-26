@@ -79,14 +79,14 @@ const PlatformDetails = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Platform Details</h1>
-          <p className="text-gray-600 mt-1">Platform ID: {platformId}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Platform Details</h1>
+          <p className="text-sm text-gray-600 mt-1">Platform ID: {platformId}</p>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Respondents</p>
@@ -98,7 +98,7 @@ const PlatformDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Sessions</p>
@@ -110,7 +110,7 @@ const PlatformDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Bot Rate</p>
@@ -126,7 +126,7 @@ const PlatformDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Avg Quality Score</p>
@@ -141,8 +141,8 @@ const PlatformDetails = () => {
 
       {/* Respondents List */}
       {respondents.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
             <Users className="w-5 h-5 mr-2" />
             Respondents
           </h2>
@@ -178,7 +178,7 @@ const PlatformDetails = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
-                        to={`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondent.respondent_id}`}
+                        to={`/surveys/${encodeURIComponent(surveyId)}/platforms/${encodeURIComponent(platformId)}/respondents/${encodeURIComponent(respondent.respondent_id)}`}
                         className="text-blue-600 hover:text-blue-900 flex items-center"
                       >
                         View Details

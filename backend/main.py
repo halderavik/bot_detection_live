@@ -41,9 +41,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
         logger.warning("Application will start without database tables")
+
+    # Settings saved on the Settings page override the environment; re-read every 30 s.
+    from app.database import AsyncSessionLocal
+    from app.services import runtime_settings
+    from app.services.openai_service import openai_service
+    runtime_settings.on_change(openai_service.reload)
+    try:
+        async with AsyncSessionLocal() as db:
+            await runtime_settings.load(db)
+    except Exception as e:
+        logger.warning(f"Saved settings were not loaded: {e}")
+    settings_task = asyncio.create_task(runtime_settings.keep_fresh(AsyncSessionLocal))
     
     yield
     ranges_task.cancel()
+    settings_task.cancel()
     
     # Shutdown
     logger.info("Shutting down Bot Detection API...")
@@ -66,6 +79,8 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Reason: the live quality data merge returns its report in a header the browser must read.
+        expose_headers=["Content-Disposition", "X-Quality-Report"],
     )
     
     app.add_middleware(RateLimitMiddleware)

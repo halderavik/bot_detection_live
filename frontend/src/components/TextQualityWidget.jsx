@@ -114,7 +114,7 @@ const TextQualityWidget = ({ sessionId, onDataLoad }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div className="animate-pulse">
           <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
           <div className="space-y-3">
@@ -129,7 +129,7 @@ const TextQualityWidget = ({ sessionId, onDataLoad }) => {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div className="text-center text-red-600">
           <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
           <p className="text-sm">Failed to load text quality data</p>
@@ -147,8 +147,8 @@ const TextQualityWidget = ({ sessionId, onDataLoad }) => {
 
   if (!qualityData || qualityData.total_responses === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
           <BarChart3 className="w-5 h-5 mr-2" />
           Text Quality Analysis
         </h3>
@@ -166,11 +166,11 @@ const TextQualityWidget = ({ sessionId, onDataLoad }) => {
   const flaggedPercentage = qualityData.flagged_percentage || 0;
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+          <h3 className="text-base font-semibold text-gray-900 flex items-center">
             <BarChart3 className="w-5 h-5 mr-2" />
             Text Quality Analysis
           </h3>

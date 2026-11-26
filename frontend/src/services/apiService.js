@@ -136,6 +136,89 @@ export const integrationService = {
   },
 };
 
+// Survey tracking: add live tracking to a Decipher survey XML
+export const trackingService = {
+  getDecipherOptions: async () => {
+    return api.get('/tracking/decipher/options');
+  },
+
+  // file: File; options: { surveyId, terminate, afterPage, signals[], privacyNotice, privacyText }
+  addDecipherTracking: async (file, options = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (options.surveyId) form.append('survey_id', options.surveyId);
+    form.append('terminate', options.terminate ? 'true' : 'false');
+    form.append('after_page', String(options.afterPage || 2));
+    if (options.signals && options.signals.length) form.append('signals', options.signals.join(','));
+    form.append('privacy_notice', options.privacyNotice ? 'true' : 'false');
+    if (options.privacyText) form.append('privacy_text', options.privacyText);
+    // Reason: the default JSON header would stop the browser from writing the multipart boundary.
+    return api.post('/tracking/decipher', form, {
+      headers: { 'Content-Type': undefined },
+      timeout: 60000,
+    });
+  },
+
+  // body: { xml, survey_id, survey_path, create_new }
+  uploadToDecipher: async (body) => {
+    return api.post('/tracking/decipher/upload', body, { timeout: 120000 });
+  },
+};
+
+// Settings page: integration keys, tracking options, bot threshold. Saving needs the admin token.
+export const settingsService = {
+  get: async () => api.get('/settings'),
+  checkToken: async (token) => api.post('/settings/check', null, { headers: { 'X-Admin-Token': token } }),
+  save: async (token, changes) => api.put('/settings', { changes }, { headers: { 'X-Admin-Token': token } }),
+};
+
+// Live quality: per-survey rules, live results, CSV export, and LQ_ variables in a data file.
+// The survey id goes in the query string because ids are often titles with spaces.
+export const liveQualityService = {
+  listSurveys: async () => {
+    return api.get('/quality/surveys');
+  },
+
+  getResults: async (surveyId) => {
+    return api.get('/quality/results', { params: { survey_id: surveyId }, timeout: 120000 });
+  },
+
+  exportUrl: (surveyId) => `${config.apiBaseUrl}/quality/export?survey_id=${encodeURIComponent(surveyId)}`,
+
+  getRules: async (surveyId) => {
+    return api.get('/quality/rules', { params: { survey_id: surveyId } });
+  },
+
+  saveRules: async (surveyId, rules) => {
+    return api.put('/quality/rules', rules, { params: { survey_id: surveyId } });
+  },
+
+  resetRules: async (surveyId) => {
+    return api.delete('/quality/rules', { params: { survey_id: surveyId } });
+  },
+
+  // Returns { blob, filename, report }. Reason: the shared client keeps only the body,
+  // and the merge report travels in the X-Quality-Report header.
+  mergeDataFile: async (surveyId, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await axios.post(`${config.apiBaseUrl}/quality/merge`, form, {
+      params: { survey_id: surveyId },
+      responseType: 'blob',
+      timeout: 300000,
+    });
+    const disposition = response.headers['content-disposition'] || '';
+    const match = /filename="([^"]+)"/.exec(disposition);
+    let report = null;
+    try {
+      report = JSON.parse(response.headers['x-quality-report'] || 'null');
+    } catch (e) {
+      report = null;
+    }
+    return { blob: response.data, filename: match ? match[1] : file.name, report };
+  },
+};
+
 // Hierarchical Services (V2 API)
 export const hierarchicalService = {
   // Survey level
@@ -473,66 +556,6 @@ export const fraudService = {
   analyzeSessionFraud: async (sessionId) => {
     return api.post(`/fraud/analyze/${sessionId}`);
   }
-};
-
-// Mock data for development (when backend is not available)
-export const mockData = {
-  overviewStats: {
-    period: {
-      start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      end_date: new Date().toISOString(),
-      days: 7,
-    },
-    sessions: {
-      total: 1250,
-      active: 45,
-      completed: 1205,
-      avg_duration: 180,
-    },
-    detections: {
-      total: 1250,
-      bots_detected: 89,
-      humans_confirmed: 1161,
-      detection_rate: 7.12,
-    },
-    events: {
-      total: 45678,
-      avg_per_session: 36.5,
-      keystrokes: 23456,
-      mouse_events: 12345,
-      scroll_events: 9877,
-    },
-    platforms: {
-      qualtrics: 850,
-      decipher: 400,
-    },
-  },
-  sessionsList: {
-    sessions: [
-      {
-        id: 'session-1',
-        created_at: new Date().toISOString(),
-        last_activity: new Date().toISOString(),
-        is_active: true,
-        platform: 'qualtrics',
-        survey_id: 'SV_123456',
-        respondent_id: 'R_789012',
-        event_count: 45,
-        detection: {
-          is_bot: false,
-          confidence_score: 0.85,
-          risk_level: 'low',
-          analyzed_at: new Date().toISOString(),
-        },
-      },
-    ],
-    pagination: {
-      page: 1,
-      limit: 50,
-      total: 1250,
-      pages: 25,
-    },
-  },
 };
 
 export default api; 

@@ -21,20 +21,21 @@ class DecipherIntegration:
     
     def __init__(self):
         """Initialize Decipher integration with API configuration."""
-        self.api_key = settings.DECIPHER_API_KEY
         self.base_url = "https://v2.decipherinc.com/api/v1"
         self.webhook_url = f"{settings.BASE_URL}/api/v1/webhooks/decipher"
-        
-        # Check if API key is valid (not None, not empty, not placeholder)
-        self.has_valid_key = (
-            self.api_key and 
-            self.api_key.strip() and 
-            self.api_key != "your-decipher-key" and
-            len(self.api_key) > 10  # Basic validation for key length
-        )
-        
         if not self.has_valid_key:
             logger.warning("Decipher API key not configured - will use webhook data directly")
+
+    # Read on every use, so a key changed on the Settings page applies without a restart.
+    @property
+    def api_key(self):
+        return settings.DECIPHER_API_KEY
+
+    @property
+    def has_valid_key(self) -> bool:
+        """Whether the key is set and is not the example placeholder."""
+        key = self.api_key
+        return bool(key and key.strip() and key != "your-decipher-key" and len(key) > 10)
     
     async def validate_webhook_signature(self, payload: str, signature: str) -> bool:
         """

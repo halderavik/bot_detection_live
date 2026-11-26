@@ -94,8 +94,8 @@ class AggregationService:
             # Get bot detection metrics
             bot_query = (
                 select(
-                    func.count(DetectionResult.id).label('total_detections'),
-                    func.sum(case((DetectionResult.is_bot == True, 1), else_=0)).label('bot_count'),
+                    func.count(func.distinct(DetectionResult.session_id)).label('total_detections'),
+                    func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))).label('bot_count'),
                     func.avg(DetectionResult.confidence_score).label('avg_confidence')
                 )
                 .join(Session, DetectionResult.session_id == Session.id)
@@ -246,8 +246,8 @@ class AggregationService:
             # Get bot detection metrics
             bot_query = (
                 select(
-                    func.count(DetectionResult.id).label('total_detections'),
-                    func.sum(case((DetectionResult.is_bot == True, 1), else_=0)).label('bot_count'),
+                    func.count(func.distinct(DetectionResult.session_id)).label('total_detections'),
+                    func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))).label('bot_count'),
                     func.avg(DetectionResult.confidence_score).label('avg_confidence')
                 )
                 .join(Session, DetectionResult.session_id == Session.id)
@@ -379,8 +379,8 @@ class AggregationService:
             # Get bot detection metrics across all sessions
             bot_query = (
                 select(
-                    func.count(DetectionResult.id).label('total_detections'),
-                    func.sum(case((DetectionResult.is_bot == True, 1), else_=0)).label('bot_count'),
+                    func.count(func.distinct(DetectionResult.session_id)).label('total_detections'),
+                    func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))).label('bot_count'),
                     func.avg(DetectionResult.confidence_score).label('avg_confidence'),
                     func.max(DetectionResult.confidence_score).label('max_confidence'),
                     func.min(DetectionResult.confidence_score).label('min_confidence')
@@ -531,27 +531,26 @@ class AggregationService:
             surveys = []
             
             for row in result:
-                # Get bot count for this survey
+                # Bot rate = bot sessions out of checked (analysed) sessions, as on every other page.
                 bot_count_query = (
-                    select(func.count(DetectionResult.id))
-                    .join(Session, DetectionResult.session_id == Session.id)
-                    .where(
-                        and_(
-                            Session.survey_id == row.survey_id,
-                            DetectionResult.is_bot == True
-                        )
+                    select(
+                        func.count(func.distinct(DetectionResult.session_id)),
+                        func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))),
                     )
+                    .join(Session, DetectionResult.session_id == Session.id)
+                    .where(Session.survey_id == row.survey_id)
                 )
-                bot_result = await db.execute(bot_count_query)
-                bot_count = bot_result.scalar() or 0
+                checked_count, bot_count = (await db.execute(bot_count_query)).one()
+                checked_count, bot_count = checked_count or 0, bot_count or 0
                 
                 surveys.append({
                     "survey_id": row.survey_id,
                     "respondent_count": row.respondent_count,
                     "session_count": row.session_count,
+                    "checked_count": checked_count,
                     "bot_count": bot_count,
-                    "human_count": row.session_count - bot_count,
-                    "bot_rate": round((bot_count / row.session_count * 100), 2) if row.session_count > 0 else 0,
+                    "human_count": checked_count - bot_count,
+                    "bot_rate": round((bot_count / checked_count * 100), 2) if checked_count > 0 else 0,
                     "first_session": row.first_session.isoformat() if row.first_session else None,
                     "last_session": row.last_session.isoformat() if row.last_session else None
                 })
@@ -658,7 +657,7 @@ class AggregationService:
             for row in result:
                 # Get bot count for this respondent
                 bot_count_query = (
-                    select(func.count(DetectionResult.id))
+                    select(func.count(func.distinct(DetectionResult.session_id)))
                     .join(Session, DetectionResult.session_id == Session.id)
                     .where(
                         and_(

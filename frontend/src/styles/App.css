@@ -1,18 +1,1 @@
-/* App-specific styles */
-.app {
-  min-height: 100vh;
-  background-color: #f9fafb;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .container {
-    padding: 0 0.5rem;
-  }
-} 
+/* App-specific styles. Layout lives in components/layout/AppShell.jsx. */

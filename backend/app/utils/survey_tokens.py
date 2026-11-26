@@ -1,8 +1,9 @@
 """
 Signed survey tokens.
 
-The token is an HMAC of the survey id with TRACKING_TOKEN_SECRET, shared with the
-survey builder (Quant OS) that writes it into the survey's tracker. It proves the
+The token is an HMAC of the survey id with TRACKING_TOKEN_SECRET. This service
+writes it into the tracker when it adds tracking to a survey XML; another survey
+builder given the same secret can issue matching tokens. It proves the
 tracker was issued for that survey; it is not a secret from respondents.
 """
 

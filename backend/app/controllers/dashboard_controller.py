@@ -7,7 +7,7 @@ bot detection statistics, session analytics, and reporting data.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.orm import selectinload
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
@@ -74,68 +74,101 @@ class DashboardController:
             db: AsyncSession = Depends(get_db),
             page: int = Query(1, ge=1, description="Page number"),
             limit: int = Query(50, ge=1, le=100, description="Items per page"),
-            platform: Optional[str] = Query(None, description="Filter by platform"),
-            risk_level: Optional[str] = Query(None, description="Filter by risk level"),
-            is_bot: Optional[bool] = Query(None, description="Filter by bot detection")
+            platform: Optional[str] = Query(None, description="Filter by platform (platform or platform_id)"),
+            risk_level: Optional[str] = Query(None, description="Filter by latest risk level; 'unknown' for not analysed"),
+            is_bot: Optional[bool] = Query(None, description="Filter by latest bot verdict"),
+            survey_id: Optional[str] = Query(None, description="Filter by survey id"),
+            search: Optional[str] = Query(None, description="Session, respondent or survey id contains this text"),
         ):
-            """Get paginated list of sessions with filters."""
+            """Paginated sessions, newest first, each with its latest detection verdict."""
             try:
-                # Test basic import and model access
-                logger.info(f"Session model: {Session}")
-                logger.info(f"Session table name: {Session.__tablename__}")
-                
-                # Simple count query first
-                count_result = await db.execute(select(func.count(Session.id)))
-                total_count = count_result.scalar()
-                logger.info(f"Total sessions in database: {total_count}")
-                
-                # Simple query with eager loading of behavior_data
-                query = select(Session).options(selectinload(Session.behavior_data))
-                
-                # Apply filters
+                # Exactly one latest detection per session, even when two share a timestamp.
+                ranked = select(
+                    DetectionResult,
+                    func.row_number()
+                    .over(
+                        partition_by=DetectionResult.session_id,
+                        order_by=(DetectionResult.analyzed_at.desc(), DetectionResult.created_at.desc(), DetectionResult.id.desc()),
+                    )
+                    .label("rank"),
+                ).subquery()
+                latest = select(ranked).where(ranked.c.rank == 1).subquery()
+                events = (
+                    select(BehaviorData.session_id, func.count(BehaviorData.id).label("n"))
+                    .group_by(BehaviorData.session_id)
+                    .subquery()
+                )
+                conditions = []
                 if platform:
-                    query = query.where(Session.platform == platform)
-                
-                # Apply pagination
-                offset = (page - 1) * limit
-                query = query.offset(offset).limit(limit)
-                
-                # Execute query
-                result = await db.execute(query)
-                sessions = result.scalars().all()
-                logger.info(f"Retrieved {len(sessions)} sessions")
-                
-                # Format response with minimal data
+                    conditions.append(or_(Session.platform == platform, Session.platform_id == platform))
+                if survey_id:
+                    conditions.append(Session.survey_id == survey_id)
+                if search:
+                    like = f"%{search.strip()}%"
+                    conditions.append(
+                        or_(Session.id.ilike(like), Session.respondent_id.ilike(like), Session.survey_id.ilike(like))
+                    )
+                if is_bot is not None:
+                    conditions.append(latest.c.is_bot == is_bot)
+                if risk_level:
+                    if risk_level.lower() == "unknown":
+                        conditions.append(latest.c.id.is_(None))
+                    else:
+                        conditions.append(func.lower(latest.c.risk_level) == risk_level.lower())
+
+                base = select(Session).outerjoin(latest, latest.c.session_id == Session.id)
+                if conditions:
+                    base = base.where(and_(*conditions))
+                total_count = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+
+                query = (
+                    select(
+                        Session,
+                        latest.c.is_bot,
+                        latest.c.risk_level,
+                        latest.c.confidence_score,
+                        latest.c.analyzed_at,
+                        func.coalesce(events.c.n, 0),
+                    )
+                    .outerjoin(latest, latest.c.session_id == Session.id)
+                    .outerjoin(events, events.c.session_id == Session.id)
+                    .order_by(Session.created_at.desc())
+                    .offset((page - 1) * limit)
+                    .limit(limit)
+                )
+                if conditions:
+                    query = query.where(and_(*conditions))
+                rows = (await db.execute(query)).all()
+
                 sessions_data = []
-                for session in sessions:
-                    session_data = {
+                for session, bot, risk, confidence, analyzed_at, event_count in rows:
+                    sessions_data.append({
                         "id": session.id,
                         "created_at": session.created_at.isoformat(),
                         "last_activity": session.last_activity.isoformat(),
                         "is_active": session.is_active,
-                        "platform": session.platform,
+                        "platform": session.platform or session.platform_id,
                         "survey_id": session.survey_id,
                         "respondent_id": session.respondent_id,
-                        "event_count": len(session.behavior_data) if session.behavior_data else 0
-                    }
-                    sessions_data.append(session_data)
-                
+                        "event_count": int(event_count or 0),
+                        "analyzed": analyzed_at is not None,
+                        "is_bot": bot,
+                        "risk_level": (risk or "unknown").lower(),
+                        "confidence_score": confidence,
+                        "analyzed_at": analyzed_at.isoformat() if analyzed_at else None,
+                    })
+
                 return {
                     "sessions": sessions_data,
                     "pagination": {
                         "page": page,
                         "limit": limit,
                         "total": total_count,
-                        "pages": (total_count + limit - 1) // limit
-                    }
+                        "pages": (total_count + limit - 1) // limit,
+                    },
                 }
-                
             except Exception as e:
                 logger.error(f"Error getting sessions list: {e}")
-                logger.error(f"Error type: {type(e)}")
-                logger.error(f"Error details: {str(e)}")
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
                 raise HTTPException(status_code=500, detail="Failed to get sessions list")
         
         @self.router.get("/sessions/{session_id}/details")
@@ -202,7 +235,7 @@ class DashboardController:
                         "user_agent": session.user_agent,
                         "ip_address": session.ip_address,
                         "referrer": session.referrer,
-                        "platform": session.platform,
+                        "platform": session.platform or session.platform_id,
                         "survey_id": session.survey_id,
                         "respondent_id": session.respondent_id
                     },
@@ -302,41 +335,30 @@ class DashboardController:
         }
     
     async def _get_detection_stats(self, db: AsyncSession, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """Get detection statistics for the given period."""
-        # Total detections
-        total_query = select(func.count(DetectionResult.id)).where(
-            and_(DetectionResult.created_at >= start_date, DetectionResult.created_at <= end_date)
-        )
-        total_result = await db.execute(total_query)
-        total_detections = total_result.scalar()
-        
-        # Bot detections
-        bot_query = select(func.count(DetectionResult.id)).where(
-            and_(
-                DetectionResult.created_at >= start_date,
-                DetectionResult.created_at <= end_date,
-                DetectionResult.is_bot == True
+        """Detection statistics for sessions created in the period.
+
+        Counts sessions, not detection rows, so a session analysed more than once counts
+        once. ``bot_rate`` is bot sessions out of checked (analysed) sessions, the same
+        rule the survey pages use.
+        """
+        in_period = and_(Session.created_at >= start_date, Session.created_at <= end_date)
+        query = (
+            select(
+                func.count(func.distinct(DetectionResult.session_id)),
+                func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))),
+                func.count(func.distinct(case((DetectionResult.confidence_score >= 0.8, DetectionResult.session_id)))),
             )
+            .join(Session, DetectionResult.session_id == Session.id)
+            .where(in_period)
         )
-        bot_result = await db.execute(bot_query)
-        bot_detections = bot_result.scalar()
-        
-        # High confidence detections
-        high_conf_query = select(func.count(DetectionResult.id)).where(
-            and_(
-                DetectionResult.created_at >= start_date,
-                DetectionResult.created_at <= end_date,
-                DetectionResult.confidence_score >= 0.8
-            )
-        )
-        high_conf_result = await db.execute(high_conf_query)
-        high_conf_detections = high_conf_result.scalar()
-        
+        checked, bots, high_confidence = (await db.execute(query)).one()
+        checked, bots, high_confidence = checked or 0, bots or 0, high_confidence or 0
         return {
-            "total": total_detections,
-            "bots_detected": bot_detections,
-            "high_confidence": high_conf_detections,
-            "bot_rate": (bot_detections / total_detections * 100) if total_detections > 0 else 0
+            "total": checked,
+            "checked": checked,
+            "bots_detected": bots,
+            "high_confidence": high_confidence,
+            "bot_rate": (bots / checked * 100) if checked > 0 else 0,
         }
     
     async def _get_event_stats(self, db: AsyncSession, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
@@ -375,38 +397,37 @@ class DashboardController:
         return platform_stats
     
     async def _get_trends_data(self, db: AsyncSession, start_date: datetime, end_date: datetime, interval: str) -> List[Dict[str, Any]]:
-        """Get trends data for the specified interval."""
-        # This is a simplified implementation
-        # In a real application, you'd use more sophisticated date grouping
+        """Sessions started per day, with how many of them were checked and judged bots.
+
+        Counts are by the day the session started; ``detections`` is kept for older clients
+        and equals ``checked``.
+        """
         trends = []
-        
-        # For now, return daily trends
-        current_date = start_date
+        current_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         while current_date <= end_date:
             next_date = current_date + timedelta(days=1)
-            
-            # Get sessions for this day
-            session_query = select(func.count(Session.id)).where(
-                and_(Session.created_at >= current_date, Session.created_at < next_date)
-            )
-            session_result = await db.execute(session_query)
-            sessions_count = session_result.scalar()
-            
-            # Get detections for this day
-            detection_query = select(func.count(DetectionResult.id)).where(
-                and_(DetectionResult.created_at >= current_date, DetectionResult.created_at < next_date)
-            )
-            detection_result = await db.execute(detection_query)
-            detections_count = detection_result.scalar()
-            
+            in_day = and_(Session.created_at >= current_date, Session.created_at < next_date)
+            sessions_count = (await db.execute(select(func.count(Session.id)).where(in_day))).scalar() or 0
+            checked, bots = 0, 0
+            if sessions_count:
+                checked, bots = (
+                    await db.execute(
+                        select(
+                            func.count(func.distinct(DetectionResult.session_id)),
+                            func.count(func.distinct(case((DetectionResult.is_bot == True, DetectionResult.session_id)))),
+                        )
+                        .join(Session, DetectionResult.session_id == Session.id)
+                        .where(in_day)
+                    )
+                ).one()
             trends.append({
                 "date": current_date.date().isoformat(),
                 "sessions": sessions_count,
-                "detections": detections_count
+                "checked": checked or 0,
+                "bots": bots or 0,
+                "detections": checked or 0,
             })
-            
             current_date = next_date
-        
         return trends
     
     def get_router(self) -> APIRouter:

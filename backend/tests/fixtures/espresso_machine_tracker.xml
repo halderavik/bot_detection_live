@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<survey alt="Espresso Machine Tracker" autosave="0" builderCompatible="1" compat="155" delphi="1" extraVariables="source,record,decLang,list,userAgent" lang="english" name="Survey" newStyle="1" secure="1" setup="term,quota,time,decLang" ss:disableBackButton="1" state="testing">
+<samplesources default="1">
+  <samplesource list="1"><title>Open</title>
+    <exit cond="terminated">Thank you for taking our survey.</exit>
+    <exit cond="qualified">Thank you for taking our survey.</exit>
+    <exit cond="overquota">Thank you for taking our survey.</exit>
+  </samplesource>
+</samplesources>
+<style mode="after" name="respview.client.js" wrap="ready"><![CDATA[
+if (a < b) { console.log("house script"); }
+]]></style>
+<radio label="S1"><title>Do you make espresso at home?</title><row label="r1">Yes</row><row label="r2">No</row></radio>
+<suspend/>
+<block label="BLK_Fans" cond="S1.r1">
+  <radio label="S2"><title>How often?</title><row label="r1">Daily</row><row label="r2">Weekly</row></radio>
+  <suspend/>
+</block>
+<loop label="L1" vars="machine">
+  <block label="B_L1">
+    <radio label="Q1_[loopvar: label]"><title>Rate [loopvar: machine]</title><row label="r1">Good</row><row label="r2">Bad</row></radio>
+    <suspend/>
+  </block>
+  <looprow label="1"><loopvar name="machine">Model A</loopvar></looprow>
+  <looprow label="2"><loopvar name="machine">Model B</loopvar></looprow>
+</loop>
+<textarea label="Q2"><title>Anything else about your machine?</title></textarea>
+<suspend/>
+<radio label="Q3"><title>Would you recommend it?</title><row label="r1">Yes</row><row label="r2">No</row></radio>
+<suspend/>
+</survey>

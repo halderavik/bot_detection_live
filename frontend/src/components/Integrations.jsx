@@ -7,32 +7,17 @@ import {
   Zap,
   Globe
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { integrationService } from '../services/apiService';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { config } from '../config/config';
-
-console.log({
-  Check,
-  X,
-  TriangleAlert,
-  Copy,
-  Zap,
-  Globe
-});
-
-const mockLogs = [
-  { id: 1, platform: 'qualtrics', status: 'success', message: 'Webhook delivered', timestamp: new Date().toISOString() },
-  { id: 2, platform: 'decipher', status: 'error', message: 'Signature invalid', timestamp: new Date(Date.now() - 60000).toISOString() },
-  { id: 3, platform: 'qualtrics', status: 'success', message: 'Survey info fetched', timestamp: new Date(Date.now() - 120000).toISOString() },
-];
 
 const Integrations = () => {
   const [integrationStatus, setIntegrationStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
-  const [logs, setLogs] = useState(mockLogs);
 
   useEffect(() => {
     fetchIntegrationStatus();
@@ -42,7 +27,8 @@ const Integrations = () => {
     try {
       setLoading(true);
       const response = await integrationService.getIntegrationStatus();
-      setIntegrationStatus(response.data);
+      // Reason: the API client already returns the response body.
+      setIntegrationStatus(response?.data || response);
     } catch (err) {
       console.error('Failed to fetch integration status:', err);
       setError('Failed to load integration status');
@@ -81,26 +67,6 @@ const Integrations = () => {
     return configured ? 'text-green-600' : 'text-red-600';
   };
 
-  const testWebhook = async (platform) => {
-    toast.info(`Testing ${platform} webhook...`);
-    // Simulate async test
-    setTimeout(() => {
-      const success = Math.random() > 0.3;
-      if (success) {
-        toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} webhook test successful!`);
-        setLogs(prev => [
-          { id: Date.now(), platform, status: 'success', message: 'Test webhook delivered', timestamp: new Date().toISOString() },
-          ...prev
-        ]);
-      } else {
-        toast.error(`${platform.charAt(0).toUpperCase() + platform.slice(1)} webhook test failed!`);
-        setLogs(prev => [
-          { id: Date.now(), platform, status: 'error', message: 'Test webhook failed', timestamp: new Date().toISOString() },
-          ...prev
-        ]);
-      }
-    }, 1200);
-  };
 
   // Always show cards, even if error
   const showStatus = integrationStatus || {
@@ -124,15 +90,8 @@ const Integrations = () => {
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
-            <p className="text-gray-600 mt-2">Manage your survey platform integrations</p>
-          </div>
-          <div className="bg-green-100 border border-green-200 rounded-lg px-4 py-2">
-            <div className="flex items-center">
-              <div className="h-2 w-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-              <span className="text-sm font-medium text-green-800">Production Ready</span>
-            </div>
-            <p className="text-xs text-green-600 mt-1">All systems operational</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Integrations</h1>
+            <p className="mt-1 text-sm text-gray-600">Manage your survey platform integrations</p>
           </div>
         </div>
         {error && (
@@ -151,7 +110,7 @@ const Integrations = () => {
             <div className="flex items-center">
               <Globe className="h-8 w-8 text-blue-600 mr-3" />
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Qualtrics</h3>
+                <h3 className="text-base font-semibold text-gray-900">Qualtrics</h3>
                 <p className="text-sm text-gray-600">Survey platform integration</p>
               </div>
             </div>
@@ -193,7 +152,7 @@ const Integrations = () => {
               </button>
             </div>
           </div>
-          <button onClick={() => testWebhook('qualtrics')} className="btn-secondary text-sm">Test Webhook</button>
+          <Link className="btn-secondary text-sm" to="/settings">Set the key in Settings</Link>
         </div>
 
         {/* Decipher Integration */}
@@ -202,7 +161,7 @@ const Integrations = () => {
             <div className="flex items-center">
               <Zap className="h-8 w-8 text-purple-600 mr-3" />
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Decipher</h3>
+                <h3 className="text-base font-semibold text-gray-900">Decipher</h3>
                 <p className="text-sm text-gray-600">Survey platform integration</p>
               </div>
             </div>
@@ -244,13 +203,13 @@ const Integrations = () => {
               </button>
             </div>
           </div>
-          <button onClick={() => testWebhook('decipher')} className="btn-secondary text-sm">Test Webhook</button>
+          <Link className="btn-secondary text-sm" to="/settings">Set the key in Settings</Link>
         </div>
       </div>
 
       {/* Quick Start Guide */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Start Guide</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-4">Quick Start Guide</h3>
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg mb-6">
           <h4 className="text-md font-semibold text-gray-900 mb-3">🚀 Ready to integrate bot detection?</h4>
           <p className="text-sm text-gray-600 mb-4">
@@ -287,7 +246,7 @@ const Integrations = () => {
 
       {/* Setup Instructions */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">How Bot Detection Integration Works</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-4">How Bot Detection Integration Works</h3>
         
         <div className="space-y-6">
           {/* How It Works Overview */}
@@ -408,7 +367,7 @@ const Integrations = () => {
 
       {/* JavaScript Integration Code */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
           <Zap className="h-5 w-5 text-gray-600 mr-2" />
           JavaScript Integration Code
         </h3>
@@ -599,7 +558,7 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
 
       {/* API Documentation */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
           <Globe className="h-5 w-5 text-gray-600 mr-2" />
           API Documentation
         </h3>
@@ -667,7 +626,7 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
 
       {/* Troubleshooting */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
           <TriangleAlert className="h-5 w-5 text-orange-600 mr-2" />
           Troubleshooting & FAQ
         </h3>
@@ -724,31 +683,6 @@ document.addEventListener('DOMContentLoaded', initBotDetection);`, 'js-code')}
         </div>
       </div>
 
-      {/* Integration Logs */}
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Integration Logs</h2>
-        <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-          {logs.length === 0 ? (
-            <div className="text-gray-500 text-sm">No logs yet.</div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {logs.map((log) => (
-                <li key={log.id} className="py-2 flex items-center gap-2">
-                  {log.status === 'success' ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <X className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className="font-medium capitalize">{log.platform}</span>
-                  <span className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                  <span className="ml-2 text-gray-700 text-sm">{log.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-      <ToastContainer position="bottom-right" autoClose={3000} />
     </div>
   );
 };

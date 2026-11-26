@@ -273,6 +273,12 @@ async def test_composite_after_analyze_includes_grid_and_timing(api):
     assert body["grid_details"]["straight_lined_questions"] == 1
     assert body["timing_details"]["speeders"] >= 1
     assert body["text_quality_details"]["total_responses"] == 1  # the grid rows are not counted as text
+    # The same results as numbers for the survey data (SPSS): straight-lining, speeding, weak open end
+    variables = body["survey_variables"]
+    assert variables["QOS_STRAIGHTLINE"] == 1 and variables["QOS_SPEEDER"] >= 1
+    assert {"20", "21", "22"} <= set(variables["QOS_REASONS"].split(","))
+    assert variables["QOS_STATUS"] == 2 and variables["QOS_FLAGCOUNT"] >= 3
+    assert variables["QOS_OES"] is not None and variables["QOS_FRAUD"] is not None
 
     # Running it twice must also work
     assert (await api.post(f"/detection/sessions/{sid}/composite-analyze")).status_code == 200
@@ -299,6 +305,9 @@ async def test_composite_without_analyze_scores_behaviour(api):
     await send(api, sid, script_events(t0()))
     body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
     assert body["behavioral_score"] >= 0.85  # not the old neutral 0.5
+    variables = body["survey_variables"]
+    assert variables["QOS_STATUS"] == 3 and variables["QOS_BEHAV"] >= 85
+    assert 1 <= variables["QOS_REASON"] <= 6  # a behavioural reason comes first
     report = (await api.get(f"/reports/detailed/{SURVEY}?include_inactive=true")).json()
     assert next(r for r in report["respondents"] if r["session_id"] == sid)["is_bot"] is True
 

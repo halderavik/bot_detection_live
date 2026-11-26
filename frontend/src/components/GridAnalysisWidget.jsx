@@ -24,7 +24,10 @@ const GridAnalysisWidget = ({
 
   useEffect(() => {
     loadGridData();
-  }, [surveyId, platformId, respondentId, sessionId, filters]);
+    // Reason: compare filters by value; a default {} is a new object on every render and
+    // made this effect refetch in an endless loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, platformId, respondentId, sessionId, JSON.stringify(filters)]);
 
   const loadGridData = async () => {
     if (!surveyId) return;
@@ -52,7 +55,7 @@ const GridAnalysisWidget = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-blue-600" />
           Grid Analysis Summary
@@ -67,7 +70,7 @@ const GridAnalysisWidget = ({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-blue-600" />
           Grid Analysis Summary
@@ -81,7 +84,7 @@ const GridAnalysisWidget = ({
 
   if (!gridData || gridData.total_responses === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-blue-600" />
           Grid Analysis Summary
@@ -92,7 +95,7 @@ const GridAnalysisWidget = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <BarChart3 className="w-5 h-5 text-blue-600" />
         Grid Analysis Summary
@@ -161,7 +164,7 @@ const GridAnalysisWidget = ({
                   <p className="text-xs text-gray-600 mb-1 capitalize">
                     {pattern.replace(/_/g, ' ')}
                   </p>
-                  <p className="text-xl font-bold text-gray-900">{count}</p>
+                  <p className="text-base font-semibold text-gray-900">{count}</p>
                 </div>
               ))}
             </div>

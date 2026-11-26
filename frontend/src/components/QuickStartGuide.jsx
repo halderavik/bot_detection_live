@@ -287,8 +287,8 @@ const QuickStartGuide = () => {
   return (
     <div className="max-w-6xl mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Quick Start Guide</h1>
-        <p className="text-gray-600 mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Quick Start Guide</h1>
+        <p className="mt-1 text-sm text-gray-600">
           Get up and running with the Bot Detection System in minutes. Follow these steps to integrate bot detection into your applications.
         </p>
 
@@ -331,7 +331,7 @@ const QuickStartGuide = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               {steps.find(s => s.id === activeStep)?.title}
             </h2>
-            <p className="text-gray-600">
+            <p className="mt-1 text-sm text-gray-600">
               {steps.find(s => s.id === activeStep)?.description}
             </p>
           </div>

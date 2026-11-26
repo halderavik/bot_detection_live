@@ -1,444 +1,237 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  RefreshCw, 
-  Calendar,
-  Users,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  MoreHorizontal,
-  ChevronDown,
-  ChevronUp
-} from 'lucide-react';
-import { dashboardService } from '../services/apiService';
-import SessionDetails from './SessionDetails';
-import { config } from '../config/config';
+// Sessions: every tracked session with its latest verdict, filterable and paged.
+// Filters live in the URL, so a filtered list can be bookmarked or shared.
 
-function SessionComparisonModal({ sessionIds, onClose }) {
-  // For demo, just show the IDs and a placeholder timeline
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col relative">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Session Comparison</h2>
-          <button className="text-gray-500 hover:text-gray-800 text-2xl font-bold" onClick={onClose}>&times;</button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sessionIds.map((id, idx) => (
-            <div key={id} className="border rounded-lg p-2">
-              <SessionDetails sessionId={id} />
-            </div>
-          ))}
-        </div>
-        <div className="p-4 border-t border-gray-200">
-          <h3 className="text-lg font-semibold mb-2">Timeline (Mocked)</h3>
-          <div className="bg-gray-100 rounded p-4 text-center text-gray-500">[Timeline visualization coming soon]</div>
-        </div>
-      </div>
-    </div>
-  );
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, RefreshCw, Search, Users, X } from 'lucide-react';
+import { dashboardService } from '../services/apiService';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorBanner,
+  Loading,
+  PageHeader,
+  RiskBadge,
+  VerdictBadge,
+  apiError,
+  formatDateTime,
+  inputClass,
+  tableClasses as t,
+  timeAgo,
+} from './ui';
+
+const LIMIT = 25;
+const VERDICTS = [
+  { id: '', label: 'All' },
+  { id: 'bot', label: 'Bots' },
+  { id: 'human', label: 'Humans' },
+  { id: 'unchecked', label: 'Not checked' },
+];
+
+function useDebounced(value, ms = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebounced(value), ms);
+    return () => window.clearTimeout(handle);
+  }, [value, ms]);
+  return debounced;
 }
 
 function SessionList() {
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 20,
-    total: 0,
-    pages: 0
-  });
-  const [filters, setFilters] = useState({
-    search: '',
-    platform: '',
-    status: '',
-    risk_level: '',
-    date_range: '7d'
-  });
-  const [sortBy, setSortBy] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedSessions, setSelectedSessions] = useState([]);
-  const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const verdict = params.get('verdict') || '';
+  const risk = params.get('risk') || '';
+  const platform = params.get('platform') || '';
+  const page = Math.max(1, Number(params.get('page')) || 1);
+  const [search, setSearch] = useState(params.get('q') || '');
+  const query = useDebounced(search.trim());
 
-  const fetchSessions = useCallback(async () => {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const update = (changes) => {
+    const next = new URLSearchParams(params);
+    Object.entries(changes).forEach(([key, value]) => (value ? next.set(key, value) : next.delete(key)));
+    if (!('page' in changes)) next.delete('page');
+    setParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    if ((params.get('q') || '') !== query) update({ q: query });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    const filters = {};
+    if (verdict === 'bot') filters.is_bot = true;
+    if (verdict === 'human') filters.is_bot = false;
+    if (verdict === 'unchecked') filters.risk_level = 'unknown';
+    else if (risk) filters.risk_level = risk;
+    if (platform) filters.platform = platform;
+    if (query) filters.search = query;
     try {
-      setLoading(true);
-      const response = await dashboardService.getSessionsList(
-        pagination.page,
-        pagination.limit,
-        { ...filters, sort_by: sortBy, sort_order: sortOrder }
-      );
-      setSessions(response.sessions || []);
-      setPagination(response.pagination || pagination);
+      setData(await dashboardService.getSessionsList(page, LIMIT, filters));
     } catch (err) {
-      setError('Failed to load sessions');
-      console.error('Error fetching sessions:', err);
+      setError(apiError(err, 'Sessions could not be loaded.'));
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, filters, sortBy, sortOrder]);
+  }
 
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verdict, risk, platform, page, query]);
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
-  };
-
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const handlePageChange = (page) => {
-    setPagination(prev => ({ ...prev, page }));
-  };
-
-  const handleSelectSession = (sessionId) => {
-    setSelectedSessions(prev => 
-      prev.includes(sessionId) 
-        ? prev.filter(id => id !== sessionId)
-        : [...prev, sessionId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedSessions.length === sessions.length) {
-      setSelectedSessions([]);
-    } else {
-      setSelectedSessions(sessions.map(s => s.id));
-    }
-  };
-
-  const exportSessions = async () => {
-    try {
-      // This would call an export API endpoint
-      const response = await fetch(config.dashboard.sessionsExport, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          session_ids: selectedSessions.length > 0 ? selectedSessions : null,
-          filters,
-          format: 'csv'
-        })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sessions-export-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error('Export failed:', err);
-    }
-  };
-
-  const getStatusIcon = (isActive) => {
-    return isActive ? (
-      <Activity className="h-4 w-4 text-green-500" />
-    ) : (
-      <CheckCircle className="h-4 w-4 text-gray-500" />
-    );
-  };
-
-  const getRiskLevelBadge = (riskLevel) => {
-    const colors = {
-      low: 'bg-green-100 text-green-700',
-      medium: 'bg-yellow-100 text-yellow-700',
-      high: 'bg-red-100 text-red-700'
-    };
-    return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${colors[riskLevel] || 'bg-gray-100 text-gray-700'}`}>
-        {riskLevel || 'unknown'}
-      </span>
-    );
-  };
-
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <p className="text-red-600">{error}</p>
-        <button onClick={fetchSessions} className="btn-primary mt-4">
-          Retry
-        </button>
-      </div>
-    );
-  }
+  const sessions = data?.sessions || [];
+  const pagination = data?.pagination || { total: 0, pages: 0 };
+  const filtered = Boolean(verdict || risk || platform || query);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Sessions</h1>
-          <p className="text-gray-600 mt-2">Manage and analyze bot detection sessions</p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={fetchSessions}
-            className="btn-secondary flex items-center"
-            disabled={loading}
+      <PageHeader
+        actions={<Button disabled={loading} icon={RefreshCw} onClick={load}>{loading ? 'Refreshing…' : 'Refresh'}</Button>}
+        description="Every tracked session, newest first, with its latest verdict. Click a session for its events and the reasons behind the verdict."
+        title="Sessions"
+      />
+
+      <Card bodyClassName="p-0">
+        <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3">
+          <label className="relative min-w-[14rem] flex-1 sm:max-w-xs">
+            <span className="sr-only">Search sessions</span>
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              className={`${inputClass} pl-9`}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Session, respondent or survey id"
+              value={search}
+            />
+          </label>
+          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5" role="radiogroup" aria-label="Verdict">
+            {VERDICTS.map((item) => (
+              <button
+                aria-checked={verdict === item.id}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium ${verdict === item.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                key={item.id || 'all'}
+                onClick={() => update({ verdict: item.id, risk: item.id === 'unchecked' ? '' : risk })}
+                role="radio"
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <select
+            aria-label="Risk level"
+            className={`${inputClass} w-auto`}
+            disabled={verdict === 'unchecked'}
+            onChange={(event) => update({ risk: event.target.value })}
+            value={risk}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          {selectedSessions.length > 0 && (
-            <button
-              onClick={exportSessions}
-              className="btn-primary flex items-center"
+            <option value="">Any risk</option>
+            <option value="low">Low risk</option>
+            <option value="medium">Medium risk</option>
+            <option value="high">High risk</option>
+            <option value="critical">Critical risk</option>
+          </select>
+          <select aria-label="Platform" className={`${inputClass} w-auto`} onChange={(event) => update({ platform: event.target.value })} value={platform}>
+            <option value="">Any platform</option>
+            <option value="decipher">Decipher</option>
+            <option value="qualtrics">Qualtrics</option>
+          </select>
+          {filtered && (
+            <Button
+              icon={X}
+              onClick={() => {
+                setSearch('');
+                setParams({}, { replace: true });
+              }}
+              size="sm"
+              variant="ghost"
             >
-              <Download className="h-4 w-4 mr-2" />
-              Export ({selectedSessions.length})
-            </button>
+              Clear filters
+            </Button>
           )}
-          {selectedSessions.length === 2 && (
-            <button
-              onClick={() => setCompareModalOpen(true)}
-              className="btn-secondary flex items-center"
-            >
-              Compare
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search sessions..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="btn-secondary flex items-center"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {showFilters ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
-            </button>
-          </div>
-          <div className="text-sm text-gray-600">
-            {pagination.total} sessions total
-          </div>
+          <span className="ml-auto text-xs text-gray-500">{pagination.total.toLocaleString()} sessions</span>
         </div>
 
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
-              <select
-                value={filters.platform}
-                onChange={(e) => handleFilterChange('platform', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Platforms</option>
-                <option value="qualtrics">Qualtrics</option>
-                <option value="decipher">Decipher</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Risk Level</label>
-              <select
-                value={filters.risk_level}
-                onChange={(e) => handleFilterChange('risk_level', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Risk Levels</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-              <select
-                value={filters.date_range}
-                onChange={(e) => handleFilterChange('date_range', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="1d">Last 24 hours</option>
-                <option value="7d">Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-              </select>
-            </div>
+        {error && <div className="p-4"><ErrorBanner onRetry={load}>{error}</ErrorBanner></div>}
+        {!data && !error && <Loading label="Loading sessions…" />}
+        {data && sessions.length === 0 && (
+          <EmptyState icon={Users} title={filtered ? 'No sessions match these filters' : 'No sessions yet'}>
+            {filtered ? 'Try clearing a filter.' : 'Sessions appear as soon as respondents open a tracked survey.'}
+          </EmptyState>
+        )}
+        {sessions.length > 0 && (
+          <div className={t.wrap}>
+            <table className={`${t.table} min-w-[820px]`}>
+              <thead className={t.head}>
+                <tr>
+                  <th className={t.th}>Respondent</th>
+                  <th className={t.th}>Survey</th>
+                  <th className={t.th}>Verdict</th>
+                  <th className={t.th}>Risk</th>
+                  <th className={`${t.th} text-right`}>Bot score</th>
+                  <th className={`${t.th} text-right`}>Events</th>
+                  <th className={t.th}>Started</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((session) => {
+                  const href = `/sessions/${encodeURIComponent(session.id)}`;
+                  return (
+                    <tr
+                      className={`${t.row} cursor-pointer`}
+                      key={session.id}
+                      onClick={(event) => {
+                        if (!event.target.closest('a')) navigate(href);
+                      }}
+                    >
+                      <td className={t.td}>
+                        <Link className="font-medium text-gray-900 hover:text-blue-700" to={href}>{session.respondent_id || 'Anonymous'}</Link>
+                        <div className="font-mono text-[11px] text-gray-400">{session.id.slice(0, 8)}</div>
+                      </td>
+                      <td className={t.td}>
+                        <div className="max-w-[14rem] truncate">{session.survey_id || '–'}</div>
+                        <div className="text-xs capitalize text-gray-400">{session.platform || ''}</div>
+                      </td>
+                      <td className={t.td}><VerdictBadge analyzed={session.analyzed} isBot={session.is_bot} /></td>
+                      <td className={t.td}><RiskBadge level={session.risk_level} /></td>
+                      <td className={`${t.td} text-right tabular-nums`}>
+                        {session.confidence_score === null || session.confidence_score === undefined ? '–' : Number(session.confidence_score).toFixed(2)}
+                      </td>
+                      <td className={`${t.td} text-right tabular-nums`}>{session.event_count.toLocaleString()}</td>
+                      <td className={`${t.td} whitespace-nowrap`} title={formatDateTime(session.created_at)}>{timeAgo(session.created_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
 
-      {/* Sessions Table */}
-      <div className="card">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedSessions.length === sessions.length && sessions.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300"
-                  />
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('id')}
-                >
-                  Session ID
-                  {sortBy === 'id' && (
-                    sortOrder === 'asc' ? <ChevronUp className="h-4 w-4 inline ml-1" /> : <ChevronDown className="h-4 w-4 inline ml-1" />
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('created_at')}
-                >
-                  Created
-                  {sortBy === 'created_at' && (
-                    sortOrder === 'asc' ? <ChevronUp className="h-4 w-4 inline ml-1" /> : <ChevronDown className="h-4 w-4 inline ml-1" />
-                  )}
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Events</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center">
-                    <div className="flex items-center justify-center">
-                      <RefreshCw className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-                      Loading sessions...
-                    </div>
-                  </td>
-                </tr>
-              ) : sessions.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                    No sessions found matching your criteria
-                  </td>
-                </tr>
-              ) : (
-                sessions.map(session => (
-                  <tr key={session.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedSessions.includes(session.id)}
-                        onChange={() => handleSelectSession(session.id)}
-                        className="rounded border-gray-300"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs font-mono text-gray-900">{session.id}</code>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(session.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center">
-                        {getStatusIcon(session.is_active)}
-                        <span className="ml-2 text-sm text-gray-900">
-                          {session.is_active ? 'Active' : 'Completed'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-900">{session.platform || '-'}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-900">{session.event_count}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {getRiskLevelBadge(session.risk_level)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              <span className="px-3 py-1 text-sm text-gray-700">
-                Page {pagination.page} of {pagination.pages}
-              </span>
-              <button
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-              >
-                Next
-              </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
+            <span>
+              {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, pagination.total)} of {pagination.total.toLocaleString()}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button disabled={page <= 1} icon={ChevronLeft} onClick={() => update({ page: String(page - 1) })} size="sm">Previous</Button>
+              <span className="text-xs">Page {page} of {pagination.pages}</span>
+              <Button disabled={page >= pagination.pages} onClick={() => update({ page: String(page + 1) })} size="sm">
+                Next<ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         )}
-      </div>
-      {compareModalOpen && (
-        <SessionComparisonModal
-          sessionIds={selectedSessions}
-          onClose={() => setCompareModalOpen(false)}
-        />
-      )}
+      </Card>
     </div>
   );
 }
 
-export default SessionList; 
+export default SessionList;

@@ -157,8 +157,8 @@ const ReportBuilder = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Report Builder</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Report Builder</h1>
+        <p className="mt-1 text-sm text-gray-600">
           Generate comprehensive reports for your surveys including summary statistics and detailed respondent data.
         </p>
       </div>
@@ -328,7 +328,7 @@ const ReportBuilder = () => {
           {/* Additional Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Activity Distribution</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Activity Distribution</h3>
               <div className="space-y-2">
                 {Object.entries(summaryReport.activity_distribution).map(([activity, count]) => (
                   <div key={activity} className="flex justify-between items-center p-2 bg-gray-50 rounded">
@@ -340,7 +340,7 @@ const ReportBuilder = () => {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Risk Level Distribution</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Risk Level Distribution</h3>
               <div className="space-y-2">
                 {Object.entries(summaryReport.risk_distribution).map(([risk, count]) => (
                   <div key={risk} className="flex justify-between items-center p-2 bg-gray-50 rounded">
@@ -357,7 +357,7 @@ const ReportBuilder = () => {
           {/* Text Quality Analysis Section */}
           {summaryReport.text_quality_summary && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
                 Text Quality Analysis
               </h3>
@@ -431,7 +431,7 @@ const ReportBuilder = () => {
           {/* Fraud & Duplicate Detection Section */}
           {summaryReport.fraud_summary && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <ShieldAlert className="w-5 h-5 mr-2 text-amber-600" />
                 Fraud & Duplicate Detection
               </h3>
@@ -485,7 +485,7 @@ const ReportBuilder = () => {
           {/* Grid Analysis Section */}
           {summaryReport.grid_analysis_summary && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <LayoutGrid className="w-5 h-5 mr-2 text-indigo-600" />
                 Grid / Matrix Analysis
               </h3>
@@ -521,7 +521,7 @@ const ReportBuilder = () => {
           {/* Timing Analysis Section */}
           {summaryReport.timing_analysis_summary && (
             <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-teal-600" />
                 Timing Analysis
               </h3>
@@ -564,20 +564,20 @@ const ReportBuilder = () => {
 
           {/* Date Range */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+            <h3 className="text-base font-semibold text-gray-900 mb-2 flex items-center">
               <Calendar className="w-5 h-5 mr-2" />
               Report Period
             </h3>
-            <p className="text-gray-600">
+            <p className="mt-1 text-sm text-gray-600">
               From: {formatDate(summaryReport.date_range.from)} - To: {formatDate(summaryReport.date_range.to)}
             </p>
             {summaryReport.average_session_duration && (
-              <p className="text-gray-600 mt-1">
+              <p className="text-sm text-gray-600 mt-1">
                 Average Session Duration: {summaryReport.average_session_duration.toFixed(2)} minutes
               </p>
             )}
             {summaryReport.average_events_per_session && (
-              <p className="text-gray-600">
+              <p className="mt-1 text-sm text-gray-600">
                 Average Events per Session: {summaryReport.average_events_per_session.toFixed(1)}
               </p>
             )}
@@ -780,7 +780,7 @@ const ReportBuilder = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-gray-900">
                 Respondent details – {selectedRespondent.respondent_id || 'Anonymous'}
               </h3>
               <button
@@ -904,7 +904,7 @@ const ReportBuilder = () => {
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Report Generated</h3>
-          <p className="text-gray-600 mb-6">
+          <p className="mt-1 text-sm text-gray-600">
             Select a survey and click "Generate Report" to view survey analytics and respondent data.
           </p>
         </div>

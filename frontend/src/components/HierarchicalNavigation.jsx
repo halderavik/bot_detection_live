@@ -1,85 +1,63 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, LayoutDashboard } from 'lucide-react';
 
 /**
- * HierarchicalNavigation Component
- * 
- * Breadcrumb navigation component for hierarchical structure:
- * Survey → Platform → Respondent → Session
+ * Breadcrumbs for the survey hierarchy: Overview → Survey → Platform → Respondent → Session.
+ * Ids are URL-encoded, since survey ids are often titles with spaces.
  */
-const HierarchicalNavigation = ({ 
-  surveyId, 
-  platformId, 
-  respondentId, 
+const HierarchicalNavigation = ({
+  surveyId,
+  platformId,
+  respondentId,
   sessionId,
   surveyName,
   platformName,
   respondentName,
-  sessionName
+  sessionName,
 }) => {
-  const breadcrumbs = [];
-
-  // Home
-  breadcrumbs.push({
-    label: 'Home',
-    path: '/',
-    icon: <Home className="w-4 h-4" />
-  });
-
-  // Survey
-  if (surveyId) {
-    breadcrumbs.push({
-      label: surveyName || `Survey: ${surveyId}`,
-      path: `/surveys/${surveyId}`
-    });
-  }
-
-  // Platform
+  const enc = encodeURIComponent;
+  const crumbs = [{ label: 'Overview', path: '/', icon: LayoutDashboard }];
+  if (surveyId) crumbs.push({ label: surveyName || surveyId, path: `/surveys/${enc(surveyId)}` });
   if (surveyId && platformId) {
-    breadcrumbs.push({
-      label: platformName || `Platform: ${platformId}`,
-      path: `/surveys/${surveyId}/platforms/${platformId}`
-    });
+    crumbs.push({ label: platformName || platformId, path: `/surveys/${enc(surveyId)}/platforms/${enc(platformId)}` });
   }
-
-  // Respondent
   if (surveyId && platformId && respondentId) {
-    breadcrumbs.push({
-      label: respondentName || `Respondent: ${respondentId}`,
-      path: `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}`
+    crumbs.push({
+      label: respondentName || respondentId,
+      path: `/surveys/${enc(surveyId)}/platforms/${enc(platformId)}/respondents/${enc(respondentId)}`,
     });
   }
-
-  // Session
   if (surveyId && platformId && respondentId && sessionId) {
-    breadcrumbs.push({
-      label: sessionName || `Session: ${sessionId.substring(0, 8)}...`,
-      path: `/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${sessionId}`
+    crumbs.push({
+      label: sessionName || `Session ${sessionId.substring(0, 8)}`,
+      path: `/surveys/${enc(surveyId)}/platforms/${enc(platformId)}/respondents/${enc(respondentId)}/sessions/${enc(sessionId)}`,
     });
   }
 
   return (
-    <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-      {breadcrumbs.map((crumb, index) => (
-        <React.Fragment key={index}>
-          {index > 0 && <ChevronRight className="w-4 h-4 text-gray-400" />}
-          {index === breadcrumbs.length - 1 ? (
-            <span className="text-gray-900 font-medium">{crumb.icon || crumb.label}</span>
-          ) : (
-            <Link 
-              to={crumb.path} 
-              className="hover:text-blue-600 transition-colors flex items-center gap-1"
-            >
-              {crumb.icon}
-              <span>{crumb.label}</span>
-            </Link>
-          )}
-        </React.Fragment>
-      ))}
+    <nav aria-label="Breadcrumb" className="mb-2">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-gray-500">
+        {crumbs.map((crumb, index) => {
+          const last = index === crumbs.length - 1;
+          const Icon = crumb.icon;
+          return (
+            <li className="flex min-w-0 items-center gap-1.5" key={crumb.path}>
+              {index > 0 && <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-gray-300" />}
+              {last ? (
+                <span aria-current="page" className="max-w-[16rem] truncate font-medium text-gray-900">{crumb.label}</span>
+              ) : (
+                <Link className="flex max-w-[16rem] items-center gap-1 truncate hover:text-blue-700" to={crumb.path}>
+                  {Icon && <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
+                  <span className="truncate">{crumb.label}</span>
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 };
 
 export default HierarchicalNavigation;
-

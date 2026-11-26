@@ -1,0 +1,333 @@
+"""
+Add live tracking to an uploaded Decipher survey XML.
+
+POST /api/v1/tracking/decipher takes the survey XML (multipart field ``file``),
+checks that it is a Decipher survey, creates or updates the survey's record,
+signs the survey id, and returns the same survey with the tracker script, the
+hidden ``QOS_*`` results page, and the chosen options added, ready to import
+into Decipher.
+"""
+
+import re
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.database import get_db
+from app.models import Session, TrackedSurvey
+from app.services.decipher_tracking import (
+    BOT_SIGNALS,
+    DEFAULT_PRIVACY_TEXT,
+    FIELD_LABELS,
+    NotASurveyError,
+    TrackingOptions,
+    decipher_settings_problems,
+    check_api_base,
+    has_tracking,
+    read_survey,
+    track_survey,
+    tracked_survey_id,
+)
+from app.services.decipher_upload import (
+    DecipherNotConfigured,
+    DecipherUploader,
+    DecipherUploadError,
+    clean_path,
+    is_configured,
+)
+from app.utils.logger import setup_logger
+from app.utils.survey_tokens import survey_token
+
+logger = setup_logger(__name__)
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+router = APIRouter(prefix="/tracking", tags=["survey tracking"])
+
+
+def tracker_api_base(request: Request) -> str:
+    """The API base URL respondents' browsers will call.
+
+    ``TRACKER_API_BASE`` when set; otherwise this request's own origin (honouring
+    the proxy's forwarded scheme and host) plus ``/api/v1``.
+    """
+    if settings.TRACKER_API_BASE:
+        return settings.TRACKER_API_BASE.rstrip("/")
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme).split(",")[0].strip()
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{scheme}://{host.split(',')[0].strip()}{settings.API_V1_STR}"
+
+
+def _tracked_filename(filename: str) -> str:
+    stem = Path(filename or "survey.xml").stem or "survey"
+    stem = re.sub(r"_tracked$", "", stem)
+    stem = re.sub(r"[^\w.-]+", "_", stem).strip("_") or "survey"
+    return f"{stem}_tracked.xml"
+
+
+@router.get("/decipher/options")
+async def tracking_options():
+    """Defaults the upload screen shows: bot signals and the privacy notice."""
+    return {
+        "signals": [{"code": code, "label": label} for code, label in BOT_SIGNALS.items()],
+        "default_privacy_text": DEFAULT_PRIVACY_TEXT,
+        "default_after_page": 2,
+        "signed": bool(settings.TRACKING_TOKEN_SECRET),
+        "decipher_upload": is_configured(settings.DECIPHER_API_KEY),
+        "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
+    }
+
+
+@router.post("/decipher")
+async def add_decipher_tracking(
+    request: Request,
+    file: UploadFile = File(..., description="Decipher survey XML (.xml or .txt)"),
+    survey_id: Optional[str] = Form(None, description="Tracking survey id; default from the survey title"),
+    terminate: bool = Form(False, description="End the survey on a clear bot signal"),
+    after_page: int = Form(2, description="Page whose submit runs the in-survey check"),
+    signals: Optional[str] = Form(None, description="Comma-separated bot signals that end the survey"),
+    privacy_notice: bool = Form(True, description="Show a short privacy notice on the first page"),
+    privacy_text: Optional[str] = Form(None, description="Privacy notice text; default wording when empty"),
+    format: str = "json",
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the uploaded Decipher survey with live tracking added once.
+
+    ``format=xml`` returns the tracked file itself; the default JSON also says what
+    was added and where the survey's dashboard is.
+    """
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="The file is larger than 5 MB.")
+    if file.filename and Path(file.filename).suffix.lower() not in {".xml", ".txt", ""}:
+        raise HTTPException(status_code=400, detail="Upload the survey as an .xml file (or .txt holding the XML).")
+
+    try:
+        api_base = check_api_base(tracker_api_base(request))
+    except ValueError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"{error} Set TRACKER_API_BASE to the service's public https URL ending in /api/v1.",
+        ) from error
+
+    codes = [code.strip() for code in (signals or "").split(",") if code.strip()] or list(BOT_SIGNALS)
+    unknown = [code for code in codes if code not in BOT_SIGNALS]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown bot signal(s): {', '.join(unknown)}")
+    options = TrackingOptions(
+        terminate=terminate,
+        after_page=after_page,
+        signals=codes,
+        privacy_text=(privacy_text or DEFAULT_PRIVACY_TEXT) if privacy_notice else "",
+    )
+    try:
+        result = track_survey(
+            data,
+            api_base,
+            lambda sid: survey_token(sid) or "",
+            survey_id=survey_id,
+            filename=file.filename or "",
+            options=options,
+        )
+    except NotASurveyError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    signed = bool(settings.TRACKING_TOKEN_SECRET)
+    warnings = list(result.warnings)
+    if api_base.startswith("http://"):
+        warnings.append(
+            f"The tracker calls {api_base}, which only works on this computer. Set TRACKER_API_BASE "
+            "to the service's public https URL before importing the survey into Decipher."
+        )
+
+    existing_sessions = 0
+    new_record = True
+    decipher_path = None
+    try:
+        record = await db.get(TrackedSurvey, result.survey_id)
+        new_record = record is None
+        if record is None:
+            record = TrackedSurvey(survey_id=result.survey_id, uploads=0)
+            db.add(record)
+        record.title = result.survey_id
+        record.source_filename = (file.filename or "")[:255]
+        record.platform_id = "decipher"
+        record.signed = signed
+        record.terminate = terminate
+        record.privacy_notice = result.privacy_notice
+        record.uploads = (record.uploads or 0) + 1
+        decipher_path = record.decipher_path
+        await db.commit()
+        existing_sessions = (
+            await db.execute(select(func.count()).select_from(Session).where(Session.survey_id == result.survey_id))
+        ).scalar() or 0
+    except Exception as error:  # noqa: BLE001 - the tracked file does not depend on the record
+        await db.rollback()
+        logger.error(f"Could not save the tracked survey record for {result.survey_id}: {error}")
+        warnings.append("The survey record could not be saved; the tracked file is still complete.")
+
+    filename = _tracked_filename(file.filename or "")
+    if format == "xml":
+        return Response(
+            content=result.xml.encode("utf-8"),
+            media_type="application/xml",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    added = [
+        "Tracker script, as a respview.client.js style with mode=\"after\" (runs on every page, "
+        "alongside the survey's own scripts)",
+        f"Hidden results page with {len(FIELD_LABELS)} quality variables for the data export "
+        f"({', '.join(FIELD_LABELS)})",
+        "Respondent id: Decipher's uuid, so results match the uuid column in Decipher's data exports (SPSS, Excel, CSV)",
+    ]
+    if result.privacy_notice:
+        added.append("Privacy notice at the top of the first page (QOS_privacy)")
+    if result.early_check_page:
+        added.append(result.early_check_note)
+
+    return {
+        "survey_id": result.survey_id,
+        "filename": filename,
+        "xml": result.xml,
+        "replaced_existing_tracking": result.replaced,
+        "new_survey_record": new_record,
+        "existing_sessions": existing_sessions,
+        "signed": signed,
+        "api_base": api_base,
+        "added": added,
+        "survey": {
+            "questions": result.questions,
+            "pages": result.pages,
+            "loops": result.loops,
+            "blocks": result.blocks,
+        },
+        "options": {
+            "terminate": terminate,
+            "after_page": after_page if terminate else None,
+            "signals": codes if terminate else [],
+            "privacy_notice": result.privacy_notice,
+        },
+        "early_check": {
+            "requested": terminate,
+            "page": result.early_check_page,
+            "note": result.early_check_note,
+        },
+        "hidden_fields": list(FIELD_LABELS),
+        "warnings": warnings,
+        "dashboard_path": f"/surveys/{result.survey_id}",
+        "decipher_upload": {
+            "configured": is_configured(settings.DECIPHER_API_KEY),
+            "last_path": decipher_path,
+        },
+    }
+
+
+class DecipherUploadRequest(BaseModel):
+    """A tracked survey XML to send to Decipher."""
+
+    xml: str = Field(..., max_length=MAX_UPLOAD_BYTES)
+    survey_id: str = Field(..., max_length=255)
+    survey_path: Optional[str] = Field(None, max_length=255, description="Existing Decipher survey path to update")
+    create_new: bool = Field(False, description="Create a new Decipher survey even if one was used before")
+
+
+@router.post("/decipher/upload")
+async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Depends(get_db)):
+    """Send tracked survey XML to Decipher.
+
+    The target is, in order: a new survey when ``create_new``; ``survey_path``
+    when given; the survey this id was last uploaded to; otherwise a new survey.
+    Decipher validates the file before saving it and never overwrites a live survey.
+    """
+    try:
+        uploader = DecipherUploader(
+            settings.DECIPHER_API_KEY, settings.DECIPHER_API_BASE, settings.DECIPHER_COMPANY
+        )
+    except DecipherNotConfigured as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+    try:
+        xml, root = read_survey(body.xml.encode("utf-8"))
+    except NotASurveyError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    # Reason: checked before anything is sent, so a file Decipher would refuse never
+    # leaves an empty new survey behind in the Decipher account.
+    problems = decipher_settings_problems(root)
+    if problems:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Decipher would refuse this file, so nothing was sent to Decipher. " + problems[0],
+                "errors": problems,
+                "survey_path": None,
+                "survey_url": None,
+            },
+        )
+    if not has_tracking(xml):
+        raise HTTPException(status_code=422, detail="This survey has no tracking yet. Add tracking first, then upload.")
+    if tracked_survey_id(xml) != body.survey_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The XML is tracked as \"{tracked_survey_id(xml)}\", not \"{body.survey_id}\". Add tracking again.",
+        )
+
+    record = await db.get(TrackedSurvey, body.survey_id)
+    if body.create_new:
+        target = None
+    elif body.survey_path and body.survey_path.strip():
+        target = clean_path(body.survey_path)
+        if target is None:
+            raise HTTPException(
+                status_code=400,
+                detail="That is not a Decipher survey path. Use the form selfserve/123/456789, or paste the survey link.",
+            )
+    else:
+        target = record.decipher_path if record else None
+
+    async def remember(path: Optional[str]) -> None:
+        if not path:
+            return
+        try:
+            row = record or TrackedSurvey(survey_id=body.survey_id, title=body.survey_id, uploads=0)
+            row.decipher_path = path
+            db.add(row)
+            await db.commit()
+        except Exception as error:  # noqa: BLE001 - the upload itself already happened
+            await db.rollback()
+            logger.error(f"Could not save the Decipher path for {body.survey_id}: {error}")
+
+    try:
+        result = await uploader.upload(xml, (record.title if record else None) or body.survey_id, target)
+    except DecipherUploadError as error:
+        # A survey created before the XML was refused is kept, so a retry updates it.
+        await remember(error.survey_path)
+        raise HTTPException(
+            # Reason: 400/404 are about this file or path; anything else is Decipher or the key.
+            status_code=400 if error.status in (400, 404) else 502,
+            detail={
+                "message": error.message,
+                "errors": error.errors,
+                "survey_path": error.survey_path,
+                "survey_url": error.survey_url,
+            },
+        ) from error
+    await remember(result.survey_path)
+    logger.info(f"Uploaded tracked survey {body.survey_id} to Decipher at {result.survey_path}")
+    return {
+        "survey_id": body.survey_id,
+        "survey_path": result.survey_path,
+        "survey_url": result.survey_url,
+        "created": result.created,
+        "message": result.message,
+        "layouts_updated": result.layouts_updated,
+        "warnings": result.warnings,
+    }

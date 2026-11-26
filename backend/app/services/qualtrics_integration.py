@@ -21,20 +21,21 @@ class QualtricsIntegration:
     
     def __init__(self):
         """Initialize Qualtrics integration with API configuration."""
-        self.api_token = settings.QUALTRICS_API_TOKEN
         self.base_url = "https://your-datacenter.qualtrics.com/API/v3"
         self.webhook_url = f"{settings.BASE_URL}/api/v1/webhooks/qualtrics"
-        
-        # Check if API token is valid (not None, not empty, not placeholder)
-        self.has_valid_token = (
-            self.api_token and 
-            self.api_token.strip() and 
-            self.api_token != "your-qualtrics-token" and
-            len(self.api_token) > 10  # Basic validation for token length
-        )
-        
         if not self.has_valid_token:
             logger.warning("Qualtrics API token not configured or invalid - will use webhook data directly")
+
+    # Read on every use, so a token changed on the Settings page applies without a restart.
+    @property
+    def api_token(self):
+        return settings.QUALTRICS_API_TOKEN
+
+    @property
+    def has_valid_token(self) -> bool:
+        """Whether the token is set and is not the example placeholder."""
+        token = self.api_token
+        return bool(token and token.strip() and token != "your-qualtrics-token" and len(token) > 10)
     
     async def validate_webhook_signature(self, payload: str, signature: str) -> bool:
         """

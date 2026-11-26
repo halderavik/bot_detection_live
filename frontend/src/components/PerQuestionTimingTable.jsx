@@ -67,7 +67,7 @@ const PerQuestionTimingTable = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Per-Question Timing Analysis
@@ -82,7 +82,7 @@ const PerQuestionTimingTable = ({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Per-Question Timing Analysis
@@ -96,7 +96,7 @@ const PerQuestionTimingTable = ({
 
   if (!timingData || timingData.total_analyses === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Clock className="w-5 h-5 text-blue-600" />
           Per-Question Timing Analysis
@@ -112,7 +112,7 @@ const PerQuestionTimingTable = ({
   // would be displayed here once the API endpoint is enhanced
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <Clock className="w-5 h-5 text-blue-600" />
         Per-Question Timing Analysis

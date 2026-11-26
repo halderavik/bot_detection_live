@@ -16,6 +16,7 @@ from app.models import Session, BehaviorData, DetectionResult, FraudIndicator, P
 from app.utils.survey_tokens import token_valid
 from fastapi.encoders import jsonable_encoder
 from app.services.grid_analysis_service import GridAnalysisService
+from app.services.quality_variables import survey_variables
 from app.services.timing_analysis_service import TimingAnalysisService
 from app.services import BotDetectionEngine
 from app.utils.logger import setup_logger
@@ -343,6 +344,8 @@ class DetectionController:
                 composite_result = await self.detection_engine.calculate_composite_score(session_id, db)
                 composite_result['grid_details'] = _grid_digest(grid_summary)
                 composite_result['timing_details'] = _timing_digest(timing_summary)
+                # Per-respondent values the tracker writes into the survey data (SPSS and other exports)
+                composite_result['survey_variables'] = survey_variables(composite_result)
 
                 # Copy the fraud score onto the latest detection result
                 fraud_details = composite_result.get('fraud_details')

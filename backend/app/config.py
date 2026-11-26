@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here"
     # Shared with the survey builder; when set, surveys created with a token are protected.
     TRACKING_TOKEN_SECRET: Optional[str] = None
+    # Public API base the survey tracker calls (https://.../api/v1). When empty, the
+    # Decipher XML upload uses the origin of the upload request.
+    TRACKER_API_BASE: Optional[str] = None
+    # Required to change settings from the dashboard's Settings page (sent as X-Admin-Token).
+    # Environment only: it can never be changed from the page itself. Unset means the page is read-only.
+    ADMIN_TOKEN: Optional[str] = None
     ALLOWED_HOSTS: List[str] = ["*"]
     ALLOWED_ORIGINS: str = '["http://localhost:3000", "http://localhost:5173"]'
     
@@ -67,6 +73,9 @@ class Settings(BaseSettings):
     # Integration settings
     QUALTRICS_API_TOKEN: Optional[str] = None
     DECIPHER_API_KEY: Optional[str] = None
+    # Decipher REST API used to upload tracked survey XML.
+    DECIPHER_API_BASE: str = "https://selfserve.decipherinc.com/api/v1"
+    DECIPHER_COMPANY: str = "self"
     
     # Monitoring settings
     ENABLE_METRICS: bool = True

@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime, timedelta
 import logging
 
+from app.config import settings
 from app.utils.logger import setup_logger
 from app.utils.helpers import calculate_confidence_score, determine_risk_level
 from app.models import BehaviorData, DetectionResult, SurveyResponse
@@ -46,9 +47,14 @@ class BotDetectionEngine:
         ]
         self.MOBILE_PATTERNS = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'tablet', 'silk', 'kindle']
 
-        # A session at or above this bot probability is classified as a bot.
-        self.BOT_THRESHOLD = 0.7
+        # A session at or above this bot probability is classified as a bot
+        # (DETECTION_THRESHOLD, changeable on the Settings page; see BOT_THRESHOLD below).
     
+    @property
+    def BOT_THRESHOLD(self) -> float:
+        """Bot probability at or above which a session is a bot (settings.DETECTION_THRESHOLD)."""
+        return float(settings.DETECTION_THRESHOLD)
+
     async def analyze_session(
         self, behavior_data: List[BehaviorData], user_agent: Optional[str] = None
     ) -> DetectionResult:
@@ -165,7 +171,7 @@ class BotDetectionEngine:
                 risk_level = "LOW"
             
             # Determine if session is flagged as bot/fraud
-            is_bot = composite_score >= 0.7
+            is_bot = composite_score >= self.BOT_THRESHOLD
             
             logger.info(f"Composite score calculated: {composite_score:.3f}, risk: {risk_level}")
             
@@ -224,6 +230,7 @@ class BotDetectionEngine:
                     'risk_level': detection_result.risk_level,
                     'method_scores': detection_result.method_scores,
                     'analysis_summary': detection_result.analysis_summary,
+                    'flagged_patterns': detection_result.flagged_patterns,
                     'created_at': detection_result.created_at.isoformat() if detection_result.created_at else None
                 }
             return None

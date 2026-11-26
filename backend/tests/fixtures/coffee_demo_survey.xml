@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<survey alt="Coffee Demo Survey" autosave="0" builderCompatible="1" compat="155" delphi="1" extraVariables="source,record,decLang,list,userAgent" lang="english" name="Survey" newStyle="1" secure="1" setup="term,quota,time,decLang" state="testing">
+  <samplesources default="0">
+    <samplesource list="0"><title>Open Survey</title>
+      <completed>It seems you have already completed this survey.</completed>
+      <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+      <exit cond="terminated">Thank you for taking our survey.</exit>
+      <exit cond="qualified">Thank you for taking our survey. Your efforts are greatly appreciated!</exit>
+      <exit cond="overquota">Thank you for taking our survey.</exit>
+    </samplesource>
+  </samplesources>
+
+  <radio label="S1">
+    <title>How often do you drink coffee?</title>
+    <row label="r1">Every day</row>
+    <row label="r2">A few times a week</row>
+    <row label="r3">Rarely</row>
+    <row label="r4">Never</row>
+  </radio>
+  <suspend/>
+
+  <term label="term_S1" cond="S1.r4">Does not drink coffee</term>
+
+  <radio label="Q1" type="rating" values="order">
+    <title>How much do you agree with each statement about your usual coffee?</title>
+    <col label="c1">Strongly disagree</col>
+    <col label="c2">Disagree</col>
+    <col label="c3">Neutral</col>
+    <col label="c4">Agree</col>
+    <col label="c5">Strongly agree</col>
+    <row label="r1">It tastes good</row>
+    <row label="r2">It is good value</row>
+    <row label="r3">It is easy to make</row>
+    <row label="r4">It is consistent every time</row>
+    <row label="r5">I would recommend it</row>
+  </radio>
+  <suspend/>
+
+  <textarea label="Q2">
+    <title>What do you like most about the coffee you usually drink?</title>
+  </textarea>
+  <suspend/>
+
+  <textarea label="Q3">
+    <title>If you could change one thing about it, what would it be?</title>
+  </textarea>
+  <suspend/>
+
+  <radio label="Q4">
+    <title>Would you recommend your usual coffee to a friend?</title>
+    <row label="r1">Yes</row>
+    <row label="r2">Maybe</row>
+    <row label="r3">No</row>
+  </radio>
+  <suspend/>
+</survey>

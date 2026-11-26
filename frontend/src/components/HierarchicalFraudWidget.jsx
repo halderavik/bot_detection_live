@@ -24,7 +24,10 @@ const HierarchicalFraudWidget = ({
 
   useEffect(() => {
     loadFraudData();
-  }, [surveyId, platformId, respondentId, sessionId, filters]);
+    // Reason: compare filters by value; a default {} is a new object on every render and
+    // made this effect refetch in an endless loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surveyId, platformId, respondentId, sessionId, JSON.stringify(filters)]);
 
   const loadFraudData = async () => {
     if (!surveyId) return;
@@ -73,7 +76,7 @@ const HierarchicalFraudWidget = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-600" />
           Fraud Detection Summary
@@ -88,7 +91,7 @@ const HierarchicalFraudWidget = ({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-600" />
           Fraud Detection Summary
@@ -102,7 +105,7 @@ const HierarchicalFraudWidget = ({
 
   if (!fraudData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-600" />
           Fraud Detection Summary
@@ -115,7 +118,7 @@ const HierarchicalFraudWidget = ({
   // Session level display (detailed view)
   if (sessionId && fraudData.fraud_analysis_available !== false) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield className="w-5 h-5 text-blue-600" />
           Session Fraud Analysis
@@ -315,7 +318,7 @@ const HierarchicalFraudWidget = ({
 
   // Aggregated level display (Survey/Platform/Respondent)
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <Shield className="w-5 h-5 text-blue-600" />
         Fraud Detection Summary
@@ -396,7 +399,7 @@ const HierarchicalFraudWidget = ({
                   <p className="text-xs text-gray-600 mb-1">
                     {method.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </p>
-                  <p className="text-xl font-bold text-gray-900">{count}</p>
+                  <p className="text-base font-semibold text-gray-900">{count}</p>
                 </div>
               ))}
             </div>

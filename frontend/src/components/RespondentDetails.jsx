@@ -74,14 +74,14 @@ const RespondentDetails = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Respondent Details</h1>
-          <p className="text-gray-600 mt-1">Respondent ID: {respondentId}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Respondent Details</h1>
+          <p className="text-sm text-gray-600 mt-1">Respondent ID: {respondentId}</p>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Sessions</p>
@@ -93,7 +93,7 @@ const RespondentDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Bot Rate</p>
@@ -109,7 +109,7 @@ const RespondentDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Avg Confidence</p>
@@ -121,7 +121,7 @@ const RespondentDetails = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Overall Risk</p>
@@ -136,8 +136,8 @@ const RespondentDetails = () => {
 
       {/* Sessions List */}
       {respondentData.sessions && respondentData.sessions.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
             <Activity className="w-5 h-5 mr-2" />
             All Sessions ({respondentData.sessions.length})
           </h2>
@@ -192,7 +192,7 @@ const RespondentDetails = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
-                        to={`/surveys/${surveyId}/platforms/${platformId}/respondents/${respondentId}/sessions/${session.session_id}`}
+                        to={`/surveys/${encodeURIComponent(surveyId)}/platforms/${encodeURIComponent(platformId)}/respondents/${encodeURIComponent(respondentId)}/sessions/${encodeURIComponent(session.session_id)}`}
                         className="text-blue-600 hover:text-blue-900 flex items-center"
                       >
                         View Details
@@ -209,8 +209,8 @@ const RespondentDetails = () => {
 
       {/* Session Timeline */}
       {respondentData.session_timeline && respondentData.session_timeline.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
             <Clock className="w-5 h-5 mr-2" />
             Session Timeline
           </h2>

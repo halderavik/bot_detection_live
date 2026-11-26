@@ -155,8 +155,8 @@ const TextAnalysis = () => {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Text Quality Analysis</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Open-end quality</h1>
+        <p className="mt-1 text-sm text-gray-600">
           Comprehensive analysis of survey response quality with detailed flagging and quality metrics.
         </p>
       </div>
@@ -276,7 +276,7 @@ const TextAnalysis = () => {
       {/* Quality Distribution Chart */}
       {summaryData?.quality_distribution && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quality Score Distribution</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-4">Quality Score Distribution</h3>
           <div className="flex items-end space-x-1 h-20">
             {Object.entries(summaryData.quality_distribution).map(([bucket, count]) => {
               const maxCount = Math.max(...Object.values(summaryData.quality_distribution));
@@ -305,7 +305,7 @@ const TextAnalysis = () => {
       <div className="bg-white rounded-lg shadow-md">
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">Respondent Analysis</h3>
+            <h3 className="text-base font-semibold text-gray-900">Respondent Analysis</h3>
             {loading && (
               <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
             )}
@@ -315,7 +315,7 @@ const TextAnalysis = () => {
         {loading && !respondentsData ? (
           <div className="p-12 text-center">
             <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">Loading respondent data...</p>
+            <p className="mt-1 text-sm text-gray-600">Loading respondent data...</p>
           </div>
         ) : error ? (
           <div className="p-12 text-center">
@@ -331,7 +331,7 @@ const TextAnalysis = () => {
         ) : !respondentsData?.respondents?.length ? (
           <div className="p-12 text-center">
             <FileText className="w-8 h-8 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No respondent data found for the selected filters.</p>
+            <p className="mt-1 text-sm text-gray-600">No respondent data found for the selected filters.</p>
           </div>
         ) : (
           <>
