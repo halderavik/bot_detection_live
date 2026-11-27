@@ -269,3 +269,26 @@ def test_rules_validate_and_list_changes():
         except ValueError:
             continue
         raise AssertionError(f"{bad} was accepted")
+
+
+def test_period_keeps_only_starts_inside_it_and_recounts():
+    detailed = {"respondents": [
+        _respondent(session_id="early", created_at="2026-11-10T10:00:00+00:00", is_bot=True, confidence_score=0.95, risk_level="HIGH"),
+        _respondent(session_id="mid", created_at="2026-11-16T10:00:00+00:00", fraud_score=0.9, is_duplicate=True),
+        _respondent(session_id="late", created_at="2026-11-20T10:00:00", text_response_count=2, flagged_text_responses=1,
+                    avg_text_quality_score=35.0),
+    ]}
+    full = live_quality.summarize("S", {"fraud_summary": {"fraud_methods": {"ip": 1}}}, detailed)
+    from datetime import datetime
+
+    period = live_quality.for_period(full, datetime(2026, 11, 15), datetime(2026, 11, 30))
+    assert [row["session_id"] for row in period["respondents"]] == ["late", "mid"]
+    assert period["totals"]["sessions"] == 2 and period["totals"]["bots"] == 0
+    assert period["totals"]["duplicates"] == 1 and period["fraud"]["high_risk"] == 1
+    assert period["fraud"]["methods"] == {"ip": 1}
+    assert period["text"] == {"responses": 2, "avg_quality": 35.0, "flagged": 1, "flagged_pct": 50.0}
+    assert period["quality_distribution"] == {"30-40": 1}
+    assert sum(item["count"] for item in period["flag_counts"]) >= 2
+    assert period["period"]["from"].startswith("2026-11-15")
+    # No period: the results as they are.
+    assert live_quality.for_period(full)["totals"] == full["totals"]

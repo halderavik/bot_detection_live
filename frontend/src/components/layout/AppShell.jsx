@@ -148,13 +148,13 @@ export default function AppShell({ children }) {
   }, [open]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 print:bg-white">
       <a className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow" href="#main">
         Skip to content
       </a>
 
       {/* Wide screens: fixed sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-gray-200 bg-white lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-gray-200 bg-white lg:flex print:!hidden">
         <div className="flex h-16 items-center border-b border-gray-100 px-5">
           <Brand />
         </div>
@@ -165,7 +165,7 @@ export default function AppShell({ children }) {
       </aside>
 
       {/* Phones and tablets: top bar and slide-out menu */}
-      <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 lg:hidden print:hidden">
         <Brand />
         <button
           aria-expanded={open}
@@ -200,8 +200,8 @@ export default function AppShell({ children }) {
         </div>
       )}
 
-      <main className="lg:pl-60" id="main">
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
+      <main className="lg:pl-60 print:!pl-0" id="main">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">{children}</div>
       </main>
     </div>
   );

@@ -8,6 +8,7 @@ with spaces and punctuation.
 GET    /quality/surveys                  every survey, tracked ones first
 GET    /quality/results?survey_id=...    dashboard payload under the survey's rules
 GET    /quality/export?survey_id=...     the same rows as CSV
+GET    /quality/report?survey_id=...     report: results for a period, survey details, rules in force
 GET    /quality/rules?survey_id=...      rules in force, defaults, and editor labels
 PUT    /quality/rules?survey_id=...      save the survey's rules
 DELETE /quality/rules?survey_id=...      back to the defaults
@@ -15,6 +16,8 @@ POST   /quality/merge?survey_id=...      data file in (sav, csv, xlsx), same fil
 """
 
 import json
+from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
@@ -79,6 +82,26 @@ async def export_quality_results(survey_id: str = Query(...), db: AsyncSession =
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="quality-{_safe_name(survey_id)}.csv"'},
     )
+
+
+@router.get("/report")
+async def get_quality_report(
+    survey_id: str = Query(...),
+    date_from: Optional[datetime] = Query(None, description="First start time to include (ISO 8601, UTC when no zone)"),
+    date_to: Optional[datetime] = Query(None, description="Last start time to include (ISO 8601, UTC when no zone)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Everything a report needs: live results for the period, the survey's details, and its rules."""
+    survey_id = _survey(survey_id)
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=422, detail="The start of the period is after its end.")
+    rules = await quality_rules.get_rules(db, survey_id)
+    result = live_quality.for_period(await _results(db, survey_id), date_from, date_to)
+    return {
+        **result,
+        "survey": await live_quality.survey_details(db, survey_id),
+        "rules_state": quality_rules.rules_state(rules),
+    }
 
 
 @router.get("/rules")

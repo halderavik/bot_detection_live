@@ -208,6 +208,14 @@ export const liveQualityService = {
 
   exportUrl: (surveyId) => `${config.apiBaseUrl}/quality/export?survey_id=${encodeURIComponent(surveyId)}`,
 
+  // Report: results for a period (ISO times; either may be empty), survey details, rules in force.
+  getReport: async (surveyId, { dateFrom, dateTo } = {}) => {
+    const params = { survey_id: surveyId };
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    return api.get('/quality/report', { params, timeout: 120000 });
+  },
+
   getRules: async (surveyId) => {
     return api.get('/quality/rules', { params: { survey_id: surveyId } });
   },

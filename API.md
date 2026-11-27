@@ -1113,6 +1113,19 @@ GET /quality/export?survey_id={survey_id}
 
 **Errors:** As for results.
 
+### 3b. Report
+```http
+GET /quality/report?survey_id={survey_id}&date_from={iso}&date_to={iso}
+```
+
+**Description:** What the Reports page builds a report from. The same payload as `/quality/results`, limited to respondents who started between `date_from` and `date_to` (both optional, ISO 8601; times without a zone are UTC). Totals, `flag_counts`, `trend`, `text`, `fraud`, `grid`, `timing` and `quality_distribution` are recounted from the remaining rows, so every number matches the respondent list. Three fields are added:
+
+- `period`: `{"from": iso | null, "to": iso | null}`, the bounds used.
+- `survey`: `survey_id`, `title`, `tracked`, and for surveys tracked on this platform `platform`, `decipher_path`, `source_filename`, `terminates_bots`, `privacy_notice`, `signed`, `tracked_since`.
+- `rules_state`: the same shape as `GET /quality/rules` (rules in force, defaults, what changed, labels).
+
+**Errors:** `422` invalid survey id, or `date_from` after `date_to`; `500` the results could not be built.
+
 ### 4. Quality Rules
 ```http
 GET    /quality/rules?survey_id={survey_id}

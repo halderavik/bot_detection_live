@@ -401,12 +401,12 @@ export function StartsChart({ results }) {
 }
 
 /** Respondents per flag, one horizontal bar each, labelled with the count. */
-export function FlagsChart({ results, onPick }) {
+export function FlagsChart({ results, onPick, note }) {
   const counts = results.flag_counts;
   const max = Math.max(1, ...counts.map((item) => item.count));
   const total = Math.max(1, results.totals.sessions);
   return (
-    <ChartCard note="Respondents with each flag (one person can have several). Click a bar to filter the table." title="Why respondents were flagged">
+    <ChartCard note={note || "Respondents with each flag (one person can have several). Click a bar to filter the table."} title="Why respondents were flagged">
       <ul className="space-y-1.5">
         {counts.map((item) => (
           <li key={item.flag}>

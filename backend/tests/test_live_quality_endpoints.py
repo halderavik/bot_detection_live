@@ -135,3 +135,16 @@ async def test_merge_refuses_unusable_input(api):
     assert plain.status_code == 422 and "nothing to match" in plain.json()["detail"]
     blank = await api.get("/quality/results", params={"survey_id": "  "})
     assert blank.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_report_has_period_results_survey_details_and_rules(api):
+    await _two_respondents(api)
+    body = (await api.get("/quality/report", params={"survey_id": SURVEY})).json()
+    assert body["totals"]["sessions"] == 2 and body["survey"]["survey_id"] == SURVEY
+    assert body["rules_state"]["rules"]["bot_threshold"] == 0.7 and body["rules_state"]["changed"] == []
+    assert body["period"] == {"from": None, "to": None}
+    future = (await api.get("/quality/report", params={"survey_id": SURVEY, "date_from": "2099-01-01T00:00:00"})).json()
+    assert future["totals"]["sessions"] == 0 and future["respondents"] == []
+    wrong = await api.get("/quality/report", params={"survey_id": SURVEY, "date_from": "2026-12-02", "date_to": "2026-12-01"})
+    assert wrong.status_code == 422

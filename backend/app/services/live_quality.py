@@ -562,3 +562,112 @@ def results_csv(result: Dict[str, Any]) -> str:
                 values.append("" if value is None else value)
         writer.writerow(values)
     return buffer.getvalue()
+
+
+_QUALITY_BUCKETS = ("0-10", "10-20", "20-30", "30-40", "40-50", "50-60", "60-70", "70-80", "80-90", "90-100")
+
+
+def _pct(part: int, whole: int) -> float:
+    return round(100.0 * part / whole, 1) if whole else 0.0
+
+
+def for_period(
+    result: Dict[str, Any], date_from: Optional[datetime] = None, date_to: Optional[datetime] = None
+) -> Dict[str, Any]:
+    """The live results limited to respondents who started in a period.
+
+    Totals, flag counts, the trend and the per-check summaries are rebuilt from the
+    remaining rows, so every number in a report matches its respondent list. With
+    no period the results are returned as they are.
+
+    Args:
+        result: Payload from :func:`live_results`.
+        date_from: First start time to include (UTC when naive).
+        date_to: Last start time to include (UTC when naive).
+
+    Returns:
+        The same payload shape, plus ``period`` with the bounds used.
+    """
+    if date_from is None and date_to is None:
+        return {**result, "period": {"from": None, "to": None}}
+    low = date_from.replace(tzinfo=timezone.utc) if date_from and not date_from.tzinfo else date_from
+    high = date_to.replace(tzinfo=timezone.utc) if date_to and not date_to.tzinfo else date_to
+    rows = []
+    for row in result.get("respondents") or []:
+        started = _when(row.get("started"))
+        if started is None or (low and started < low) or (high and started > high):
+            continue
+        rows.append(row)
+    checked = [row for row in rows if row["status"] == "checked"]
+    answers = [detail for row in rows for detail in row.get("text_details") or []]
+    scored = [float(detail["quality"]) for detail in answers if detail.get("quality") is not None]
+    if not scored:
+        scored = [float(row["text_quality"]) for row in rows if row.get("text_quality") is not None]
+    distribution: Dict[str, int] = {}
+    for score in scored:
+        bucket = _QUALITY_BUCKETS[min(int(score // 10), 9)] if score >= 0 else _QUALITY_BUCKETS[0]
+        distribution[bucket] = distribution.get(bucket, 0) + 1
+    text_total = sum(int(row.get("text_responses") or 0) for row in rows)
+    text_flagged = sum(int(row.get("text_flagged") or 0) for row in rows)
+    fraud_scores = [float(row["fraud_score"]) for row in rows if row.get("fraud_score") is not None]
+    return {
+        **result,
+        "period": {"from": low.isoformat() if low else None, "to": high.isoformat() if high else None},
+        "totals": {
+            "sessions": len(rows),
+            "in_progress": sum(1 for row in rows if row["status"] == "in_progress"),
+            "checked": len(checked),
+            "dropped": sum(1 for row in rows if row["status"] == "dropped"),
+            "bots": sum(1 for row in checked if row["verdict"] == "bot"),
+            "flagged": sum(1 for row in rows if row["flags"]),
+            "duplicates": sum(1 for row in rows if row["duplicate"]),
+            "speeders": sum(1 for row in rows if row["speeder"]),
+            "straight_liners": sum(1 for row in rows if row["straight_lining"]),
+            "low_quality_text": sum(1 for row in rows if row["low_quality_text"]),
+        },
+        "text": {
+            "responses": text_total,
+            "avg_quality": round(sum(scored) / len(scored), 1) if scored else None,
+            "flagged": text_flagged,
+            "flagged_pct": _pct(text_flagged, text_total),
+        },
+        "fraud": {
+            **(result.get("fraud") or {}),
+            "analyzed": len(fraud_scores),
+            "avg_score": round(sum(fraud_scores) / len(fraud_scores), 3) if fraud_scores else None,
+            "high_risk": sum(1 for row in rows if "High fraud risk" in row["flags"]),
+            "duplicates": sum(1 for row in rows if row["duplicate"]),
+        },
+        "grid": {
+            "responses": sum(1 for row in rows if row.get("grids")),
+            "straight_lined_pct": _pct(sum(1 for row in rows if row["straight_lining"]), len(rows)),
+        },
+        "timing": {
+            "analyses": sum(1 for row in rows if row.get("seconds")),
+            "speeders_pct": _pct(sum(1 for row in rows if row["speeder"]), len(rows)),
+            "flatliners_pct": _pct(sum(1 for row in rows if row["flatliner"]), len(rows)),
+        },
+        "flag_counts": _flag_counts(rows),
+        "quality_distribution": distribution,
+        "trend": trend(rows),
+        "respondents": rows,
+    }
+
+
+async def survey_details(db: AsyncSession, survey_id: str) -> Dict[str, Any]:
+    """Title and tracking details of a survey, for a report's header."""
+    row = await db.get(TrackedSurvey, survey_id)
+    if row is None:
+        return {"survey_id": survey_id, "title": survey_id, "tracked": False}
+    return {
+        "survey_id": survey_id,
+        "title": row.title or survey_id,
+        "tracked": True,
+        "platform": row.platform_id,
+        "decipher_path": row.decipher_path,
+        "source_filename": row.source_filename,
+        "terminates_bots": bool(row.terminate),
+        "privacy_notice": bool(row.privacy_notice),
+        "signed": bool(row.signed),
+        "tracked_since": row.created_at.isoformat() if row.created_at else None,
+    }
