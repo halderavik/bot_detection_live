@@ -158,3 +158,47 @@ async def test_removing_the_start_of_an_exec_block_removes_the_whole_block():
     assert result.applied == 1 and result.skipped == []
     assert "x.dat" not in result.xml and "more = 1" not in result.xml and "<!-- removed -->" in result.xml
     assert result.report.ok
+
+
+EMPTY_ELSE = '  <exec>\nif CodeIP != None:\n\t# removed: db = Database("a.dat")\nelse:\n\tpass\nx = 1\n</exec>\n'
+
+
+def test_empty_python_blocks_are_found_before_upload_and_filled_in_code():
+    from app.services.decipher_xml_check import check_survey_xml, fill_empty_python_blocks
+
+    xml = GOOD_HEAD + EMPTY_ELSE + BODY + "</survey>"
+    report = check_survey_xml(xml.encode("utf-8"))
+    issue = next(i for i in report.issues if i.code == "empty_code_block")
+    assert issue.severity == "error" and "if CodeIP != None:" in issue.items[0]
+    filled, count = fill_empty_python_blocks(xml)
+    assert count == 1 and "if CodeIP != None:\n\tpass\n" in filled and check_survey_xml(filled.encode()).ok
+    # Blocks with code under them, comments-only lines inside other code, and one-line ifs are left alone.
+    fine = GOOD_HEAD + '  <exec>\nif a:\n    b = 1\nelif c: d = 2\nfor i in x:\n    # note\n    go(i)\n</exec>\n' + BODY + "</survey>"
+    assert fill_empty_python_blocks(fine)[1] == 0
+
+
+@pytest.mark.asyncio
+async def test_fix_with_ai_puts_pass_under_blocks_left_empty():
+    xml = GOOD_HEAD + EMPTY_ELSE + BODY + "</survey>"
+    client = FakeClient()
+    result = await fix_with_ai(xml.encode("utf-8"), client=client)
+    assert client.prompts == [] and "if CodeIP != None:\n\tpass\n" in result.xml and result.report.ok
+    assert "Added pass under 1" in result.changes[0]
+
+
+def test_compile_and_unknown_attribute_messages_are_explained():
+    compile_error = explain_one("""survey: Could not compile code: ("Line 59: IndentationError: expected an indented block at statement: 'else:'",)""")
+    assert compile_error.kind == "script" and "nothing under it" in compile_error.explanation
+    assert "line 59 of that code block" in compile_error.explanation and "pass" in compile_error.fix
+    attribute = explain_one("survey: Extra unrecognized argument given: unicode")
+    assert attribute.kind == "attribute" and 'Remove unicode="..."' in attribute.fix
+    # A compile error is about the code, not missing data files, even if the survey reads some.
+    xml = GOOD_HEAD + '  <exec>\nd = Database("x.dat")\n</exec>\n' + BODY + "</survey>"
+    assert not explain(["survey: Could not compile code: ('Line 3: SyntaxError',)"], xml)[0]["needs_instruction"]
+
+
+def test_newer_style_limits_are_known():
+    from app.services.decipher_xml_check import check_survey_xml
+
+    xml = GOOD_HEAD + BODY.replace('<radio label="Q1">', '<radio label="Q1" uses="atm1d.10">') + "</survey>"
+    assert check_survey_xml(xml.encode("utf-8")).recommended_compat == 151

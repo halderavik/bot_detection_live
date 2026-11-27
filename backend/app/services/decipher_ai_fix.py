@@ -25,7 +25,13 @@ from typing import List, Optional
 from app.config import settings
 from app.services.decipher_tracking import DELPHI_FROM_COMPAT, has_tracking, parse_survey, remove_tracking
 from app.services.decipher_errors import explain_one, lowest_style_compat
-from app.services.decipher_xml_check import CheckReport, Issue, check_survey_xml, rename_duplicate_labels
+from app.services.decipher_xml_check import (
+    CheckReport,
+    Issue,
+    check_survey_xml,
+    fill_empty_python_blocks,
+    rename_duplicate_labels,
+)
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -312,6 +318,18 @@ def _exact_fixes(result: FixResult, report: CheckReport, title: str = "") -> Che
                 + "). If the original Decipher project used other settings (language, sample sources, extra variables), "
                 "upload over that project or tell Fix with AI which settings to use."
             )
+    # Reason: removing quota or data-file code often leaves an if/else with nothing under it,
+    # which Decipher refuses; "pass" keeps the logic as it was and the model often misses it.
+    if any(issue.code == "empty_code_block" for issue in report.issues):
+        filled, count = fill_empty_python_blocks(result.xml)
+        if count:
+            result.xml = filled
+            result.applied += count
+            result.changes.append(
+                f"Added pass under {count} Python if/else or loop statement(s) that had nothing under them "
+                "(usually left after code was removed), so the code compiles."
+            )
+            report = check_survey_xml(result.xml.encode("utf-8"))
     # Reason: renaming the later copies of a duplicate label is position work; language models
     # tend to rename the wrong copy, which would change the data's variable names.
     if any(issue.code == "duplicate_labels" for issue in report.issues):

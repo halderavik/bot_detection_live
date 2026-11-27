@@ -62,6 +62,32 @@ def explain_one(message: str) -> ExplainedError:
             text, "delphi", 'Surveys at compat 151 and above need delphi="1" on the <survey> tag.',
             'Add delphi="1" to the <survey> tag.', page,
         )
+    attribute = re.search(r"unrecognized argument given:\s*['\"]?([\w:.-]+)", text, flags=re.I)
+    if attribute:
+        name = attribute.group(1)
+        return ExplainedError(
+            text, "attribute",
+            f'Decipher does not recognise the attribute "{name}" (on the <survey> tag unless the message names another '
+            "element). It may be from an older Decipher version or another survey tool.",
+            f'Remove {name}="..." from that tag.', page,
+        )
+    if "could not compile code" in lower or "indentationerror" in lower:
+        empty = "expected an indented block" in lower
+        line = re.search(r"Line (\d+)", text)
+        where = f" (line {line.group(1)} of that code block, not of the file)" if line else ""
+        return ExplainedError(
+            text, "script",
+            (
+                f"Python code in an <exec> or <validate> block does not compile{where}. "
+                + (
+                    "An if, else, for or def has nothing under it, which usually happens when code was removed."
+                    if empty
+                    else "Decipher checks all code before saving the survey."
+                )
+            ),
+            "Add pass (or the missing code) under that statement." if empty else "Correct the code Decipher points at.",
+            page,
+        )
     missing_file = re.search(r"file '([^']+)' does not exist", text, flags=re.I)
     if missing_file:
         return ExplainedError(
@@ -137,7 +163,7 @@ def explain(messages: List[str], xml: Optional[str] = None) -> List[dict]:
         if text and text not in seen:
             seen.add(text)
             item = explain_one(text)
-            if item.kind == "script" and files:
+            if item.kind == "script" and files and "compile" not in text.lower():
                 shown = ", ".join(files[:6]) + (" and others" if len(files) > 6 else "")
                 item.explanation += (
                     f" The survey still reads data files ({shown}). If this Decipher survey does not have them, "

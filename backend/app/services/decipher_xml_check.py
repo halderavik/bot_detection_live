@@ -35,7 +35,15 @@ from app.services.decipher_tracking import (
 
 # Highest compat each old style runs on, from Decipher's own refusals
 # ("Style requires AT MOST compat level 149, but this survey is 155").
-STYLE_MAX_COMPAT = {"atm1d.9": 149, "autosum.5": 154, "ranksort.7": 154, "cardsort.8": 154, "atmtable.6": 154}
+STYLE_MAX_COMPAT = {
+    "atm1d.9": 149,
+    "atm1d.10": 151,
+    "autosum.5": 154,
+    "ranksort.7": 154,
+    "ranksort.8": 154,
+    "cardsort.8": 154,
+    "atmtable.6": 154,
+}
 # Compat used when the survey has none and no style limits it (what Decipher exports today).
 DEFAULT_COMPAT = 155
 
@@ -90,6 +98,62 @@ def _line_of(text: str, index: int) -> int:
 def _first_line(text: str, pattern: str) -> Optional[int]:
     found = re.search(pattern, text)
     return _line_of(text, found.start()) if found else None
+
+
+# Python inside <exec> and <validate>: a compound statement (if, else, for, def, ...) needs at
+# least one statement under it, or Decipher refuses the file ("IndentationError: expected an
+# indented block"). This is what removing code usually leaves behind.
+_CODE_BLOCK = re.compile(r"(<(exec|validate)\b[^>]*>)(.*?)(</\2>)", re.S)
+_COMPOUND = re.compile(r"^([ \t]*)(?:if|elif|else|for|while|def|try|except|finally|with|class)\b[^#\n]*:[ \t]*(?:#.*)?$")
+
+
+def _width(indent: str) -> int:
+    return len(indent.expandtabs(8))
+
+
+def _empty_compounds(code: str) -> List[int]:
+    """Indexes of lines in ``code`` that open a block with nothing in it."""
+    lines = code.split("\n")
+    empty = []
+    for index, line in enumerate(lines):
+        found = _COMPOUND.match(line)
+        if not found:
+            continue
+        body = next((text for text in lines[index + 1:] if text.strip() and not text.strip().startswith("#")), None)
+        indent = _width(found.group(1))
+        if body is None or _width(body[: len(body) - len(body.lstrip())]) <= indent:
+            empty.append(index)
+    return empty
+
+
+def empty_python_blocks(xml: str) -> List[tuple]:
+    """``(line number, statement)`` for each empty Python block in the survey's code."""
+    found = []
+    for block in _CODE_BLOCK.finditer(xml):
+        code = block.group(3)
+        first_line = _line_of(xml, block.start(3))
+        lines = code.split("\n")
+        for index in _empty_compounds(code):
+            found.append((first_line + index, lines[index].strip()))
+    return found
+
+
+def fill_empty_python_blocks(xml: str) -> tuple:
+    """Put ``pass`` under each empty Python block. Returns the XML and how many were filled."""
+    count = 0
+
+    def fill(block: "re.Match") -> str:
+        nonlocal count
+        code = block.group(3)
+        lines = code.split("\n")
+        unit = "\t" if any(line.startswith("\t") for line in lines) else "    "
+        for index in reversed(_empty_compounds(code)):
+            indent = _COMPOUND.match(lines[index]).group(1)
+            lines.insert(index + 1, f"{indent}{unit}pass")
+            count += 1
+        return block.group(1) + "\n".join(lines) + block.group(4)
+
+    return _CODE_BLOCK.sub(fill, xml), count
 
 
 def _decode(data: bytes) -> tuple[Optional[str], Optional[Issue]]:
@@ -193,10 +257,11 @@ def check_survey_xml(data: bytes) -> CheckReport:
             issues.append(_parse_problem(body, error))
             return CheckReport(ok=False, issues=issues, lines=lines, size_kb=size_kb, already_tracked=already_tracked)
         first = re.search(r"<([A-Za-z][\w:-]*)", body)
+        start = f"The file starts with <{first.group(1)}> instead of <survey ...>." if first else "The file has no XML tags at all."
         issues.append(Issue(
             "fragment", "error", "This is only part of a survey: there is no <survey> tag",
             (
-                f"The file starts with <{first.group(1) if first else '?'}> instead of <survey ...>. A Decipher survey "
+                f"{start} A Decipher survey "
                 "XML is one <survey> element holding the survey settings, sample sources and questions. This happens "
                 "when only the questions are copied out of a Decipher project."
             ),
@@ -231,6 +296,19 @@ def check_survey_xml(data: bytes) -> CheckReport:
         issues.extend(_settings_issues(body, root, recommended, style_limits))
 
     issues.extend(_label_issues(body))
+    empty_blocks = empty_python_blocks(body)
+    if empty_blocks:
+        issues.append(Issue(
+            "empty_code_block", "error", "Python code has an if, else or loop with nothing in it",
+            (
+                f"{len(empty_blocks)} statement(s) in <exec> or <validate> code open a block with no code under it. "
+                "Decipher refuses the file (\"IndentationError: expected an indented block\"). This usually happens "
+                "when code was removed and its if or else was left behind."
+            ),
+            "Add the missing code, or put pass on its own line under it. Fix with AI adds pass for you.",
+            line=empty_blocks[0][0],
+            items=[f"line {number}: {statement}" for number, statement in empty_blocks[:30]],
+        ))
     issues.extend(_file_warnings(body))
 
     questions = 0
