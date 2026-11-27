@@ -321,6 +321,8 @@ POST /tracking/decipher                         # survey XML in, tracked XML out
 POST /tracking/decipher/upload                  # send tracked XML to Decipher
 GET  /tracking/decipher/options
 GET  /tracking/decipher/snippet?survey_id=     # the two XML blocks to paste by hand
+POST /tracking/decipher/check                  # check an XML first: every problem explained, with how to fix it
+POST /tracking/decipher/fix                    # Fix with AI (optional instructions); returns the fixed XML and a new check
 GET  /tracking/script.js?survey_id=&platform=  # tracker file for Qualtrics or any website (platform=qualtrics|web)
 
 # Live quality (survey id in the query string)

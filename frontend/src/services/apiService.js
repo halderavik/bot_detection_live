@@ -142,6 +142,23 @@ export const trackingService = {
     return api.get('/tracking/decipher/options');
   },
 
+  // Check a survey XML before tracking is added; explains each problem
+  checkDecipherXml: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/tracking/decipher/check', form, { headers: { 'Content-Type': undefined }, timeout: 60000 });
+  },
+
+  // Fix with AI: repairs the XML (optionally following the user's instructions) and checks it again
+  // decipherErrors: Decipher's messages from a refused upload, so the fix addresses them
+  fixDecipherXml: async (file, instructions, decipherErrors) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (instructions) form.append('instructions', instructions);
+    if (decipherErrors?.length) form.append('decipher_errors', JSON.stringify(decipherErrors));
+    return api.post('/tracking/decipher/fix', form, { headers: { 'Content-Type': undefined }, timeout: 330000 });
+  },
+
   // The two XML blocks to paste into a Decipher survey by hand (Integrations page)
   // apiBase: the API the pasted code should call (default: this service)
   getDecipherSnippet: async (surveyId, apiBase) => {

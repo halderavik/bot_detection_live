@@ -82,6 +82,12 @@ SPECS: List[Spec] = [
         "Model used to score open-ended answers.", "gpt-4o-mini",
     ),
     Spec(
+        "OPENAI_FIX_MODEL", "Fix with AI model", "Open-end scoring", "text",
+        "Model that repairs survey XML on Add tracking (Fix with AI). Empty uses gpt-4o, which applied every "
+        "fix and instruction in testing; smaller models such as gpt-4o-mini sometimes ignore instructions.",
+        "gpt-4o",
+    ),
+    Spec(
         "TRACKER_API_BASE", "Tracker API address", "Survey tracking", "url",
         "Public address of this service the survey tracker calls, ending in /api/v1. "
         "Empty means the address the upload came in on.",

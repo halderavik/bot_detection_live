@@ -9,11 +9,11 @@ import {
   BarChart3,
   RotateCcw,
   ShieldCheck,
-  UploadCloud,
-  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { trackingService } from '../services/apiService';
+import { CheckReport, FixResult, FixWithAi, XmlChecklist } from './tracking/XmlCheck';
+import DecipherUploadPanel from './tracking/DecipherUploadPanel';
 
 const FALLBACK_SIGNALS = [
   { code: 'automation', label: 'Automated or headless browser' },
@@ -29,133 +29,6 @@ const errorMessage = (err) => {
   if (Array.isArray(detail)) return detail.map((d) => d.msg).join('; ');
   if (detail && typeof detail.message === 'string') return detail.message;
   return err?.message || 'The upload failed.';
-};
-
-// Sends the tracked XML straight to Decipher: a new survey, the survey this id went to
-// last time, or a survey path the user pastes.
-const DecipherUploadPanel = ({ result }) => {
-  const info = result.decipher_upload || {};
-  const lastPath = info.last_path || '';
-  const [target, setTarget] = useState(lastPath ? 'last' : 'new');
-  const [path, setPath] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [uploaded, setUploaded] = useState(null);
-
-  if (!info.configured) {
-    return (
-      <p className="text-sm text-gray-500">
-        To upload straight to Decipher, set DECIPHER_API_KEY on the service. Until then, download the file and import it in Decipher.
-      </p>
-    );
-  }
-
-  const upload = async () => {
-    setBusy(true);
-    setError(null);
-    setUploaded(null);
-    try {
-      const response = await trackingService.uploadToDecipher({
-        xml: result.xml,
-        survey_id: result.survey_id,
-        survey_path: target === 'path' ? path.trim() : null,
-        create_new: target === 'new',
-      });
-      setUploaded(response);
-      toast.success(response.message);
-    } catch (err) {
-      const detail = err?.response?.data?.detail;
-      setError({
-        message: errorMessage(err),
-        errors: (detail && Array.isArray(detail.errors) && detail.errors.length > 1) ? detail.errors : [],
-        surveyPath: detail?.survey_path || null,
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const radio = 'flex items-start gap-2 text-sm text-gray-800';
-  return (
-    <div className="rounded-md border border-gray-200 p-4 space-y-3" aria-label="Upload to Decipher">
-      <h3 className="text-sm font-medium text-gray-900">Upload to Decipher</h3>
-      <fieldset className="space-y-2">
-        <legend className="sr-only">Where to upload</legend>
-        {lastPath && (
-          <label className={radio}>
-            <input type="radio" name="decipher-target" checked={target === 'last'} onChange={() => setTarget('last')} className="mt-0.5" />
-            <span>Update the survey uploaded last time (<span className="font-mono">{lastPath}</span>)</span>
-          </label>
-        )}
-        <label className={radio}>
-          <input type="radio" name="decipher-target" checked={target === 'new'} onChange={() => setTarget('new')} className="mt-0.5" />
-          <span>Create a new Decipher survey named &quot;{result.survey_id}&quot;</span>
-        </label>
-        <label className={radio}>
-          <input type="radio" name="decipher-target" checked={target === 'path'} onChange={() => setTarget('path')} className="mt-0.5" />
-          <span>Replace the XML of an existing survey</span>
-        </label>
-        {target === 'path' && (
-          <div className="ml-6">
-            <label htmlFor="decipher-path" className="sr-only">Decipher survey path or link</label>
-            <input
-              id="decipher-path"
-              type="text"
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              placeholder="selfserve/53b/240101, or the survey link"
-              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">Decipher checks the file before saving it and never replaces the XML of a live survey.</p>
-          </div>
-        )}
-      </fieldset>
-      <button
-        type="button"
-        onClick={upload}
-        disabled={busy || (target === 'path' && !path.trim())}
-        className="inline-flex items-center gap-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <UploadCloud className="h-4 w-4" aria-hidden="true" />
-        {busy ? 'Uploading to Decipher…' : 'Upload to Decipher'}
-      </button>
-      {uploaded && (
-        <div role="status" className="flex items-start gap-2 rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800">
-          <CheckCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          <span>
-            {uploaded.message}{' '}
-            <a href={uploaded.survey_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium underline">
-              Open the survey <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </a>
-          </span>
-        </div>
-      )}
-      {uploaded?.warnings?.length > 0 && (
-        <div role="status" className="flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-200 p-3 text-sm text-yellow-800">
-          <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          <ul className="space-y-1">
-            {uploaded.warnings.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {error && (
-        <div role="alert" className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-          <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          <div>
-            <p>{error.message}</p>
-            {error.errors.length > 0 && (
-              <ul className="mt-1 list-disc pl-5">{error.errors.map((item) => <li key={item}>{item}</li>)}</ul>
-            )}
-            {error.surveyPath && (
-              <p className="mt-1">The survey&apos;s XML in Decipher was not replaced. The Decipher survey is <span className="font-mono">{error.surveyPath}</span>; uploading again after a fix updates it.</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 };
 
 const downloadXml = (xml, filename) => {
@@ -184,6 +57,92 @@ const SurveyTracking = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  // The automatic check of the chosen file, and Fix with AI
+  const [check, setCheck] = useState({ status: 'idle', report: null, error: null });
+  const [fix, setFix] = useState(null);
+  const [fixBusy, setFixBusy] = useState(false);
+  const [fixError, setFixError] = useState(null);
+  // True when the current file came from Fix with AI; only then may Decipher's errors be fixed with AI.
+  const [aiFixed, setAiFixed] = useState(false);
+
+  const runCheck = async (chosen) => {
+    setCheck({ status: 'loading', report: null, error: null });
+    try {
+      const report = await trackingService.checkDecipherXml(chosen);
+      setCheck({ status: 'done', report, error: null });
+    } catch (err) {
+      setCheck({ status: 'error', report: null, error: errorMessage(err) });
+    }
+  };
+
+  const chooseFile = (chosen, fromAi = false) => {
+    setAiFixed(Boolean(chosen && fromAi));
+    setFile(chosen || null);
+    setResult(null);
+    setError(null);
+    setFix(null);
+    setFixError(null);
+    if (chosen) runCheck(chosen);
+    else setCheck({ status: 'idle', report: null, error: null });
+  };
+
+  const reupload = () => {
+    if (fileInput.current) {
+      fileInput.current.value = '';
+      fileInput.current.click();
+    }
+  };
+
+  const fixWithAi = async (instructions) => {
+    if (!file) return;
+    setFixBusy(true);
+    setFixError(null);
+    setFix(null);
+    try {
+      setFix(await trackingService.fixDecipherXml(file, instructions));
+    } catch (err) {
+      setFixError(errorMessage(err));
+    } finally {
+      setFixBusy(false);
+    }
+  };
+
+  const useFixed = () => {
+    if (!fix) return;
+    chooseFile(new File([fix.xml], fix.filename, { type: 'application/xml' }), true);
+  };
+
+  const trackingOptions = (id) => ({
+    surveyId: id,
+    terminate,
+    afterPage,
+    signals: terminate ? chosenSignals : [],
+    privacyNotice,
+    privacyText: privacyText.trim(),
+  });
+
+  // Decipher refused an AI-fixed file: fix it with Decipher's errors, check it, and add tracking
+  // again with the same settings and survey id. The upload panel then sends it to the same survey.
+  const retryAfterDecipher = async (decipherErrors, instructions, setStep) => {
+    const fixed = await trackingService.fixDecipherXml(file, instructions, decipherErrors);
+    if (!fixed.changed) {
+      const left = fixed.cannot_fix?.length ? ` ${fixed.cannot_fix.join(' ')}` : '';
+      throw new Error(`Fix with AI found nothing it could change for these errors.${left}`);
+    }
+    const fixedFile = new File([fixed.xml], fixed.filename, { type: 'application/xml' });
+    setStep('Checking the fixed file…');
+    const report = await trackingService.checkDecipherXml(fixedFile);
+    setFile(fixedFile);
+    setFix(fixed);
+    setCheck({ status: 'done', report, error: null });
+    if (!report.ok) throw new Error('The fixed file still has problems; they are listed above.');
+    setStep('Adding tracking again…');
+    const tracked = await trackingService.addDecipherTracking(fixedFile, trackingOptions(result.survey_id));
+    setResult(tracked);
+    return { result: tracked, fix: fixed };
+  };
+
+  const hasErrors = check.status === 'done' && check.report && !check.report.ok;
 
   useEffect(() => {
     trackingService
@@ -206,9 +165,7 @@ const SurveyTracking = () => {
   };
 
   const reset = () => {
-    setFile(null);
-    setResult(null);
-    setError(null);
+    chooseFile(null);
     if (fileInput.current) fileInput.current.value = '';
   };
 
@@ -219,14 +176,7 @@ const SurveyTracking = () => {
     setError(null);
     setResult(null);
     try {
-      const response = await trackingService.addDecipherTracking(file, {
-        surveyId: surveyId.trim(),
-        terminate,
-        afterPage,
-        signals: terminate ? chosenSignals : [],
-        privacyNotice,
-        privacyText: privacyText.trim(),
-      });
+      const response = await trackingService.addDecipherTracking(file, trackingOptions(surveyId.trim()));
       setResult(response);
       toast.success(`Tracking added to ${file.name}`);
     } catch (err) {
@@ -253,6 +203,8 @@ const SurveyTracking = () => {
         </p>
       </div>
 
+      <XmlChecklist />
+
       <form onSubmit={submit} className={`${card} space-y-6`} aria-label="Upload a Decipher survey XML">
         <div>
           <label htmlFor="survey-xml" className={label}>Survey XML</label>
@@ -262,7 +214,7 @@ const SurveyTracking = () => {
             onDrop={(e) => {
               e.preventDefault();
               const dropped = e.dataTransfer.files?.[0];
-              if (dropped) { setFile(dropped); setResult(null); setError(null); }
+              if (dropped) chooseFile(dropped);
             }}
           >
             <FileCode className="h-8 w-8 text-gray-400 flex-shrink-0" aria-hidden="true" />
@@ -272,13 +224,40 @@ const SurveyTracking = () => {
                 ref={fileInput}
                 type="file"
                 accept=".xml,.txt,application/xml,text/xml"
-                onChange={(e) => { setFile(e.target.files?.[0] || null); setResult(null); setError(null); }}
+                onChange={(e) => chooseFile(e.target.files?.[0] || null)}
                 className="block w-full text-sm text-gray-700 file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700"
               />
               <p className={hint}>A .xml file (or .txt holding the XML), up to 5 MB. Or drop it here.</p>
+              {file && <p className="mt-1 text-xs text-gray-700">Current file: <span className="font-mono">{file.name}</span></p>}
             </div>
           </div>
         </div>
+
+        {check.status === 'loading' && <p className="text-sm text-gray-600" role="status">Checking {file?.name}…</p>}
+        {check.status === 'error' && (
+          <p className="text-sm text-amber-800" role="status">The file could not be checked ({check.error}). You can still try Add tracking.</p>
+        )}
+        {check.status === 'done' && check.report && (
+          <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+            <CheckReport filename={file?.name || check.report.filename} report={check.report} />
+            {check.report.issues.length > 0 && (
+              <FixWithAi
+                aiAvailable={check.report.ai_available}
+                busy={fixBusy}
+                onFix={fixWithAi}
+                onReupload={reupload}
+                report={check.report}
+              />
+            )}
+            {fixError && (
+              <div role="alert" className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                <span>{fixError}</span>
+              </div>
+            )}
+            {fix && <FixResult fix={fix} onDownload={() => downloadXml(fix.xml, fix.filename)} onUse={useFixed} />}
+          </div>
+        )}
 
         <div>
           <label htmlFor="survey-id" className={label}>Survey id (optional)</label>
@@ -385,12 +364,13 @@ const SurveyTracking = () => {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={!file || busy || (terminate && chosenSignals.length === 0)}
+            disabled={!file || busy || check.status === 'loading' || hasErrors || (terminate && chosenSignals.length === 0)}
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <Upload className="h-4 w-4" aria-hidden="true" />
             {busy ? 'Adding tracking…' : 'Add tracking'}
           </button>
+          {hasErrors && <span className="text-sm text-red-700">Fix the problems above first.</span>}
           {(file || result) && (
             <button type="button" onClick={reset} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:underline">
               <RotateCcw className="h-4 w-4" aria-hidden="true" /> Start over
@@ -470,7 +450,7 @@ const SurveyTracking = () => {
             </Link>
           </div>
 
-          <DecipherUploadPanel key={result.xml} result={result} />
+          <DecipherUploadPanel aiFixed={aiFixed} key={result.survey_id} onAiRetry={retryAfterDecipher} result={result} />
 
           <div className="text-sm text-gray-600">
             <h3 className="font-medium text-gray-900">Next</h3>

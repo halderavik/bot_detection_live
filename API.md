@@ -817,6 +817,28 @@ GET /dashboard/analytics/trends
 
 Add live tracking to a Decipher survey XML, and optionally send the tracked file to Decipher. Removing the tracking gives back the original file byte for byte.
 
+### Checking an XML and Fix with AI (Add tracking page)
+
+```http
+POST /tracking/decipher/check      (multipart: file)
+```
+
+Checks the file before tracking is added. Each issue has `code`, `severity` (`error` stops tracking, `warning` does not), `title`, `detail` (why), `fix` (how), `line`, `ai_can_fix` and `items` (for example the quota sheets or `.dat` files involved). Checks: not UTF-8, empty, DOCTYPE, broken XML (line, column, the line's text and the usual cause), only part of a survey (no `<survey>` tag), compat missing, invalid or below 143, compat 151+ without `delphi="1"`, styles that only run up to a compat (`atm1d.9` up to 149, `autosum.5` and `ranksort.7` up to 154), labels starting with `QOS_`, duplicate labels, no questions; warnings for quota sheets and `Database()`/`File()` data files that live in the Decipher survey, not the XML. The report also has `recommended_compat`, question and page counts, and `ai_available`.
+
+```http
+POST /tracking/decipher/fix        (multipart: file, instructions?)
+```
+
+Fix with AI. Exact repairs are done in code: a survey body without `<survey>` is wrapped in a standard header (the one Decipher accepted in testing) with the recommended compat and the file name as title, and later copies of a duplicate label are renamed `LABEL_2`, `LABEL_3` (the first keeps its label). The model (`OPENAI_FIX_MODEL`, default `gpt-4o`) then fixes the remaining errors and follows `instructions` (up to 2000 characters, for example a survey title, a compat, or "remove the quotas"); without instructions it fixes errors only and leaves quota sheets and data files alone. It returns exact edits that are applied only where the text matches one place; large files are sent as excerpts around each problem. The result is checked again (up to two rounds) and never kept if it made the XML unreadable. Response: `xml` (without tracking), `filename` (`…_fixed.xml`), `changed`, `applied`, `changes`, `assumptions` (choices to check), `cannot_fix`, `skipped`, `rounds`, `model`, `report`. 503 without an OpenAI key, 502/504 when the AI service fails or is slow; at most 20 calls per address per hour.
+
+### When Decipher refuses an upload
+
+`POST /tracking/decipher/upload` errors now carry `explained` (one entry per Decipher message: `message`, `kind`, `explanation`, `fix`, `page`, `ai_can_fix`, `needs_instruction`) and `file_problem` (true when Decipher refused the file itself, false for a wrong key, path or Decipher being unreachable). Kinds: `style_compat` (a style only runs up to a compat), `compat`, `delphi`, `missing_file` (a `.dat` the Decipher survey lacks), `missing_quota` (no `quota.xls`, or a missing sheet), `missing_label`, `duplicate`, `script` (Python in an `<exec>`, condition or validation fails on a page), `xml`, `other`. Missing files and quotas need the user's instruction before Fix with AI touches them.
+
+`POST /tracking/decipher/fix` also takes `decipher_errors` (a JSON list of those messages). A compat limit Decipher reports is applied in code; the other messages go to the model with the parts of the file they point at (quoted names, the page). The fix never raises compat unless asked or the checker reports it too low, applies each edit only if the XML stays readable, and works on plain line breaks.
+
+On the Add tracking page, **Fix with AI and upload again** is offered only when the file being uploaded came from Fix with AI: it fixes the file with Decipher's errors (and optional instructions), checks it, adds tracking again with the same settings and survey id, and uploads to the same Decipher survey (the one created before a refusal, if any). A file the user fixed by hand gets Decipher's errors explained, without the AI option.
+
 ### Manual installation (Integrations page)
 
 ```http

@@ -19,6 +19,7 @@ from app.utils.helpers import client_ip
 LIMITS: Dict[str, Tuple[int, int]] = {
     "new_session": (30, 60),  # POST /detection/sessions
     "write": (600, 60),  # any other POST
+    "ai_fix": (20, 3600),  # POST /tracking/decipher/fix (each call is a paid AI request)
 }
 
 
@@ -35,12 +36,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def _bucket(request: Request) -> Optional[str]:
         if request.method != "POST":
             return None
-        if request.url.path.rstrip("/").endswith("/detection/sessions"):
+        path = request.url.path.rstrip("/")
+        if path.endswith("/detection/sessions"):
             return "new_session"
+        if path.endswith("/tracking/decipher/fix"):
+            return "ai_fix"
         return "write"
 
     async def dispatch(self, request: Request, call_next):
         bucket = self._bucket(request)
+        if bucket and bucket not in self.limits:
+            bucket = "write" if "write" in self.limits else None
         if bucket:
             limit, window = self.limits[bucket]
             now = time.monotonic()

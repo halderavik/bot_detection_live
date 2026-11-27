@@ -8,6 +8,8 @@ hidden ``QOS_*`` results page, and the chosen options added, ready to import
 into Decipher.
 """
 
+import asyncio
+import json
 import re
 from pathlib import Path
 from typing import Optional
@@ -39,6 +41,9 @@ from app.services.decipher_tracking import (
     tracker_javascript,
     tracker_script,
 )
+from app.services.decipher_ai_fix import FixUnavailable, fix_with_ai
+from app.services.decipher_errors import explain as explain_decipher_errors
+from app.services.decipher_xml_check import check_survey_xml
 from app.services.decipher_upload import (
     DecipherNotConfigured,
     DecipherUploader,
@@ -332,6 +337,8 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
             detail={
                 "message": "Decipher would refuse this file, so nothing was sent to Decipher. " + problems[0],
                 "errors": problems,
+                "explained": explain_decipher_errors(problems),
+                "file_problem": True,
                 "survey_path": None,
                 "survey_url": None,
             },
@@ -380,6 +387,10 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
             detail={
                 "message": error.message,
                 "errors": error.errors,
+                # Plain-words explanation of each Decipher message, and whether the file itself is the problem
+                # (Decipher refused it) rather than the key, the path or Decipher being unreachable.
+                "explained": explain_decipher_errors(error.errors or ([error.message] if error.status == 400 else [])),
+                "file_problem": error.status == 400,
                 "survey_path": error.survey_path,
                 "survey_url": error.survey_url,
             },
@@ -394,4 +405,87 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
         "message": result.message,
         "layouts_updated": result.layouts_updated,
         "warnings": result.warnings,
+    }
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="The file is larger than 5 MB.")
+    if file.filename and Path(file.filename).suffix.lower() not in {".xml", ".txt", ""}:
+        raise HTTPException(status_code=400, detail="Upload the survey as an .xml file (or .txt holding the XML).")
+    return data
+
+
+@router.post("/decipher/check")
+async def check_decipher_xml(file: UploadFile = File(..., description="Decipher survey XML (.xml or .txt)")):
+    """Check a survey XML before tracking is added and explain each problem.
+
+    Errors (``severity: "error"``) must be fixed before tracking is added; warnings
+    are things Decipher may refuse in some setups. Each issue says what is wrong,
+    how to fix it, the line, and whether Fix with AI can repair it.
+    """
+    data = await _read_upload(file)
+    report = check_survey_xml(data).to_dict()
+    report["filename"] = file.filename or "survey.xml"
+    report["ai_available"] = bool(settings.OPENAI_API_KEY)
+    return report
+
+
+def _fixed_filename(filename: str) -> str:
+    stem = Path(filename or "survey.xml").stem or "survey"
+    stem = re.sub(r"_(tracked|fixed)$", "", stem)
+    stem = re.sub(r"[^\w.-]+", "_", stem).strip("_") or "survey"
+    return f"{stem}_fixed.xml"
+
+
+@router.post("/decipher/fix")
+async def fix_decipher_xml(
+    file: UploadFile = File(..., description="Decipher survey XML (.xml or .txt)"),
+    instructions: Optional[str] = Form(None, description="How to fix it, or missing information (optional)"),
+    decipher_errors: Optional[str] = Form(
+        None, description="JSON list of Decipher's refusal messages from an upload, so the fix addresses them"
+    ),
+):
+    """Repair a survey XML with AI ("Fix with AI") and check the result again.
+
+    The model returns exact edits that are applied only where they match one place
+    in the file. The response has the fixed XML (without tracking), what changed,
+    the assumptions made, what could not be fixed, and the new check report.
+    """
+    data = await _read_upload(file)
+    errors: list = []
+    if decipher_errors:
+        try:
+            parsed = json.loads(decipher_errors)
+        except ValueError:
+            parsed = [line for line in decipher_errors.splitlines()]
+        errors = [str(item).strip()[:1000] for item in (parsed if isinstance(parsed, list) else [parsed]) if str(item).strip()][:30]
+    try:
+        result = await fix_with_ai(data, instructions or "", filename=file.filename or "", decipher_errors=errors)
+    except FixUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except asyncio.TimeoutError as error:
+        raise HTTPException(status_code=504, detail="The AI took too long to answer. Try again in a moment.") from error
+    except Exception as error:  # noqa: BLE001 - provider errors (quota, network) reach the user as one message
+        logger.error(f"Fix with AI failed: {type(error).__name__}: {error}")
+        raise HTTPException(
+            status_code=502,
+            detail="The AI service could not be reached or refused the request. Try again later, or fix the file by hand.",
+        ) from error
+    report = result.report.to_dict() if result.report else None
+    return {
+        "xml": result.xml,
+        "filename": _fixed_filename(file.filename or "survey.xml"),
+        "changed": result.applied > 0,
+        "applied": result.applied,
+        "changes": result.changes,
+        "assumptions": result.assumptions,
+        "cannot_fix": result.cannot_fix,
+        "skipped": result.skipped,
+        "rounds": result.rounds,
+        "model": result.model,
+        "report": report,
     }
