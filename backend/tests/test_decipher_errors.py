@@ -129,3 +129,32 @@ async def test_windows_line_breaks_and_one_bad_edit_do_not_block_the_rest():
     assert "zip.dat" not in result.xml and '<radio label="Q1">' in result.xml
     assert result.applied == 1 and "would have broken the XML" in result.skipped[0]
     assert result.report.ok
+
+
+def test_bare_exec_error_points_at_data_files_the_survey_still_reads():
+    xml = GOOD_HEAD + '  <exec when="init">\nCBC = setupDCMFile("15955_DCM_v4.dat")\n</exec>\n' + BODY + "</survey>"
+    [item] = explain(["Exec (page 79): exec"], xml)
+    assert item["kind"] == "script" and item["needs_instruction"]
+    assert "15955_DCM_v4.dat" in item["explanation"]
+    # Without data files the same message stays a plain script error.
+    assert not explain(["Exec (page 79): exec"], GOOD_HEAD + BODY + "</survey>")[0]["needs_instruction"]
+
+
+def test_custom_dat_readers_are_found_before_upload():
+    from app.services.decipher_xml_check import check_survey_xml
+
+    xml = GOOD_HEAD + '  <exec when="init">\nd = setupDCMFile("card1left_v3.dat")\n</exec>\n' + BODY + "</survey>"
+    issue = next(i for i in check_survey_xml(xml.encode("utf-8")).issues if i.code == "data_files")
+    assert issue.items == ["card1left_v3.dat"]
+
+
+@pytest.mark.asyncio
+async def test_removing_the_start_of_an_exec_block_removes_the_whole_block():
+    xml = GOOD_HEAD + '  <exec when="init">\nCBC = setupDCMFile("x.dat")\nmore = 1\n</exec>\n' + BODY + "</survey>"
+    client = FakeClient({"edits": [
+        {"find": '<exec when="init">\nCBC = setupDCMFile("x.dat")', "replace": "<!-- removed -->", "reason": "remove .dat code"},
+    ]})
+    result = await fix_with_ai(xml.encode("utf-8"), "Remove the code that reads .dat files", client=client)
+    assert result.applied == 1 and result.skipped == []
+    assert "x.dat" not in result.xml and "more = 1" not in result.xml and "<!-- removed -->" in result.xml
+    assert result.report.ok

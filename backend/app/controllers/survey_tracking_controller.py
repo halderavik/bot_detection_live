@@ -389,7 +389,7 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
                 "errors": error.errors,
                 # Plain-words explanation of each Decipher message, and whether the file itself is the problem
                 # (Decipher refused it) rather than the key, the path or Decipher being unreachable.
-                "explained": explain_decipher_errors(error.errors or ([error.message] if error.status == 400 else [])),
+                "explained": explain_decipher_errors(error.errors or ([error.message] if error.status == 400 else []), xml),
                 "file_problem": error.status == 400,
                 "survey_path": error.survey_path,
                 "survey_url": error.survey_url,

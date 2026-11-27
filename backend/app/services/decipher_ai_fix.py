@@ -123,7 +123,7 @@ def _excerpt(xml: str, report: CheckReport, instructions: str, decipher_errors: 
     if instructions:
         # Reason: instructions such as "remove the quotas" need every place those appear.
         for number, text in enumerate(lines, start=1):
-            if re.search(r"<quota\b|\b(?:Database|File)\(", text):
+            if re.search(r"<quota\b|\b(?:Database|File)\(|\.dat\b", text):
                 wanted |= set(range(max(1, number - 2), min(total, number + 2) + 1))
     for message in decipher_errors or []:
         # Names Decipher quotes ('Q5', 'x.dat') are searched in the file.
@@ -170,6 +170,29 @@ def _readable(xml: str) -> bool:
         return False
 
 
+def _remove_whole_element(xml: str, find: str, replace: str) -> Optional[str]:
+    """When an edit removes only the start of an element, remove the whole element.
+
+    Models often "remove an <exec> block" by replacing its first lines, which
+    leaves the closing tag behind. If ``find`` opens an element it doesn't close
+    and ``replace`` opens no such element, the replacement runs to the closing tag.
+    """
+    # Reason: only code blocks, and only when the edit also takes code lines; a question
+    # is never removed because an edit dropped its opening tag.
+    opened = re.match(r"\s*<(exec|validate)\b[^>]*>(.*)", find, flags=re.S)
+    if not opened or not opened.group(2).strip() or replace.strip() and not replace.strip().startswith("<!--"):
+        return None
+    tag = opened.group(1)
+    if f"</{tag}>" in find or re.search(rf"<{re.escape(tag)}[\s>/]", replace):
+        return None
+    start = xml.find(find)
+    after = start + len(find)
+    close = xml.find(f"</{tag}>", after)
+    if close < 0 or re.search(rf"<{re.escape(tag)}[\s>/]", xml[after:close]):
+        return None  # Reason: nested elements of the same tag are not guessed at.
+    return xml[:start] + replace + xml[close + len(f"</{tag}>"):]
+
+
 def _apply(xml: str, plan: dict) -> tuple[str, int, List[str]]:
     applied, skipped = 0, []
     # Reason: when the file can be read, each edit must keep it readable; one bad edit is
@@ -185,6 +208,11 @@ def _apply(xml: str, plan: dict) -> tuple[str, int, List[str]]:
         if count == 1:
             candidate = xml.replace(find, replace)
             if guard and not _readable(candidate):
+                whole = _remove_whole_element(xml, find, replace)
+                if whole is not None and _readable(whole):
+                    xml = whole
+                    applied += 1
+                    continue
                 skipped.append(f"Skipped an edit ({edit.get('reason') or 'no reason given'}): it would have broken the XML.")
                 continue
             xml = candidate

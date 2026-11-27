@@ -48,8 +48,9 @@ function ExplainedErrors({ items }) {
   );
 }
 
-function AiRetry({ error, onRetry, busy, step }) {
-  const [instructions, setInstructions] = useState('');
+// initial: the instructions used on the last retry, kept so a second refusal doesn't lose them.
+function AiRetry({ error, onRetry, busy, step, initial = '' }) {
+  const [instructions, setInstructions] = useState(initial);
   const needsInstruction = error.explained.some((item) => item.needs_instruction);
   return (
     <div className="mt-3 rounded-md border border-violet-200 bg-violet-50/50 p-3">
@@ -101,6 +102,7 @@ export default function DecipherUploadPanel({ result, aiFixed, onAiRetry }) {
   const [error, setError] = useState(null);
   const [uploaded, setUploaded] = useState(null);
   const [aiNote, setAiNote] = useState(null);
+  const [lastInstructions, setLastInstructions] = useState('');
 
   if (!info.configured) {
     return (
@@ -143,6 +145,7 @@ export default function DecipherUploadPanel({ result, aiFixed, onAiRetry }) {
 
   const retryWithAi = async (instructions) => {
     const previous = error;
+    setLastInstructions(instructions);
     setBusy(true);
     setAiNote(null);
     try {
@@ -275,7 +278,7 @@ export default function DecipherUploadPanel({ result, aiFixed, onAiRetry }) {
               )}
             </div>
           </div>
-          {error.fileProblem && aiFixed && <AiRetry busy={busy} error={error} onRetry={retryWithAi} step={step} />}
+          {error.fileProblem && aiFixed && <AiRetry busy={busy} error={error} initial={lastInstructions} onRetry={retryWithAi} step={step} />}
         </div>
       )}
     </div>

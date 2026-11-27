@@ -121,14 +121,34 @@ def explain_one(message: str) -> ExplainedError:
     )
 
 
-def explain(messages: List[str]) -> List[dict]:
-    """Explain each Decipher message (duplicates once, in order)."""
+def explain(messages: List[str], xml: Optional[str] = None) -> List[dict]:
+    """Explain each Decipher message (duplicates once, in order).
+
+    With the uploaded ``xml``, a script error in a survey that still reads data
+    files says so: a missing data file makes that code fail, and Decipher often
+    reports it only as "Exec (page N): exec".
+    """
+    from app.services.decipher_xml_check import data_files
+
+    files = data_files(xml) if xml else []
     seen, out = set(), []
     for message in messages or []:
         text = str(message or "").strip()
         if text and text not in seen:
             seen.add(text)
-            out.append(explain_one(text).to_dict())
+            item = explain_one(text)
+            if item.kind == "script" and files:
+                shown = ", ".join(files[:6]) + (" and others" if len(files) > 6 else "")
+                item.explanation += (
+                    f" The survey still reads data files ({shown}). If this Decipher survey does not have them, "
+                    "that code fails here, and Decipher names no file."
+                )
+                item.fix = (
+                    "Upload those files to the survey in Decipher, or tell Fix with AI to remove the code that reads them. "
+                    "Otherwise correct the code on that page."
+                )
+                item.needs_instruction = True
+            out.append(item.to_dict())
     return out
 
 

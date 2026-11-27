@@ -40,7 +40,9 @@ STYLE_MAX_COMPAT = {"atm1d.9": 149, "autosum.5": 154, "ranksort.7": 154, "cardso
 DEFAULT_COMPAT = 155
 
 _LABELLED_TAGS = _QUESTION_TAGS | {"html", "block", "loop", "term", "image", "imageupload"}
-_DATA_FILE = re.compile(r"""\b(?:Database|File)\(\s*["']([^"']+)["']""")
+# Database("x")/File("x") calls, and any quoted .dat file name (custom readers such as open() helpers).
+_DATA_FILE = re.compile(r"""\b(?:Database|File)\(\s*["']([^"']+)["']|["']([^"'\s/]+\.dat)["']""")
+DATA_FILE_LINE = r"""\b(?:Database|File)\(|\.dat["']"""
 _USES = re.compile(r'\buses\s*=\s*"([^"]+)"')
 _QOS_LABEL = re.compile(r"""\blabel\s*=\s*["'](QOS_[A-Za-z0-9_]*)["']""")
 
@@ -379,6 +381,11 @@ def rename_duplicate_labels(xml: str) -> tuple[str, List[str], List[str]]:
     return xml, changes, checks
 
 
+def data_files(xml: str) -> List[str]:
+    """Data files the survey reads from the Decipher survey's files."""
+    return sorted({m.group(1) or m.group(2) for m in _DATA_FILE.finditer(xml)})
+
+
 def _file_warnings(xml: str) -> List[Issue]:
     issues: List[Issue] = []
     sheets = sorted({m.group(1) for m in re.finditer(r"<quota\b[^>]*\bsheet\s*=\s*[\"']([^\"']+)[\"']", xml)})
@@ -396,17 +403,17 @@ def _file_warnings(xml: str) -> List[Issue]:
             ai_can_fix=False,
             items=sheets[:30],
         ))
-    files = sorted({m.group(1) for m in _DATA_FILE.finditer(xml)})
+    files = data_files(xml)
     if files:
         issues.append(Issue(
             "data_files", "warning", "The survey reads data files that are not in the XML",
             (
-                "Database(...) or File(...) calls load these files from the Decipher survey's files. The original survey "
+                "Database(...), File(...) or other code loads these files from the Decipher survey's files. The original survey "
                 "has them; a new Decipher survey does not, and the survey fails where it reads them."
             ),
             "Upload over the original survey, or upload these files to the new survey in Decipher. If you don't need "
             "those checks, tell Fix with AI which ones to remove.",
-            line=_first_line(xml, r"\b(?:Database|File)\("),
+            line=_first_line(xml, DATA_FILE_LINE),
             ai_can_fix=False,
             items=files[:30],
         ))
