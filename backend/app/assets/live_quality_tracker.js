@@ -12,7 +12,7 @@
   var TOKEN = "__QOS_TOKEN__";
   /* Project rules: terminate (bool) and signals (decisive bot signals that end the survey). */
   var RULES = __QOS_RULES__;
-  var PLATFORM = "decipher";
+  var PLATFORM = "__QOS_PLATFORM__";
   var KEY = "qos_lq_" + SURVEY;
   var MIN_TEXT = 2;
   var pageStart = Date.now();
@@ -52,9 +52,10 @@
   }
 
   /* The survey platform's own respondent id, written in by the platform when it renders
-     the page (Decipher: uuid, the same value as the uuid column in its data exports).
-     With it, results here and in the platform's data share one id. Without it (a
-     preview, or an unexpected value), the tracker makes its own id as before. */
+     the page (Decipher: uuid, the same value as the uuid column in its data exports;
+     other sites: window.QOS_RESPONDENT_ID set before this script). With it, results
+     here and in the platform's data share one id. Without it (a preview, or an
+     unexpected value), the tracker makes its own id as before. */
   var PLATFORM_RESPONDENT = "__QOS_PLATFORM_RESPONDENT__";
   var platformId = (PLATFORM_RESPONDENT.length >= 4 && PLATFORM_RESPONDENT.length <= 64 &&
     !/[^A-Za-z0-9_-]/.test(PLATFORM_RESPONDENT)) ? PLATFORM_RESPONDENT : "";
@@ -126,6 +127,24 @@
       return state.session;
     });
     return sessionPromise;
+  }
+
+  /* Tell the page: a "qos:session" and a "qos:result" event on document. */
+  function announce(name, detail) {
+    try { document.dispatchEvent(new CustomEvent("qos:" + name, { detail: detail })); } catch (e) {}
+  }
+
+  /* Qualtrics: keep both ids in embedded data (QOS_SESSION, QOS_RESPONDENT) when the
+     survey flow declares those fields, so they reach the Qualtrics data file. */
+  function shareIds(sid) {
+    announce("session", { session_id: sid, respondent_id: state.respondent });
+    try {
+      var engine = window.Qualtrics && window.Qualtrics.SurveyEngine;
+      if (engine && typeof engine.setEmbeddedData === "function") {
+        engine.setEmbeddedData("QOS_SESSION", sid);
+        engine.setEmbeddedData("QOS_RESPONDENT", state.respondent);
+      }
+    } catch (e) {}
   }
 
   function flush(keep) {
@@ -346,11 +365,35 @@
         fields[marks[i].getAttribute("data-field")] = input;
       }
     }
+    /* Any platform: inputs whose name is a QOS variable (hidden inputs on your own form,
+       or text questions named QOS_FLAG, QOS_SESSION, ...) get the same values. */
+    var named = document.querySelectorAll("input[name^='QOS_'], textarea[name^='QOS_']");
+    for (var n = 0; n < named.length; n++) {
+      var key = TEXT_FIELD_NAMES[named[n].name] || named[n].name;
+      if (!fields[key]) {
+        named[n].setAttribute("data-qos", "1");
+        fields[key] = named[n];
+      }
+    }
     return fields;
   }
+  var TEXT_FIELD_NAMES = { QOS_RESPONDENT: "respondent", QOS_SESSION: "session", QOS_FLAG: "flag", QOS_SCORE: "score", QOS_RISK: "risk" };
 
   function fill(fields, name, value) {
-    if (fields[name]) { fields[name].value = value === undefined || value === null ? "" : String(value); }
+    var input = fields[name];
+    if (!input) { return; }
+    var text = value === undefined || value === null ? "" : String(value);
+    if (PLATFORM === "decipher") { input.value = text; return; }
+    /* Other platforms often build pages with a script framework that keeps its own copy
+       of each answer; the element's own value setter and input/change events update it. */
+    try {
+      var proto = input.tagName === "TEXTAREA" ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value").set.call(input, text);
+    } catch (e) { input.value = text; }
+    try {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) {}
   }
 
   /* Scores and reason codes for the survey data (QOS_STATUS, QOS_FRAUD, ...). Only whole
@@ -390,15 +433,34 @@
       var isBot = (c.is_bot === undefined && b.is_bot === undefined) ? undefined : (c.is_bot === true || b.is_bot === true);
       var score = c.composite_score;
       if (score === undefined || score === null) { score = b.confidence_score; }
-      fill(fields, "flag", isBot === undefined ? "unknown" : (isBot ? "bot" : "human"));
+      var risk = b.is_bot === true ? (b.risk_level || "high") : (c.risk_level || b.risk_level || "");
+      lastResult.flag = isBot === undefined ? "unknown" : (isBot ? "bot" : "human");
+      lastResult.score = score === undefined ? null : score;
+      lastResult.risk = risk;
+      lastResult.variables = c.survey_variables || {};
+      fill(fields, "flag", lastResult.flag);
       fill(fields, "score", score);
-      fill(fields, "risk", b.is_bot === true ? (b.risk_level || "high") : (c.risk_level || b.risk_level || ""));
+      fill(fields, "risk", risk);
       fillVariables(fields, c.survey_variables);
     }).catch(function () {
       fill(fields, "flag", "unknown");
-    }).then(function () { finished = true; });
+    }).then(function () {
+      finished = true;
+      lastResult.session_id = state.session || null;
+      announce("result", lastResult);
+      return lastResult;
+    });
     return finishing;
   }
+  var lastResult = { respondent_id: state.respondent, session_id: null, flag: "unknown", score: null, risk: "", variables: {} };
+
+  /* For pages without the hidden QOS fields: QOSTracker.finish() runs the final check
+     and resolves with the result (flag, score, risk, variables, ids). */
+  window.QOSTracker = {
+    respondentId: state.respondent,
+    sessionId: function () { return state.session || null; },
+    finish: function () { return finish(hiddenFields()); }
+  };
 
   /* Device signals for the service's device check: time zone, languages, platform,
      hardware, and short hashes of how the browser draws text and which graphics
@@ -477,7 +539,8 @@
   function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
 
   function start() {
-    session().then(function () {
+    session().then(function (sid) {
+      shareIds(sid);
       var signals = deviceSignals();
       signals.webdriver = navigator.webdriver === true;
       signals.touch_points = navigator.maxTouchPoints || 0;

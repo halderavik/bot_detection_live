@@ -29,10 +29,15 @@ from app.services.decipher_tracking import (
     TrackingOptions,
     decipher_settings_problems,
     check_api_base,
+    check_survey_id,
     has_tracking,
     read_survey,
+    results_page,
+    style_block,
     track_survey,
     tracked_survey_id,
+    tracker_javascript,
+    tracker_script,
 )
 from app.services.decipher_upload import (
     DecipherNotConfigured,
@@ -82,6 +87,65 @@ async def tracking_options():
         "decipher_upload": is_configured(settings.DECIPHER_API_KEY),
         "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
     }
+
+
+def _script_for(
+    request: Request, survey_id: str, platform: str, target: Optional[str] = None
+) -> tuple[str, str, str, bool]:
+    """Tracker script, checked survey id, API base, and whether it is signed.
+
+    ``target`` is the API the code should call when it is not this service (for
+    example the production service while the dashboard runs locally). Only this
+    service's own secret can sign, so code for another service is unsigned.
+    """
+    try:
+        clean_id = check_survey_id(survey_id)
+        own_base = check_api_base(tracker_api_base(request))
+        api_base = check_api_base(target) if target else own_base
+        token = (survey_token(clean_id) or "") if api_base == own_base else ""
+        # Same rules as an upload without the in-survey check, so pasted XML matches it.
+        rules = {"terminate": False, "signals": list(BOT_SIGNALS)}
+        script = tracker_script(clean_id, api_base, token, rules, platform)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return script, clean_id, api_base, bool(token)
+
+
+@router.get("/decipher/snippet")
+async def decipher_snippet(request: Request, survey_id: str, api_base: Optional[str] = None):
+    """The two XML blocks to paste into a Decipher survey by hand.
+
+    ``style`` goes right after ``</samplesources>`` (or right after the opening
+    ``<survey ...>`` tag); ``results_page`` goes right before ``</survey>``. They are
+    exactly what the automatic upload adds without the privacy notice and the
+    in-survey bot check. ``api_base`` (https, ending in /api/v1) makes the tracker
+    call another service, such as production, instead of this one.
+    """
+    script, clean_id, api_base, signed = _script_for(request, survey_id, "decipher", api_base)
+    return {
+        "survey_id": clean_id,
+        "api_base": api_base,
+        "signed": signed,
+        "style": style_block(script, clean_id).lstrip(),
+        "results_page": results_page(),
+        "fields": list(FIELD_LABELS),
+    }
+
+
+@router.get("/script.js")
+async def tracker_file(request: Request, survey_id: str, platform: str = "web"):
+    """The tracker as a JavaScript file for Qualtrics or any other website.
+
+    Load it with ``<script src=".../tracking/script.js?survey_id=...&platform=web">``.
+    """
+    if platform not in ("qualtrics", "web"):
+        raise HTTPException(status_code=422, detail="platform must be qualtrics or web.")
+    script, _, _, _ = _script_for(request, survey_id, platform)
+    return Response(
+        tracker_javascript(script),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @router.post("/decipher")

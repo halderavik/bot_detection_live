@@ -4,7 +4,11 @@
  */
 
 // Environment variables with fallbacks
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const PRODUCTION_API_BASE_URL = 'https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || PRODUCTION_API_BASE_URL;
+// The API that survey code (tracker scripts, Decipher XML) calls. Respondents' browsers must
+// reach it, so it is the production service even when this dashboard runs locally.
+const TRACKER_API_BASE_URL = (import.meta.env.VITE_TRACKER_API_BASE || PRODUCTION_API_BASE_URL).replace(/\/+$/, '');
 const FRONTEND_BASE_URL = import.meta.env.VITE_FRONTEND_BASE_URL || 'https://storage.googleapis.com/bot-detection-frontend-20251208';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'Bot Detection Dashboard';
 
@@ -31,6 +35,8 @@ export const config = {
   
   // Base URLs
   apiBaseUrl: API_BASE_URL,
+  trackerApiBase: TRACKER_API_BASE_URL,
+  trackerApiDocsUrl: `${TRACKER_API_BASE_URL.replace(/\/api\/v1$/, '')}/docs`,
   frontendBaseUrl: FRONTEND_BASE_URL,
   apiBase: API_BASE,
   

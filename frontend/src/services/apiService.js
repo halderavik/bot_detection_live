@@ -142,6 +142,12 @@ export const trackingService = {
     return api.get('/tracking/decipher/options');
   },
 
+  // The two XML blocks to paste into a Decipher survey by hand (Integrations page)
+  // apiBase: the API the pasted code should call (default: this service)
+  getDecipherSnippet: async (surveyId, apiBase) => {
+    return api.get('/tracking/decipher/snippet', { params: { survey_id: surveyId, api_base: apiBase || undefined } });
+  },
+
   // file: File; options: { surveyId, terminate, afterPage, signals[], privacyNotice, privacyText }
   addDecipherTracking: async (file, options = {}) => {
     const form = new FormData();

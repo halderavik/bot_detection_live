@@ -78,7 +78,7 @@ export default function QualityDataFileCard({ surveyId }) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-gray-900" id="quality-data-title">Add flags to a data file</h3>
           <p className="mt-0.5 text-sm text-gray-600">
-            Upload the Decipher export of this survey (SPSS .sav, CSV or Excel). Each record is matched on{' '}
+            Upload this survey&apos;s data export from Decipher or Qualtrics (SPSS .sav, CSV or Excel). Each record is matched on{' '}
             <code className="text-xs">QOS_SESSION</code>, then <code className="text-xs">QOS_RESPONDENT</code>, then
             Decipher&apos;s <code className="text-xs">uuid</code>, and you get the same file back with the scores and flags as{' '}
             <code className="text-xs">LQ_</code> variables, under this survey&apos;s rules.

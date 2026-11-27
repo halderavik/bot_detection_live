@@ -15,6 +15,7 @@ import PlatformDetails from './components/PlatformDetails'
 import RespondentDetails from './components/RespondentDetails'
 import SurveyTracking from './components/SurveyTracking'
 import LiveQuality from './components/LiveQuality'
+import ManualSetup from './components/ManualSetup'
 import { EmptyState, buttonClass } from './components/ui'
 import { ToastContainer } from 'react-toastify'
 import { Compass } from 'lucide-react'
@@ -54,6 +55,7 @@ function App() {
           <Route path="/reports" element={<ReportBuilder />} />
           <Route path="/tracking" element={<SurveyTracking />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/manual-setup" element={<ManualSetup />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/quick-start" element={<QuickStartGuide />} />
           <Route path="/api-playground" element={<ApiPlayground />} />

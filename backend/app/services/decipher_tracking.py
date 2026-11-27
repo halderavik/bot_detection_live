@@ -196,7 +196,20 @@ def check_privacy_text(text: str) -> str:
     return text
 
 
-def tracker_script(survey_id: str, api_base: str, token: str = "", rules: Optional[dict] = None) -> str:
+# Platforms the tracker can run on, and where each one's respondent id comes from.
+# Decipher writes the uuid into the page; other sites may set window.QOS_RESPONDENT_ID
+# before the script runs (Qualtrics has no response id until the survey is submitted).
+PLATFORMS = ("decipher", "qualtrics", "web")
+_PAGE_RESPONDENT = 'String(window.QOS_RESPONDENT_ID || "")'
+
+
+def tracker_script(
+    survey_id: str,
+    api_base: str,
+    token: str = "",
+    rules: Optional[dict] = None,
+    platform: str = "decipher",
+) -> str:
     """Fill the tracker script for one survey.
 
     Args:
@@ -204,6 +217,7 @@ def tracker_script(survey_id: str, api_base: str, token: str = "", rules: Option
         api_base: API base URL, ending in /api/v1.
         token: Signed survey token, or empty when tokens are not configured.
         rules: ``{"terminate": bool, "signals": [codes]}`` for the in-survey check.
+        platform: ``decipher``, ``qualtrics`` or ``web`` (any other website).
 
     Returns:
         The ``<script>`` block.
@@ -211,6 +225,8 @@ def tracker_script(survey_id: str, api_base: str, token: str = "", rules: Option
     Raises:
         ValueError: The id, URL, or token could break the script or Decipher's templates.
     """
+    if platform not in PLATFORMS:
+        raise ValueError(f"The platform must be one of: {', '.join(PLATFORMS)}.")
     survey_id = check_survey_id(survey_id)
     base = check_api_base(api_base)
     if not re.fullmatch(r"[0-9a-f]{0,64}", token or ""):
@@ -227,11 +243,52 @@ def tracker_script(survey_id: str, api_base: str, token: str = "", rules: Option
         .replace('"__QOS_SURVEY__"', json.dumps(survey_id))
         .replace("__QOS_TOKEN__", token or "")
         .replace("__QOS_RULES__", json.dumps(config))
+        .replace("__QOS_PLATFORM__", platform)
     )
     check_template_safe(script)
     # Reason: the one Decipher expression in the script, added after the safety check so
     # nothing else can be templated. Decipher writes the respondent's uuid here.
-    return script.replace("__QOS_PLATFORM_RESPONDENT__", RESPONDENT_ID_EXPRESSION)
+    if platform == "decipher":
+        return script.replace('"__QOS_PLATFORM_RESPONDENT__"', json.dumps(RESPONDENT_ID_EXPRESSION))
+    return script.replace('"__QOS_PLATFORM_RESPONDENT__"', _PAGE_RESPONDENT)
+
+
+def tracker_javascript(script: str) -> str:
+    """The tracker without its ``<script>`` tags, to serve as a .js file."""
+    body = script.strip()
+    if body.startswith("<script>"):
+        body = body[len("<script>"):]
+    if body.endswith("</script>"):
+        body = body[: -len("</script>")]
+    return body.strip() + "\n"
+
+
+def style_block(script: str, survey_id: str) -> str:
+    """The marker comment and ``respview.client.js`` style that carry the tracker."""
+    return (
+        f"\n  <!-- {MARKER}: survey id {survey_id} -->\n"
+        # Reason: mode="after" adds to the survey's own page scripts. Without it, a
+        # programmer's earlier respview.client.js styles would be replaced.
+        f'  <style mode="after" name="respview.client.js"><![CDATA[\n{script}]]></style>'
+    )
+
+
+def results_page() -> str:
+    """The QOS_finish note and hidden QOS_* questions placed before ``</survey>``."""
+    page = ['  <html label="QOS_finish">Thank you. Please click the button below to submit your answers.</html>']
+    for label, name, title in _FIELDS:
+        if label in _NUMBER_TOP:
+            top = _NUMBER_TOP[label]
+            opening = f'<number label="{label}" optional="1" size="{len(str(top))}" verify="range(0,{top})">'
+            tag = "number"
+        else:
+            opening, tag = f'<text label="{label}" optional="1" size="40">', "text"
+        page.append(
+            f"  {opening}\n"
+            f'    <title><span class="qos-bot-field" data-field="{name}"></span>{title} (leave blank)</title>\n'
+            f"  </{tag}>"
+        )
+    return "\n".join(page) + "\n"
 
 
 def check_template_safe(script: str) -> None:
@@ -478,13 +535,7 @@ def add_tracking(
 
 
 def _add(xml: str, survey_id: str, api_base: str, token: str, rules: dict) -> tuple[str, Optional[int], str]:
-    script = tracker_script(survey_id, api_base, token, rules)
-    style = (
-        f"\n  <!-- {MARKER}: survey id {survey_id} -->\n"
-        # Reason: mode="after" adds to the survey's own page scripts. Without it, a
-        # programmer's earlier respview.client.js styles would be replaced.
-        f'  <style mode="after" name="respview.client.js"><![CDATA[\n{script}]]></style>'
-    )
+    style = style_block(tracker_script(survey_id, api_base, token, rules), survey_id)
     anchor = xml.find("</samplesources>")
     if anchor == -1:
         opening = re.search(r"<survey\b[^>]*>", xml)
@@ -500,23 +551,10 @@ def _add(xml: str, survey_id: str, api_base: str, token: str, rules: dict) -> tu
     early_page, early_note = None, ""
     if rules.get("terminate"):
         xml, early_page, early_note = _add_early_check(xml, int(rules.get("after_page") or 2))
-    page = ['  <html label="QOS_finish">Thank you. Please click the button below to submit your answers.</html>']
-    for label, name, title in _FIELDS:
-        if label in _NUMBER_TOP:
-            top = _NUMBER_TOP[label]
-            opening = f'<number label="{label}" optional="1" size="{len(str(top))}" verify="range(0,{top})">'
-            tag = "number"
-        else:
-            opening, tag = f'<text label="{label}" optional="1" size="40">', "text"
-        page.append(
-            f"  {opening}\n"
-            f'    <title><span class="qos-bot-field" data-field="{name}"></span>{title} (leave blank)</title>\n'
-            f"  </{tag}>"
-        )
     closing = xml.rfind("</survey>")
     if closing == -1:
         raise ValueError("The survey XML has no closing survey tag.")
-    xml = xml[:closing] + "\n".join(page) + "\n" + xml[closing:]
+    xml = xml[:closing] + results_page() + xml[closing:]
     parse_survey(xml)
     return xml, early_page, early_note
 

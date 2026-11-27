@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import {
   Activity,
   BookOpen,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   Menu,
@@ -40,6 +41,7 @@ export const NAV_GROUPS = [
     label: 'Set up',
     items: [
       { name: 'Add tracking', to: '/tracking', icon: Upload },
+      { name: 'Manual setup', to: '/manual-setup', icon: ClipboardList },
       { name: 'Integrations', to: '/integrations', icon: Plug },
       { name: 'Settings', to: '/settings', icon: SettingsIcon },
     ],

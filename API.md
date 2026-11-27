@@ -817,6 +817,35 @@ GET /dashboard/analytics/trends
 
 Add live tracking to a Decipher survey XML, and optionally send the tracked file to Decipher. Removing the tracking gives back the original file byte for byte.
 
+### Manual installation (Integrations page)
+
+```http
+GET /tracking/decipher/snippet?survey_id=Coffee%20study%20W1
+```
+
+Returns the two blocks to paste into a Decipher survey by hand. Pasting `style` right after `</samplesources>` (or right after the opening `<survey ...>` tag) and `results_page` right before `</survey>` gives exactly the XML that `POST /tracking/decipher` produces with no privacy notice and no in-survey check (covered by `tests/test_tracking_snippets.py`).
+
+```json
+{
+  "survey_id": "Coffee study W1",
+  "api_base": "https://…/api/v1",
+  "signed": false,
+  "style": "<!-- Bot detection live tracking: survey id Coffee study W1 -->
+  <style mode=\"after\" name=\"respview.client.js\">…",
+  "results_page": "  <html label=\"QOS_finish\">…</html>
+  <text label=\"QOS_RESPONDENT\" …",
+  "fields": ["QOS_RESPONDENT", "QOS_SESSION", "…"]
+}
+```
+
+```http
+GET /tracking/script.js?survey_id=Coffee%20study%20W1&platform=web
+```
+
+The same tracker as a JavaScript file (`application/javascript`) for Qualtrics (`platform=qualtrics`) or any other website (`platform=web`). Load it with a `<script src>` tag on every page. A page may set `window.QOS_RESPONDENT_ID` before it to use its own respondent id. `QOSTracker.finish()` runs the final check and resolves with `{flag, score, risk, variables, session_id, respondent_id}`; the page also gets `qos:session` and `qos:result` events. With `platform=qualtrics` the tracker writes `QOS_SESSION` and `QOS_RESPONDENT` into embedded data through `Qualtrics.SurveyEngine.setEmbeddedData` (declare both fields in the survey flow). Unsafe survey ids or other platforms give 422.
+
+On any platform the tracker also fills inputs whose `name` is a result variable (`QOS_FLAG`, `QOS_SESSION`, `QOS_STATUS`, …), such as hidden inputs in your own form, and inputs next to a `<span class="qos-bot-field" data-field="…">` marker, which it hides. Outside Decipher it sets values with the element's own value setter and fires `input` and `change` events so form frameworks register them. A page with any of these fields is treated as the last page: the final check runs when it opens and the submit waits at most 3 seconds for it.
+
 ### 1. Tracking Options
 ```http
 GET /tracking/decipher/options

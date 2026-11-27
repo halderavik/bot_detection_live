@@ -261,7 +261,7 @@ The dashboard has a left sidebar (a menu button on phones), grouped by task:
 
 - **Monitor**: **Overview** (home: sessions, checks and bots over the last 7 days, every survey with its bot rate, starts and bots per day, the latest bots), **Live Quality** (one survey's live results under its own rules), **Sessions** (every session with its latest verdict; filter by verdict, risk, platform or id; filters stay in the address so a view can be bookmarked).
 - **Analyse**: **Open-end quality** and **Reports**.
-- **Set up**: **Add tracking** (Decipher XML), **Integrations**, **Settings**.
+- **Set up**: **Add tracking** (Decipher XML), **Manual setup** (step-by-step instructions and generated code for Decipher, Qualtrics, other survey platforms, your own web pages and the API), **Integrations** (the ways to connect, and which platform keys are set), **Settings**.
 - **Developers**: **Quick start** and **API playground**.
 
 The old `/dashboard` and `/surveys` addresses open the Overview. In production every address is behind `index.html#` (for example `index.html#/sessions?verdict=bot`), because the dashboard is a static page in a storage bucket. Clicking a session opens its page: the verdict and the decisive signals behind it first, then behaviour scores, the session facts, fraud, open ends, grids and timing, with the raw event log and analysis output folded away at the bottom.
@@ -320,6 +320,8 @@ GET  /dashboard/analytics/trends?days=14        # per day: sessions, checked, bo
 POST /tracking/decipher                         # survey XML in, tracked XML out
 POST /tracking/decipher/upload                  # send tracked XML to Decipher
 GET  /tracking/decipher/options
+GET  /tracking/decipher/snippet?survey_id=     # the two XML blocks to paste by hand
+GET  /tracking/script.js?survey_id=&platform=  # tracker file for Qualtrics or any website (platform=qualtrics|web)
 
 # Live quality (survey id in the query string)
 GET  /quality/surveys
