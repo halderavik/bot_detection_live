@@ -57,39 +57,40 @@ def validate_event_data(event_data: Dict[str, Any]) -> bool:
     
     return True
 
+# How far each check alone can move the bot probability. Evidence from separate checks
+# adds up (a noisy-OR): one strong check is a lead, two agreeing checks reach the bot
+# threshold. A weighted average could never get there: a perfect keyboard score and a
+# perfect mouse score averaged to 0.61, below 0.7.
+METHOD_RELIABILITY = {
+    'keystroke_analysis': 0.5,
+    'mouse_analysis': 0.45,
+    'timing_analysis': 0.35,
+    'device_analysis': 0.4,
+    # Network analysis is not implemented yet; it adds nothing.
+    'network_analysis': 0.0,
+}
+
+
 def calculate_confidence_score(method_scores: Dict[str, float]) -> float:
     """
-    Calculate overall confidence score from individual method scores.
-    
+    Combine the per-check bot scores into one bot probability.
+
+    Each check's score (0-1) times its reliability is its chance of meaning "bot";
+    the result is the chance that at least one of them does: 1 - prod(1 - r * s).
+
     Args:
         method_scores: Dictionary of method names to scores
-        
+
     Returns:
-        float: Weighted average confidence score (0.0 to 1.0)
+        float: Bot probability (0.0 to 1.0)
     """
     if not method_scores:
         return 0.0
-    
-    # Weight different methods based on reliability
-    weights = {
-        'keystroke_analysis': 0.3,
-        'mouse_analysis': 0.25,
-        'timing_analysis': 0.2,
-        'device_analysis': 0.15,
-        # Network analysis is not implemented yet; a constant would only drag every
-        # session toward the middle, so it carries no weight.
-        'network_analysis': 0.0
-    }
-    
-    total_score = 0.0
-    total_weight = 0.0
-    
+    remaining = 1.0
     for method, score in method_scores.items():
-        weight = weights.get(method, 0.1)  # Default weight for unknown methods
-        total_score += score * weight
-        total_weight += weight
-    
-    return total_score / total_weight if total_weight > 0 else 0.0
+        reliability = METHOD_RELIABILITY.get(method, 0.2)
+        remaining *= 1.0 - reliability * min(max(float(score or 0.0), 0.0), 1.0)
+    return 1.0 - remaining
 
 def determine_risk_level(confidence_score: float, is_bot: bool) -> str:
     """

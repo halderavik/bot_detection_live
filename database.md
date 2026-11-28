@@ -1,6 +1,6 @@
 # Database: Data Collection and Storage
 
-This document describes how every field in the deployed bot detection database is collected and stored. The production database follows the schema in `backend/schema_bot_detection_v2.sql` plus migrations for fraud detection, grid analysis, and timing analysis. Three newer tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`) have no migration: the backend creates them at startup with SQLAlchemy `create_all`, which adds missing tables and leaves existing tables unchanged.
+This document describes how every field in the deployed bot detection database is collected and stored. The production database follows the schema in `backend/schema_bot_detection_v2.sql` plus migrations for fraud detection, grid analysis, and timing analysis. Four newer tables (`tracked_surveys`, `survey_quality_rules`, `app_settings`, `protected_surveys`) have no migration: the backend creates them at startup with SQLAlchemy `create_all`, which adds missing tables and leaves existing tables unchanged.
 
 ---
 
@@ -56,7 +56,7 @@ One row per behavioral event (keystroke, mouse, scroll, focus, etc.) in a sessio
 | **event_type** | VARCHAR(50) | From request body `event_type`. Must be one of: `keystroke`, `mouse_move`, `mouse_click`, `mouse_drag`, `scroll`, `focus`, `blur`, `page_load`, `form_submit` (see `validate_event_data()`). |
 | **timestamp** | TIMESTAMPTZ | From request body `timestamp`; converted from ISO string or Unix number to datetime. |
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
-| **event_data** | JSONB | Full event payload from the client (stored as-is for the event). |
+| **event_data** | JSONB | The event's own fields from the client (for example coordinates, keys, signals). Fields kept in their own columns or once on the session are removed first and not repeated: `event_type`, `timestamp`, `element_id`, `element_type`, `element_class`, `page_url`, `page_title`, `screen_width`, `screen_height`, `viewport_width`, `viewport_height`, `load_time`, `response_time`, `user_agent`, `survey_id`, `respondent_id`, `platform_id` (`_event_payload()` in DetectionController). |
 | **element_id** | VARCHAR(255) | From request body `element_id`. |
 | **element_type** | VARCHAR(255) | From request body `element_type`. |
 | **element_class** | VARCHAR(255) | From request body `element_class`. |
@@ -69,7 +69,7 @@ One row per behavioral event (keystroke, mouse, scroll, focus, etc.) in a sessio
 | **load_time** | DOUBLE PRECISION | From request body `load_time`. |
 | **response_time** | DOUBLE PRECISION | From request body `response_time`. |
 
-**Where rows are created:** `POST /api/v1/detection/sessions/{session_id}/events` (DetectionController). The client (e.g. JavaScript SDK) sends an array of events; each valid event becomes one row. Session `last_activity` is set to the last event’s timestamp.
+**Where rows are created:** `POST /api/v1/detection/sessions/{session_id}/events` (DetectionController). The client (e.g. JavaScript SDK) sends an array of events; each valid event becomes one row. Events stamped more than 10 minutes in the future or more than a week ago are rejected; rejected events are logged by type only (the page address can hold personal details). Session `last_activity` is set to the last event’s timestamp.
 
 ---
 
@@ -81,15 +81,15 @@ One row per bot detection analysis run for a session (behavioral analysis only o
 |--------|------|------------------------------|
 | **id** | VARCHAR(36) | App-generated uuid on insert. |
 | **session_id** | VARCHAR(36) | From the session being analyzed (URL path for analyze endpoints). |
-| **is_bot** | BOOLEAN | Set by **BotDetectionEngine.analyze_session()**: TRUE if `confidence_score` is at or above `DETECTION_THRESHOLD` (default 0.7; changeable on the Settings page). |
-| **confidence_score** | DOUBLE PRECISION | From `calculate_confidence_score(method_scores)` over the five method scores (0.0–1.0). |
+| **is_bot** | BOOLEAN | Set by **BotDetectionEngine.analyze_session()**: TRUE if `confidence_score` is at or above `DETECTION_THRESHOLD` (default 0.7; changeable on the Settings page). This is the engine's verdict under the global threshold; the composite-analyze response and Live Quality judge by the survey's own quality rules instead, and that verdict is not written back to this column. |
+| **confidence_score** | DOUBLE PRECISION | From `calculate_confidence_score(method_scores)` (0.0–1.0): the checks are combined so agreeing evidence adds up, 1 - product(1 - reliability x score), with reliabilities keystroke 0.5, mouse 0.45, timing 0.35, device 0.4, network 0. Lifted to at least 0.85 by one decisive signal, 0.95 by two or more. |
 | **risk_level** | VARCHAR(20) | From `determine_risk_level(confidence_score, is_bot)` — one of `'low'`, `'medium'`, `'high'`, `'critical'`. |
 | **detection_methods** | JSONB | List of method names: `['keystroke_analysis','mouse_analysis','timing_analysis','device_analysis','network_analysis']`. |
 | **method_scores** | JSONB | Dict of method name → score from BotDetectionEngine (keystroke, mouse, timing, device, network). |
 | **processing_time_ms** | DOUBLE PRECISION | Wall-clock time (ms) for the analysis run. |
 | **event_count** | INTEGER | Number of behavior_data rows analyzed. |
 | **analysis_summary** | TEXT | Human-readable summary from `_generate_analysis_summary()`. |
-| **flagged_patterns** | JSONB | From `_get_flagged_patterns(behavior_data, method_scores)` — patterns that contributed to the result. |
+| **flagged_patterns** | JSONB | From `_get_flagged_patterns(behavior_data, method_scores)` — patterns that contributed to the result. Also holds `base_score` (the score before decisive signals lifted it) and, when any fired, `decisive_signals` (plain-words descriptions) and `decisive_codes` (from the seven signals: `automation`, `scripted_input`, `no_input`, `honeypot`, `untyped_answers`, `robotic_timing`, `timeline_mismatch`). |
 | **fraud_score** | DECIMAL(3,2) | NULL until composite analysis. Set when `POST /api/v1/detection/sessions/{session_id}/composite-analyze` runs: from composite result `fraud_score` (0.0–1.0). |
 | **fraud_indicators** | JSONB | NULL until composite analysis. Set from composite result `fraud_details` (summary of fraud analysis). |
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
@@ -132,18 +132,18 @@ One row per submitted answer to a survey question, with optional text quality an
 | **session_id** | VARCHAR(36) | From request body `session_id`; must match an existing session. |
 | **response_text** | TEXT | From request body `response_text`. |
 | **response_time_ms** | INTEGER | From request body `response_time_ms`. |
-| **text_analysis_result** | JSONB | Full analysis details from **TextAnalysisService.analyze_response()** (GPT-based analysis results). |
-| **quality_score** | DOUBLE PRECISION | From TextAnalysisService: overall quality 0–100. |
-| **is_flagged** | BOOLEAN | From TextAnalysisService (e.g. gibberish, copy-paste, irrelevant, generic, or too short). |
-| **flag_reasons** | JSONB | Dict of reason → details (e.g. confidence, reason text) from TextAnalysisService. |
-| **gibberish_score** | DOUBLE PRECISION | From TextAnalysisService (0–1). |
-| **copy_paste_score** | DOUBLE PRECISION | From TextAnalysisService (0–1). |
-| **relevance_score** | DOUBLE PRECISION | From TextAnalysisService (0–1). |
-| **generic_score** | DOUBLE PRECISION | From TextAnalysisService (0–1). |
+| **text_analysis_result** | JSONB | The `analysis_details` from **TextAnalysisService.analyze_response()**: the five parts of the GPT reply, plus `entry_method` when the answer was pasted or typed without input events. `{"unchecked": true, "error": ...}` when the answer could not be checked; `{"skipped": ...}` for closed questions (grid rows, single and multi choice), which are not text-scored. |
+| **quality_score** | DOUBLE PRECISION | From TextAnalysisService: overall quality 0–100. NULL when the answer could not be checked (OpenAI unavailable, or the per-minute limit still reached after waiting) or was not text-scored. Never set to a neutral 50. |
+| **is_flagged** | BOOLEAN | From TextAnalysisService (e.g. gibberish, copy-paste, irrelevant, generic, low quality, or too short), or from the entry method (`pasted`: at least half of a 20+ character answer was pasted; `no_typing`: a 20+ character answer had no input events). An unchecked answer is not flagged by the AI check. |
+| **flag_reasons** | JSONB | Dict of reason → details (e.g. confidence, reason text) from TextAnalysisService and the entry method. |
+| **gibberish_score** | DOUBLE PRECISION | From TextAnalysisService (0–1); NULL when not checked. |
+| **copy_paste_score** | DOUBLE PRECISION | From TextAnalysisService (0–1); NULL when not checked. |
+| **relevance_score** | DOUBLE PRECISION | From TextAnalysisService (0–1); NULL when not checked. |
+| **generic_score** | DOUBLE PRECISION | From TextAnalysisService (0–1); NULL when not checked. |
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
 | **analyzed_at** | TIMESTAMPTZ | Set to `datetime.utcnow()` when the response is analyzed. |
 
-**Where rows are created:** `POST /api/v1/text-analysis/responses` (TextAnalysisController). The service calls OpenAI (GPT-4o-mini) for gibberish, copy-paste, relevance, generic, and quality; all returned values are stored in the row. For **grid questions**, the client sends **one response per grid cell** (same `question_id`, `response_text` = cell value); grid analysis then uses these rows when composite-analyze or grid analysis is run.
+**Where rows are created:** `POST /api/v1/text-analysis/responses` (TextAnalysisController). The service makes one OpenAI (GPT-4o-mini) call per answer that covers gibberish, copy-paste, relevance, generic, and quality, all judged against the question; all returned values are stored in the row. Calls are limited per server by `OPENAI_REQUESTS_PER_MINUTE` (default 300); an answer waits up to `OPENAI_RATE_WAIT_SECONDS` (default 20) for a slot and is stored as not checked if none frees up. For **grid questions**, the client sends **one response per grid cell** (same `question_id`, `response_text` = cell value); grid analysis then uses these rows when composite-analyze or grid analysis is run.
 
 ---
 
@@ -159,24 +159,24 @@ One row per fraud analysis run for a session (composite-analyze or dedicated fra
 | **platform_id** | VARCHAR(255) | Denormalized from session. |
 | **respondent_id** | VARCHAR(255) | Denormalized from session. |
 | **ip_address** | VARCHAR(45) | From session.ip_address. |
-| **ip_usage_count** | INTEGER | Count of sessions (all time) with the same IP; from FraudDetectionService._analyze_ip_address(). |
-| **ip_sessions_today** | INTEGER | Count of sessions with same IP created today. |
+| **ip_usage_count** | INTEGER | Count of sessions with the same IP in the same survey (all sessions when the session has no survey id); from FraudDetectionService._analyze_ip_address(). |
+| **ip_sessions_today** | INTEGER | Count of sessions with same IP created today (same survey). |
 | **ip_risk_score** | DECIMAL(3,2) | From calculate_ip_risk_score(usage_count, sessions_today). |
-| **ip_country_code** | VARCHAR(2) | From geolocation lookup: fraud_helpers.extract_geolocation_from_ip(session.ip_address) → country_code (basic IP-based; production can use GeoIP). |
+| **ip_country_code** | VARCHAR(2) | From fraud_helpers.extract_geolocation_from_ip(session.ip_address). There is no IP-to-country lookup yet, so this is currently always NULL. |
 | **ip_city** | VARCHAR(100) | From geolocation; currently extract_geolocation_from_ip returns city=None (not implemented). |
 | **device_fingerprint** | TEXT | From fraud_helpers.generate_device_fingerprint(session, behavior_data) (SHA256 of user_agent, screen/viewport, platform_id). |
-| **fingerprint_usage_count** | INTEGER | Count of sessions with same device_fingerprint (FraudDetectionService._analyze_device_fingerprint). |
-| **fingerprint_risk_score** | DECIMAL(3,2) | From calculate_fingerprint_risk_score(usage_count). |
-| **response_similarity_score** | DECIMAL(3,2) | Max text similarity (0–1) between this session’s open-ended responses and other sessions in the same survey (difflib-based). |
-| **duplicate_response_count** | INTEGER | Number of response pairs exceeding similarity threshold (e.g. 0.70). |
-| **geolocation_consistent** | BOOLEAN | True if IP country is consistent with other sessions of the same respondent in the last hour; else False. |
-| **geolocation_risk_score** | DECIMAL(3,2) | High (e.g. 0.9) if inconsistent; 0.0 if consistent or no IP. |
+| **fingerprint_usage_count** | INTEGER | This session plus other sessions of the same survey with the same device_fingerprint (FraudDetectionService._analyze_device_fingerprint). |
+| **fingerprint_risk_score** | DECIMAL(3,2) | From calculate_fingerprint_risk_score(usage_count), halved when the other sessions are all on other networks (IPv4 /24, IPv6 /48), because identical phone models look alike; counted fully when one is on the same network. |
+| **response_similarity_score** | DECIMAL(3,2) | Raw max text similarity (0–1) between this session’s open-ended answers of 20+ characters and other open-ended answers in the same survey (difflib-based). Grid rows and choices are not compared. Exact copies are found across the whole survey (similarity 1.0), near copies among the latest 2,000 answers. |
+| **duplicate_response_count** | INTEGER | Number of exact copies, plus near copies at or above 0.70 similarity. |
+| **geolocation_consistent** | BOOLEAN | True if IP country is consistent with other sessions of the same respondent in the last hour; else False. With no country lookup yet, currently always True. |
+| **geolocation_risk_score** | DECIMAL(3,2) | 0.9 if the same respondent was seen from different countries within an hour; 0.0 otherwise. Left out of overall_fraud_score while there is no country. |
 | **responses_per_hour** | DECIMAL(5,2) | Max of: sessions in last hour with same IP, same device_fingerprint, or same respondent_id. |
 | **velocity_risk_score** | DECIMAL(3,2) | From calculate_velocity_risk_score(responses_per_hour). |
-| **overall_fraud_score** | DECIMAL(3,2) | Weighted combination of IP, fingerprint, duplicate, geolocation, velocity (e.g. 0.25, 0.25, 0.20, 0.15, 0.15). |
-| **is_duplicate** | BOOLEAN | True if overall_fraud_score >= 0.7. |
+| **overall_fraud_score** | DECIMAL(3,2) | Weighted combination of IP 0.25, fingerprint 0.25, duplicate 0.20, geolocation 0.15, velocity 0.15. When there is no country (currently always), geolocation is left out and the weights are renormalised over the other four. A data-centre IP (published AWS, Google Cloud, Oracle and DigitalOcean ranges) raises it to at least 0.75. |
+| **is_duplicate** | BOOLEAN | True if the weighted score is >= 0.7 (checked before the data-centre raise). |
 | **fraud_confidence** | DECIMAL(3,2) | Same as overall_fraud_score. |
-| **flag_reasons** | JSONB | Dict of reason (e.g. ip_reuse, device_reuse, duplicate_responses, geolocation_inconsistency, high_velocity) to details (count, severity). |
+| **flag_reasons** | JSONB | Dict of reason (e.g. ip_reuse, device_reuse, duplicate_responses, geolocation_inconsistency, datacenter_ip, high_velocity) to details (count, severity). |
 | **analysis_details** | JSONB | Full sub-results: ip_analysis, fingerprint_analysis, duplicate_analysis, geolocation_analysis, velocity_analysis, processing_time_ms. |
 | **created_at** | TIMESTAMPTZ | DB `DEFAULT NOW()`. |
 
@@ -200,7 +200,7 @@ One row per grid/matrix “cell” (or aggregated response) per question, with p
 | **column_id** | VARCHAR(255) | From response structure if provided; often NULL. |
 | **response_value** | TEXT | From SurveyResponse.response_text for that question (or parsed row/column value). |
 | **response_time_ms** | INTEGER | From SurveyResponse.response_time_ms. |
-| **is_straight_lined** | BOOLEAN | From GridAnalysisService.detect_straight_lining() — True if >80% identical values (or similar rule). |
+| **is_straight_lined** | BOOLEAN | From GridAnalysisService.detect_straight_lining() — True when every row of a grid with at least 3 rows has the same value. |
 | **pattern_type** | VARCHAR(50) | From detect_patterns(): e.g. 'diagonal', 'reverse_diagonal', 'zigzag', 'straight_line', or NULL. |
 | **variance_score** | DOUBLE PRECISION | From calculate_variance() (0–1). |
 | **satisficing_score** | DOUBLE PRECISION | From calculate_satisficing_score() (0–1). |
@@ -246,7 +246,7 @@ One row per survey id that had tracking added through the Decipher XML upload (A
 | **title** | VARCHAR(255) | Currently set to the survey id. |
 | **source_filename** | VARCHAR(255) | Name of the uploaded XML file. |
 | **platform_id** | VARCHAR(50) | Default `'decipher'`. |
-| **signed** | BOOLEAN | TRUE if the tracker was given a signed token (only when `TRACKING_TOKEN_SECRET` is set). |
+| **signed** | BOOLEAN | TRUE if the tracker was given a signed token (only when `TRACKING_TOKEN_SECRET` is set). This alone does not make the survey require tokens; see `protected_surveys`. |
 | **terminate** | BOOLEAN | TRUE if the in-survey early end on a clear bot signal was switched on. |
 | **privacy_notice** | BOOLEAN | TRUE if the privacy notice was added to the survey. |
 | **decipher_path** | VARCHAR(255) | Decipher survey the tracked XML was last uploaded to (for example `selfserve/123/456789`), set by `POST /api/v1/tracking/decipher/upload`. Used as the default target the next time. |
@@ -260,12 +260,12 @@ One row per survey id that had tracking added through the Decipher XML upload (A
 
 ### 10. `survey_quality_rules`
 
-The quality rules saved for one survey id. A survey without a row uses the recommended defaults. Rules decide how the Live Quality dashboard, its CSV export, and the `LQ_` variables added to a data file judge each respondent. They are applied on every read and do not change stored detection results or the `QOS_` values written into Decipher.
+The quality rules saved for one survey id. A survey without a row uses the recommended defaults. Rules decide how the Live Quality dashboard, its CSV export, and the `LQ_` variables added to a data file judge each respondent. They are applied on every read and do not change stored detection results or the `QOS_` values already written into Decipher. The final check (`composite-analyze`) also reads them, so the verdict and `QOS_` values it returns follow the rules in force at that moment.
 
 | Column | Type | How it's collected and stored |
 |--------|------|------------------------------|
 | **survey_id** | VARCHAR(255), PK | Survey the rules belong to (`?survey_id=`). |
-| **rules** | JSON | The full rules object (bot threshold and signals, speeder settings, straight-lining rows, text reasons, pasted answers, fraud threshold, duplicates, data-centre IPs), validated by `quality_rules.py`. |
+| **rules** | JSON | The full rules object (bot threshold and signals, speeder settings, straight-lining rows, text reasons, pasted answers, fraud threshold, duplicates, data-centre IPs), validated by `quality_rules.py`. Also stores `known_signals`: the bot signals that existed when the rules were saved. When rules are read, signals not in that list (added later) are switched on; signals the survey switched off stay off. Rows saved before `known_signals` existed are treated as knowing the first five signals. |
 | **updated_at** | TIMESTAMPTZ | DB default `now()`; updated on every change. |
 
 **Where rows are created/updated/deleted:** `PUT` and `DELETE /api/v1/quality/rules?survey_id=` (LiveQualityController). Deleting the row returns the survey to the defaults.
@@ -287,6 +287,19 @@ Settings changed on the dashboard's Settings page. One row per setting. A row ov
 
 ---
 
+### 12. `protected_surveys`
+
+Survey ids whose sessions must carry a valid signed tracking token (an HMAC of the survey id made with `TRACKING_TOKEN_SECRET`). One row per survey id; rows are only added.
+
+| Column | Type | How it's collected and stored |
+|--------|------|------------------------------|
+| **survey_id** | VARCHAR(255), PK | The protected survey id. |
+| **created_at** | TIMESTAMPTZ | DB default `now()`. |
+
+**Where rows are created:** `POST /api/v1/tracking/decipher/upload` (SurveyTrackingController `_protect_if_signed`) adds the row as soon as a tracked file carrying the survey's signed token is uploaded to Decipher successfully. `POST /api/v1/detection/sessions` (DetectionController `_check_survey_token`) also adds it when the first session with a valid token arrives. Once the row exists, sessions for that survey without a valid token are refused (HTTP 403). Making the tracked file alone does not add a row, because the live survey may still run an older unsigned tracker. Production currently has no `TRACKING_TOKEN_SECRET`, so no survey there is protected.
+
+---
+
 ## Data flow summary
 
 | Data | Collected from | Stored via |
@@ -304,6 +317,7 @@ Settings changed on the dashboard's Settings page. One row per setting. A row ov
 | Tracked surveys | Add tracking page → POST /tracking/decipher (and /tracking/decipher/upload) | tracked_surveys |
 | Per-survey quality rules | Live Quality page → PUT/DELETE /quality/rules | survey_quality_rules |
 | Setting overrides | Settings page → PUT /settings (admin token) | app_settings |
+| Surveys requiring signed sessions | Successful signed upload to Decipher, or first signed session | protected_surveys |
 
 ---
 
@@ -336,6 +350,6 @@ The aggregation queries (`/dashboard/overview`, `/dashboard/analytics/trends`, `
 
 - **add_fraud_detection_tables.sql:** Creates fraud_indicators; adds sessions.device_fingerprint; adds detection_results.fraud_score and fraud_indicators (JSONB); hierarchical columns on fraud_indicators.
 - **add_grid_analysis_tables.sql:** Creates grid_responses and timing_analysis with hierarchical columns and indexes as above.
-- **No migration:** `tracked_surveys`, `survey_quality_rules`, and `app_settings` are created at startup by `create_all` (`backend/main.py`). Existing tables were not changed.
+- **No migration:** `tracked_surveys`, `survey_quality_rules`, `app_settings`, and `protected_surveys` are created at startup by `create_all` (`backend/main.py`). Existing tables were not changed.
 
 This matches the deployed database behavior for the bot detection backend and frontend.

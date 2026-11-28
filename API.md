@@ -262,6 +262,12 @@ POST /detection/sessions/{session_id}/analyze
 - `HIGH`: Very likely bot (confidence < 0.3)
 
 #### Composite Analysis (Behavioral + Text Quality)
+
+How the verdict is reached:
+- The behaviour score combines the keyboard, mouse, timing and device checks so that agreeing evidence adds up (each check's score times its reliability; the result is the chance that at least one means "bot"). Decisive signals (automation, scripted input, no input, honeypot, untyped answers, machine-exact timing, page times longer than the server saw) lift it to 0.85, or 0.95 for two or more.
+- `is_bot` and `behavioral_details.is_bot` follow the survey's quality rules (bot threshold and enabled signals), so they match Live Quality. `behavioral_details.engine_is_bot` keeps the verdict under the global threshold. Only behaviour decides `is_bot`, as in Live Quality: a behavioural bot is reported as a bot whatever the text and fraud scores (with `risk_level` at least `HIGH`), and text and fraud problems show as their own flags. `composite_is_bot` keeps whether the combined score alone reached the threshold.
+- `survey_variables` follow the same rules. `QOS_SPEEDER` is the number of pages faster than the survey's seconds-per-page rule, and the speeder reason applies when pages average under it, as on the dashboard. `QOS_DUP_SCORE` uses duplicate risk, not raw text similarity (`fraud_details.response_similarity`).
+- Fraud: the location check is left out of the fraud score while no IP-to-country lookup is configured, rather than counted as 0. The same device fingerprint seen only on other networks (IPv4 /24, IPv6 /48) counts half, since identical phone models look alike.
 ```http
 POST /detection/sessions/{session_id}/composite-analyze
 ```
@@ -340,7 +346,11 @@ POST /text-analysis/questions
 POST /text-analysis/responses
 ```
 
-**Description:** Analyzes a survey response using OpenAI GPT-4o-mini for quality assessment.
+**Description:** Scores an open-ended answer with OpenAI (`OPENAI_MODEL`, default gpt-4o-mini). One request per answer covers all five checks (gibberish, copied text, relevance, generic, quality 0-100), each judged against the question. Closed questions (grid rows, choices) are stored without a text score.
+
+- The service allows `OPENAI_REQUESTS_PER_MINUTE` requests per server (default 300). When that is reached, the answer waits up to `OPENAI_RATE_WAIT_SECONDS` (default 20) for a slot.
+- An answer that still cannot be checked (no OpenAI key, OpenAI failing, or the limit still reached) is stored as not checked: `quality_score` is `null`, `is_flagged` is `false`, and `analysis_details` has `"unchecked": true` with the reason. It is never given a middle score, and Live Quality counts it under `text_unchecked`.
+- With the tracker's counts (`typed_chars`, `pasted_chars`, `input_events`), a 20+ character answer that was at least half pasted is flagged `pasted`, and one with no input events at all is flagged `no_typing`.
 
 **Request Body:**
 ```json
@@ -884,7 +894,8 @@ GET /tracking/decipher/options
     { "code": "no_input", "label": "Pages answered with no mouse or keyboard use" },
     { "code": "honeypot", "label": "Hidden honeypot field filled in" },
     { "code": "untyped_answers", "label": "Open ends that appeared without typing" },
-    { "code": "robotic_timing", "label": "Typing or mouse movement with machine-exact timing" }
+    { "code": "robotic_timing", "label": "Typing or mouse movement with machine-exact timing" },
+    { "code": "timeline_mismatch", "label": "Page times longer than the time the server saw" }
   ],
   "default_privacy_text": "...",
   "default_after_page": 2,
@@ -894,7 +905,7 @@ GET /tracking/decipher/options
 }
 ```
 
-- `signed`: whether `TRACKING_TOKEN_SECRET` is set, so trackers carry a signed survey token. Signing is optional.
+- `signed`: whether `TRACKING_TOKEN_SECRET` is set (in the environment or on the Settings page), so trackers carry a signed survey token (an HMAC of the survey id). Signing is optional. A survey that requires tokens refuses `POST /detection/sessions` without a valid one (403). A survey starts requiring them when its signed tracker is uploaded to Decipher with `POST /tracking/decipher/upload`, or, for files imported by hand, when its first signed respondent arrives. Making the tracked file alone does not, since the live survey may still run an older, unsigned tracker. The token keeps out anyone who has never seen the survey; it is visible to anyone who opens the survey page.
 - `decipher_upload`: whether a Decipher API key is configured, so `POST /tracking/decipher/upload` can be used.
 
 ### 2. Add Tracking to a Decipher Survey
@@ -1102,6 +1113,8 @@ GET /quality/results?survey_id={survey_id}
 - `flag_counts` always lists all nine flags in this order, zeros included: Bot-like behaviour, Low-quality open ends, Pasted answers, Straight-lining, Speeder, Flatliner, Duplicate, High fraud risk, Data-centre IP.
 - `trend` uses hour buckets when all starts fall within 48 hours, otherwise day buckets; at most 120 buckets, ending at the latest start.
 - `text.unchecked` and each row's `text_unchecked` count open-ended answers the AI check could not score (OpenAI unavailable or still over its per-minute limit after waiting). They have no quality score and are never counted as acceptable answers.
+- `totals.respondents` counts people: sessions sharing a respondent id (a reopened survey) count once. Each row's `other_sessions` says how many other sessions share its respondent id. When results are added to a data file, a respondent id with several sessions uses the checked one, then the latest.
+- Bot signals added after a survey saved its rules start switched on for it; signals it turned off stay off.
 - `respondents` has one row per session. `verdict` is `bot`, `human` or `pending` (not checked yet); `risk` is `unknown` when not checked. Rows also carry bot signals, open-end details, fraud reasons and grid and timing explanations.
 
 **Errors:** `422` invalid survey id; `500` the results could not be built.
@@ -1141,7 +1154,7 @@ DELETE /quality/rules?survey_id={survey_id}
 ```json
 {
   "bot_threshold": 0.7,
-  "bot_signals": ["automation", "scripted_input", "no_input", "honeypot", "untyped_answers", "robotic_timing"],
+  "bot_signals": ["automation", "scripted_input", "no_input", "honeypot", "untyped_answers", "robotic_timing", "timeline_mismatch"],
   "speeder_page_seconds": 3.5,
   "speeder_median_share": 0.5,
   "straightline_min_rows": 3,
@@ -1217,7 +1230,7 @@ Content-Type: multipart/form-data
 
 A setting saved here overrides the environment variable of the same name. A change applies at once on the instance that saved it; every instance re-reads saved settings every 30 seconds. Removing a saved value goes back to the environment value. Secret values are encrypted at rest and never returned.
 
-Editable keys: `DECIPHER_API_KEY`, `DECIPHER_API_BASE`, `DECIPHER_COMPANY`, `QUALTRICS_API_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TRACKER_API_BASE`, `TRACKING_TOKEN_SECRET`, `DETECTION_THRESHOLD` (0.3 to 0.99, default 0.7; the threshold the detection engine uses for the stored verdict of new analyses).
+Editable keys: `DECIPHER_API_KEY`, `DECIPHER_API_BASE`, `DECIPHER_COMPANY`, `QUALTRICS_API_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TRACKER_API_BASE`, `TRACKING_TOKEN_SECRET`, `DETECTION_THRESHOLD` (0.3 to 0.99, default 0.7; the threshold the detection engine uses for the stored verdict of new analyses). Environment only: `OPENAI_REQUESTS_PER_MINUTE` (default 300) and `OPENAI_RATE_WAIT_SECONDS` (default 20), the open-end check's per-server limit and how long an answer waits for a slot.
 
 **Admin token:** `POST /settings/check` and `PUT /settings` need the header `X-Admin-Token` to match the `ADMIN_TOKEN` environment variable. `ADMIN_TOKEN` can only be set in the environment.
 - `ADMIN_TOKEN` not set: settings are read-only and these endpoints return `403`.

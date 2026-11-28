@@ -166,6 +166,22 @@ def _mark_speeders(rows: List[Dict[str, Any]], rules: QualityRules) -> None:
             )
 
 
+def _respondent_count(rows: List[Dict[str, Any]]) -> int:
+    """People, not sessions: sessions sharing a respondent id count once."""
+    ids = {row["respondent_id"] for row in rows if row.get("respondent_id")}
+    return len(ids) + sum(1 for row in rows if not row.get("respondent_id"))
+
+
+def _mark_repeats(rows: List[Dict[str, Any]]) -> None:
+    """Note how many other sessions share each row's respondent id (a reopened survey)."""
+    counts: Dict[str, int] = {}
+    for row in rows:
+        if row.get("respondent_id"):
+            counts[row["respondent_id"]] = counts.get(row["respondent_id"], 0) + 1
+    for row in rows:
+        row["other_sessions"] = counts.get(row.get("respondent_id"), 1) - 1 if row.get("respondent_id") else 0
+
+
 # Text reasons the rules can switch off; others the text check reports always count.
 TEXT_REASON_CODES = ("gibberish", "generic", "irrelevant", "copy_paste", "low_quality")
 # Text flags about how an answer was entered rather than what it says.
@@ -197,6 +213,10 @@ def _bot_verdict(item: Dict[str, Any], rules: QualityRules) -> Tuple[bool, List[
     except (TypeError, ValueError):
         return bool(item.get("is_bot")), codes
     return score >= rules.bot_threshold or bool(codes), codes
+
+
+# Public name for the final check, which judges each respondent the same way.
+bot_verdict = _bot_verdict
 
 
 def behaviour_risk(confidence: Any) -> str:
@@ -368,6 +388,7 @@ def summarize(
         if isinstance(item, dict)
     ]
     _mark_speeders(rows, rules)
+    _mark_repeats(rows)
     rows.sort(key=lambda row: row.get("started") or "", reverse=True)
     checked = [row for row in rows if row["status"] == "checked"]
     flagged = [row for row in rows if row["flags"]]
@@ -381,6 +402,7 @@ def summarize(
         "rules": rules.model_dump(),
         "totals": {
             "sessions": len(rows),
+            "respondents": _respondent_count(rows),
             "in_progress": sum(1 for row in rows if row["status"] == "in_progress"),
             "checked": len(checked),
             "dropped": sum(1 for row in rows if row["status"] == "dropped"),
@@ -620,6 +642,7 @@ def for_period(
         "period": {"from": low.isoformat() if low else None, "to": high.isoformat() if high else None},
         "totals": {
             "sessions": len(rows),
+            "respondents": _respondent_count(rows),
             "in_progress": sum(1 for row in rows if row["status"] == "in_progress"),
             "checked": len(checked),
             "dropped": sum(1 for row in rows if row["status"] == "dropped"),

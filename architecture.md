@@ -52,9 +52,9 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 ### Core Components (Deployment Status)
 - **Backend API**: FastAPI-based REST API with async support ✅ **DEPLOYED**
 - **Frontend Dashboard**: React-based real-time monitoring interface with comprehensive features ✅ **DEPLOYED**
-- **Bot Detection Engine**: Rule-based analysis with composite scoring (40% behavioral + 30% text quality + 30% fraud) ✅ **DEPLOYED**
-- **Text Quality Engine**: OpenAI GPT-4o-mini powered analysis for response authenticity ✅ **DEPLOYED**
-- **Fraud Detection Service**: IP tracking, device fingerprinting, duplicate detection, geolocation, velocity checking ✅ **COMPLETED**
+- **Bot Detection Engine**: Rule-based behaviour analysis with seven decisive signals; the verdict follows each survey's quality rules. A composite score (40% behavioral + 30% text quality + 30% fraud) is still calculated and reported, but does not decide bot or human (see [Detection logic](#detection-logic)) ✅ **DEPLOYED**
+- **Text Quality Engine**: OpenAI GPT-4o-mini powered analysis for response authenticity, one call per answer ✅ **DEPLOYED**
+- **Fraud Detection Service**: IP tracking, device fingerprinting, duplicate detection, velocity checking, data-centre IPs; the geolocation check is left out of the fraud score until there is an IP-to-country lookup ✅ **COMPLETED**
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure for aggregated data access ✅ **DEPLOYED**
 - **Fraud Detection Hierarchical Endpoints**: Survey/platform/respondent/session-level fraud summaries ✅ **COMPLETED**
 - **Integration Layer**: Webhook handlers for Qualtrics and Decipher with testing interface ✅ **DEPLOYED**
@@ -64,7 +64,7 @@ The Bot Detection System is a comprehensive platform that combines behavioral an
 - **Database Layer**: PostgreSQL with async SQLAlchemy ORM, fraud_indicators table, and composite indexes ✅ **DEPLOYED**
 - **Client SDKs**: Python and JavaScript libraries for easy integration ✅ **DEPLOYED**
 - **Authentication & Authorization**: JWT tokens, API keys, role-based access control ⏳ **PLANNED**
-- **Rate Limiting**: Request throttling and quota management ⏳ **PLANNED**
+- **Rate Limiting**: Per IP, per server instance: new sessions 30/min, other writes 600/min, Fix with AI 20/hour (`utils/rate_limit.py`); OpenAI calls limited by `OPENAI_REQUESTS_PER_MINUTE` **IMPLEMENTED**
 - **Machine Learning Models**: ML-based bot detection algorithms ⏳ **PLANNED**
 
 ---
@@ -139,6 +139,7 @@ backend/
 │   │   ├── fraud_indicator.py, grid_response.py, timing_analysis.py
 │   │   ├── tracked_survey.py         # Surveys tracking was added to
 │   │   ├── survey_quality_rules.py   # Per-survey quality rules
+│   │   ├── protected_survey.py       # Surveys that require signed tracking
 │   │   └── app_setting.py            # Settings page overrides
 │   ├── services/              # Business logic services
 │   │   ├── bot_detection_engine.py    # Core detection logic
@@ -179,22 +180,33 @@ backend/
 #### Decipher tracking (`decipher_tracking.py`, `decipher_upload.py`, `quality_variables.py`)
 - `decipher_tracking.py` adds the tracker script to a Decipher survey XML as a `respview.client.js` style with `mode="after"`, uses Decipher's `${uuid}` as the respondent id, and adds a hidden results page with 21 `QOS_` variables. It can also add a privacy notice (on by default) and an early end on a clear bot signal (off by default). Removing the tracking gives back the original file byte for byte, so a tracked file is re-tracked instead of tracked twice. It checks the survey's `compat` and `delphi` settings first and warns when Decipher would refuse the file.
 - `decipher_upload.py` creates a new Decipher survey (Research Hub) or replaces `survey.xml` of an existing one. Decipher validates the file and never overwrites a live survey. The `QOS_` variables are added to any saved data layouts. The Decipher API key stays on the server.
-- `quality_variables.py` turns a composite analysis into the `QOS_` values (scores 0 to 100, reason codes). The composite analysis returns them under `survey_variables`.
+- `quality_variables.py` turns a composite analysis into the `QOS_` values (scores 0 to 100, reason codes). The composite analysis returns them under `survey_variables`. They follow the survey's quality rules: only enabled bot signals become reason codes, `datacenter_ip` only when `flag_datacenter` is on, and the low-quality open-end reason only for text reasons the rules count. `QOS_SPEEDER` is the number of pages faster than the survey's `speeder_page_seconds` ("Pages answered too fast"), and the speeder reason (22) applies when pages average under that rule. `QOS_DUP_SCORE` uses the duplicate risk (0 under 0.70 similarity, 0.6 from 0.70, 0.8 from 0.85, 1.0 from 0.95), not the raw similarity.
+- Signed tracking (`utils/survey_tokens.py`): with `TRACKING_TOKEN_SECRET` set, the tracker carries an HMAC token of the survey id, and a survey listed in `protected_surveys` refuses unsigned sessions. A survey is added there when a signed tracked file is uploaded to Decipher successfully (`_protect_if_signed` in `survey_tracking_controller.py`), or when its first signed session arrives. Making the tracked file alone does not protect it, because the live survey may still run an older unsigned tracker. The token stops outsiders who never saw the survey; anyone who opens the survey page can read it. Production currently has no `TRACKING_TOKEN_SECRET`.
 
 #### Live Quality (`live_quality.py`, `quality_rules.py`, `quality_merge.py`)
-- `live_quality.py` builds one survey's dashboard payload: totals, text, fraud, grid and timing summaries, nine flag counts, a quality distribution, a trend, and one row per session. It also writes the CSV export.
-- `quality_rules.py` holds the per-survey rules (stored in `survey_quality_rules`) and the defaults. Rules apply on every read; they do not change stored results or the `QOS_` values already in Decipher.
-- `quality_merge.py` takes a data file (.sav, .csv, .xlsx, up to 50 MB), matches each record on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid`, and returns the same file with `LQ_` variables added.
+- `live_quality.py` builds one survey's dashboard payload: totals, text, fraud, grid and timing summaries, nine flag counts, a quality distribution, a trend, and one row per session. It also writes the CSV export. `totals.respondents` counts people (sessions sharing a respondent id, the Decipher uuid, count once); `totals.sessions` counts sessions. Each row has `other_sessions` and `text_unchecked`; `text.unchecked` is the total of open ends not checked. Straight-lining uses the survey's `straightline_min_rows` when the tracker sent grid answers.
+- `quality_rules.py` holds the per-survey rules (stored in `survey_quality_rules`) and the defaults. Rules apply on every read; they do not change stored results or the `QOS_` values already in Decipher. Saved rules also record `known_signals` (the bot signals that existed when they were saved), so signals added later start switched on for that survey while signals it switched off stay off.
+- `quality_merge.py` takes a data file (.sav, .csv, .xlsx, up to 50 MB), matches each record on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid`, and returns the same file with `LQ_` variables added. A uuid with several sessions uses the checked session first, then the latest.
 
 #### Runtime settings (`runtime_settings.py`, `settings_controller.py`)
 - Editable keys: `DECIPHER_API_KEY`, `DECIPHER_API_BASE`, `DECIPHER_COMPANY`, `QUALTRICS_API_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `TRACKER_API_BASE`, `TRACKING_TOKEN_SECRET`, `DETECTION_THRESHOLD` (0.3 to 0.99, default 0.7; used by the detection engine for the stored verdict).
 - A saved value (table `app_settings`) overrides the environment variable of the same name. It applies at once on the instance that saved it, and every instance re-reads the table every 30 seconds (`keep_fresh`). Removing a saved value goes back to the environment value.
+- Environment-only OpenAI limits: `OPENAI_REQUESTS_PER_MINUTE` (default 300, per server) and `OPENAI_RATE_WAIT_SECONDS` (default 20, how long an answer waits for a free slot).
 - Other code registers change hooks with `runtime_settings.on_change()`; they run whenever values change. At startup `main.py` registers `openai_service.reload`, so a new OpenAI key or model is used without a restart.
 - Secrets are encrypted at rest with a Fernet key derived from `SECRET_KEY` and are never returned to the browser.
 - `settings_controller.py`: `GET /api/v1/settings` is open (secrets only report set/not set and their source). `POST /api/v1/settings/check` and `PUT /api/v1/settings` need the `X-Admin-Token` header to match the `ADMIN_TOKEN` environment variable. Without `ADMIN_TOKEN` the settings are read-only (403); a wrong token gets 401.
 
 #### Startup (`main.py`)
-On startup the backend creates any missing tables with `create_all` (this is how `tracked_surveys`, `survey_quality_rules` and `app_settings` are created; there is no migration for them), loads saved settings, registers the settings change hooks, and starts the 30-second settings refresh task.
+On startup the backend creates any missing tables with `create_all` (this is how `tracked_surveys`, `survey_quality_rules`, `app_settings` and `protected_surveys` are created; there is no migration for them), loads saved settings, registers the settings change hooks, and starts the 30-second settings refresh task.
+
+#### Detection logic
+- **Behaviour score** (`utils/helpers.py` `calculate_confidence_score`, `services/bot_detection_engine.py`): the checks are combined so agreeing evidence adds up (noisy-OR): score = 1 - product(1 - reliability x check score). Reliabilities: keystroke 0.5, mouse 0.45, timing 0.35, device 0.4, network 0 (not implemented). Two strong checks reach the 0.7 bot threshold; one alone does not. Events the tracker sent twice (same type, timestamp, element, x, y, key) are counted once, and the copy of a grid page's submit that carries grid answers (element id `qos-grid:...`) is not counted as a second page.
+- **Decisive signals** (`BOT_SIGNALS` in `services/decipher_tracking.py`), seven in all: `automation`, `scripted_input`, `no_input`, `honeypot`, `untyped_answers`, `robotic_timing` (machine-exact key gaps in at least 3 stretches of 8+ keys, or ruler-straight runs of equal mouse steps covering at least 40% of 30+ mouse points) and `timeline_mismatch` (browser-reported page times of 60+ s that exceed the time the server observed by more than 30 s or 25% of the reported time, whichever is larger). One lifts the behaviour score to 0.85, two or more to 0.95.
+- **Final check** (`POST /detection/sessions/{id}/composite-analyze`, `detection_controller.py`): runs behaviour, text, grid, timing and fraud, saving timing and grid results in one batch. `is_bot` and `behavioral_details.is_bot` follow the survey's quality rules (bot threshold, enabled signals), the same verdict as Live Quality. `behavioral_details.engine_is_bot` keeps the verdict under the global `DETECTION_THRESHOLD`, and `composite_is_bot` keeps whether the 40/30/30 composite score alone reached the threshold. Only behaviour decides `is_bot`; text and fraud are their own flags and scores. A behavioural bot gets `risk_level` at least HIGH.
+- **Open-end check** (`text_analysis_service.py`, `openai_service.py`): one OpenAI call per answer covers gibberish, copy_paste, relevance, generic and quality, all judged against the question. A per-server limit (`OPENAI_REQUESTS_PER_MINUTE`, default 300) applies; when it is reached an answer waits up to `OPENAI_RATE_WAIT_SECONDS` (default 20). An answer that still cannot be checked is stored as not checked (`quality_score` null, `analysis_details` `{"unchecked": true, "error": ...}`, not flagged), never as a neutral 50.
+- **Grids**: straight-lining is the same answer on every row of a grid with at least 3 rows.
+- **Fraud** (`fraud_detection_service.py`, `utils/fraud_helpers.py`): weights IP 0.25, device 0.25, duplicate answers 0.20, velocity 0.15, geolocation 0.15. There is no IP-to-country lookup yet, so the location score is left out and the other weights are renormalised. A device fingerprint seen only on other networks (IPv4 /24, IPv6 /48) counts half. Duplicate answers compare only open ends of 20+ characters: exact copies across the whole survey, near copies (70%+ similar) among the latest 2,000 answers. Data-centre IPs give a fraud score of at least 0.75.
+- **Stored events**: `behavior_data.event_data` keeps only the event's own fields; fields kept in their own columns or once on the session are not repeated. Rejected events are logged by type only.
 
 ### Backend Design Patterns
 
@@ -354,7 +366,7 @@ CREATE TABLE behavior_data (
     session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
     event_type VARCHAR(50) NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    data JSONB NOT NULL,
+    event_data JSONB NOT NULL,  -- the event's own fields only; page details, ids and sizes have their own columns (see database.md)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
@@ -452,7 +464,7 @@ CREATE TABLE survey_responses (
     question_id UUID REFERENCES survey_questions(id) ON DELETE CASCADE,
     response_text TEXT NOT NULL,
     response_time_ms DECIMAL(10,2),
-    quality_score DECIMAL(5,2),
+    quality_score DECIMAL(5,2),  -- NULL when the answer could not be checked
     is_flagged BOOLEAN DEFAULT FALSE,
     flag_reasons JSONB,
     analysis_details JSONB,
@@ -467,6 +479,7 @@ CREATE TABLE survey_responses (
 - **tracked_surveys**: one row per survey id that had tracking added (survey_id PK, title, source_filename, platform_id, signed, terminate, privacy_notice, decipher_path, uploads, created_at, updated_at).
 - **survey_quality_rules**: per-survey Live Quality rules (survey_id PK, rules JSON, updated_at).
 - **app_settings**: Settings page overrides (key PK, value, is_secret, updated_at). Secret values are encrypted with a key derived from `SECRET_KEY`.
+- **protected_surveys**: survey ids that require a signed tracking token (survey_id PK, created_at).
 
 These tables are keyed by survey id or setting name and have no foreign keys to `sessions`.
 
@@ -1040,7 +1053,7 @@ Live Quality page (/quality) reads the same results under the survey's rules;
 a Decipher export can be uploaded to /quality/merge to add LQ_ variables
 ```
 
-The tracker sends to `TRACKER_API_BASE`, or, when that is not set, to the address the upload came in on. It must be https except on localhost. Signing with `TRACKING_TOKEN_SECRET` is optional. Survey settings Decipher refuses (no `compat`, `compat` below 143, or `compat` 151 and above without `delphi="1"`) are caught first: adding tracking warns, and the upload stops with HTTP 422 before anything is sent to Decipher.
+The tracker sends to `TRACKER_API_BASE`, or, when that is not set, to the address the upload came in on. It must be https except on localhost. Signing with `TRACKING_TOKEN_SECRET` is optional; a successful upload of a signed tracked file marks the survey as requiring signed sessions. The tracker holds the last page at most 3 s for the final check, 2.5 s for the in-survey check and 1.5 s for answers. Survey settings Decipher refuses (no `compat`, `compat` below 143, or `compat` 151 and above without `delphi="1"`) are caught first: adding tracking warns, and the upload stops with HTTP 422 before anything is sent to Decipher.
 
 ### Integration Components
 
@@ -1152,7 +1165,7 @@ The tracker sends to `TRACKER_API_BASE`, or, when that is not set, to the addres
 #### 1. API Security
 - **Authentication**: JWT token-based authentication ⏳ **PLANNED**
 - **Authorization**: Role-based access control ⏳ **PLANNED**
-- **Rate Limiting**: Request throttling ⏳ **PLANNED**
+- **Rate Limiting**: Request throttling per IP, per server instance (new sessions 30/min, other writes 600/min, Fix with AI 20/hour) **IMPLEMENTED**
 - **Input Validation**: Data sanitization ✅ **DEPLOYED** (Pydantic validation)
 - **Settings changes**: `PUT /settings` and `POST /settings/check` need the `X-Admin-Token` header to match `ADMIN_TOKEN` (env only); without `ADMIN_TOKEN` settings are read-only
 

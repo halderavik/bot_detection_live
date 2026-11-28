@@ -67,6 +67,7 @@ def test_summary_counts_match_rows():
     result = live_quality.summarize("QOS-X", {"text_quality_summary": {"total_responses": 3}}, detailed)
     assert result["totals"] == {
         "sessions": 3,
+        "respondents": 3,
         "in_progress": 0,
         "checked": 2,
         "dropped": 1,
@@ -314,3 +315,31 @@ def test_unchecked_open_ends_are_counted_and_exported():
     header, line = live_quality.results_csv(result).splitlines()[:2]
     assert "text_unchecked" in header.split(",")
     assert line.split(",")[header.split(",").index("text_unchecked")] == "2"
+
+
+def test_a_reopened_survey_counts_one_respondent_and_merges_the_checked_session():
+    import pandas as pd
+
+    from app.services import quality_merge
+
+    old = _respondent(session_id="old", respondent_id="U1", created_at="2026-11-27T10:00:00+00:00",
+                      last_activity="2026-11-27T10:01:00+00:00", risk_level="unknown", confidence_score=0.0)
+    new = _respondent(session_id="new", respondent_id="U1", created_at="2026-11-27T10:30:00+00:00", risk_level="HIGH",
+                      is_bot=True, confidence_score=0.95, flagged_patterns={"base_score": 0.2, "decisive_codes": ["honeypot"]})
+    result = live_quality.summarize("S", {}, {"respondents": [old, new]}, None, rules=QualityRules())
+    assert result["totals"]["sessions"] == 2 and result["totals"]["respondents"] == 1
+    assert {row["session_id"]: row["other_sessions"] for row in result["respondents"]} == {"old": 1, "new": 1}
+    merged, _ = quality_merge.add_quality_columns(pd.DataFrame({"uuid": ["U1"]}), result)
+    assert merged.loc[0, "LQ_F_BOT"] == 1  # the checked bot session, not the abandoned one
+
+
+def test_signals_added_after_rules_were_saved_start_switched_on():
+    from app.services.quality_rules import _parse, _stored
+
+    # Saved before signals were recorded: honeypot turned off, nothing about newer signals.
+    old = {"bot_signals": ["automation", "scripted_input", "no_input", "untyped_answers"]}
+    signals = _parse(old).bot_signals
+    assert "honeypot" not in signals and {"robotic_timing", "timeline_mismatch"} <= set(signals)
+    # Saved now with robotic_timing off: it stays off.
+    saved = _stored(QualityRules(bot_signals=["automation", "honeypot", "timeline_mismatch"]))
+    assert "robotic_timing" not in _parse(saved).bot_signals

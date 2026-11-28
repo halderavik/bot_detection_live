@@ -109,6 +109,18 @@ def calculate_text_similarity(text1: str, text2: str) -> float:
     return similarity
 
 
+def network_of(ip_address: Optional[str]) -> Optional[str]:
+    """The address's network (IPv4 /24, IPv6 /48), to tell one household or office from another."""
+    if not ip_address:
+        return None
+    try:
+        ip = ipaddress.ip_address(ip_address)
+    except ValueError:
+        return None
+    prefix = 24 if ip.version == 4 else 48
+    return str(ipaddress.ip_network(f"{ip}/{prefix}", strict=False))
+
+
 def get_ip_country_code(ip_address: str) -> Optional[str]:
     """
     Get country code from IP address using basic IP range lookup.
@@ -186,7 +198,7 @@ def calculate_weighted_fraud_score(
     ip_score: float,
     fingerprint_score: float,
     duplicate_score: float,
-    geolocation_score: float,
+    geolocation_score: Optional[float],
     velocity_score: float
 ) -> float:
     """
@@ -196,7 +208,8 @@ def calculate_weighted_fraud_score(
         ip_score: IP analysis score (0.0-1.0)
         fingerprint_score: Device fingerprint score (0.0-1.0)
         duplicate_score: Duplicate response score (0.0-1.0)
-        geolocation_score: Geolocation score (0.0-1.0)
+        geolocation_score: Geolocation score (0.0-1.0), or None when the location
+            could not be looked up (its weight is then left out, not counted as 0)
         velocity_score: Velocity score (0.0-1.0)
         
     Returns:
@@ -210,14 +223,17 @@ def calculate_weighted_fraud_score(
         "velocity": 0.15
     }
     
-    weighted_score = (
-        ip_score * weights["ip"] +
-        fingerprint_score * weights["fingerprint"] +
-        duplicate_score * weights["duplicate"] +
-        geolocation_score * weights["geolocation"] +
-        velocity_score * weights["velocity"]
-    )
-    
+    scores = {
+        "ip": ip_score,
+        "fingerprint": fingerprint_score,
+        "duplicate": duplicate_score,
+        "geolocation": geolocation_score,
+        "velocity": velocity_score,
+    }
+    used = {name: score for name, score in scores.items() if score is not None}
+    total = sum(weights[name] for name in used)
+    weighted_score = sum(score * weights[name] for name, score in used.items()) / total if total else 0.0
+
     return min(max(weighted_score, 0.0), 1.0)
 
 

@@ -12,6 +12,7 @@ const SIGNAL_DETAIL = {
   no_input: 'Pages were answered with no mouse, touch or keyboard activity at all.',
   honeypot: "A field hidden from people was filled in. A person can't see it; a form-filling bot does.",
   untyped_answers: 'Text appeared in an open end without any typing, as when a script fills the box.',
+  timeline_mismatch: 'The browser reported more time on the pages than had actually passed on our server. Real page times cannot add up to more than the real time, so these were made up.',
   robotic_timing: 'Keys were pressed at exactly the same interval in several answers, or the mouse moved in ruler-straight lines at a constant speed. People vary; scripts on a timer do not.',
 };
 

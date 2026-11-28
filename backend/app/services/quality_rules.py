@@ -68,11 +68,27 @@ def defaults() -> QualityRules:
     return QualityRules()
 
 
+# Bot signals that existed before saved rules recorded which signals they knew about.
+_SIGNALS_BEFORE_TRACKING = ("automation", "scripted_input", "no_input", "honeypot", "untyped_answers")
+
+
+def _stored(rules: QualityRules) -> dict:
+    """Rules as saved, with the signals known at the time, so later signals start switched on."""
+    return {**rules.model_dump(), "known_signals": list(BOT_SIGNALS)}
+
+
 def _parse(stored: Any) -> QualityRules:
-    """Rules from a stored dict; unknown fields are ignored and bad values fall back to defaults."""
+    """Rules from a stored dict; unknown fields are ignored and bad values fall back to defaults.
+
+    Signals added since the rules were saved are switched on: a survey that saved its
+    rules turned off what it chose to, not signals that did not exist yet.
+    """
     if not isinstance(stored, dict):
         return QualityRules()
     known = {key: value for key, value in stored.items() if key in QualityRules.model_fields}
+    if isinstance(known.get("bot_signals"), list):
+        seen = stored.get("known_signals") or _SIGNALS_BEFORE_TRACKING
+        known["bot_signals"] = list(known["bot_signals"]) + [code for code in BOT_SIGNALS if code not in seen]
     try:
         return QualityRules(**known)
     except ValueError:
@@ -111,9 +127,9 @@ async def save_rules(db: AsyncSession, survey_id: str, rules: "QualityRules | No
         if row is not None:
             await db.delete(row)
     elif row is None:
-        db.add(SurveyQualityRules(survey_id=survey_id, rules=rules.model_dump()))
+        db.add(SurveyQualityRules(survey_id=survey_id, rules=_stored(rules)))
     else:
-        row.rules = rules.model_dump()
+        row.rules = _stored(rules)
     await db.commit()
     return rules if rules is not None else QualityRules()
 

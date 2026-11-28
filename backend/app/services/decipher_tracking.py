@@ -58,7 +58,7 @@ _NUMBER_FIELDS = (
     ("QOS_GEO_RISK", "Location mismatch risk 0-100", 100),
     ("QOS_VELOCITY", "Survey-taking velocity risk 0-100", 100),
     ("QOS_DATACENTER", "Data centre, VPN or proxy IP: 1 yes, 0 no", 1),
-    ("QOS_SPEEDER", "Questions answered too fast", 9999),
+    ("QOS_SPEEDER", "Pages answered too fast", 9999),
     ("QOS_STRAIGHTLINE", "Straight-lined grid questions", 9999),
     ("QOS_FLAGCOUNT", "Number of quality reasons", 99),
     ("QOS_REASON", "Main quality reason code (0 none)", 99),
@@ -77,6 +77,7 @@ BOT_SIGNALS = {
     "honeypot": "Hidden honeypot field filled in",
     "untyped_answers": "Open ends that appeared without typing",
     "robotic_timing": "Typing or mouse movement with machine-exact timing",
+    "timeline_mismatch": "Page times longer than the time the server saw",
 }
 
 DEFAULT_PRIVACY_TEXT = (

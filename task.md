@@ -93,6 +93,41 @@
 
 ## Discovered During Work
 
+### Bot/fraud detection pressure test and review fixes (2026-11-27)
+Deployed: everything up to and including the grid-page fix (commit `7dd5d5a`, Cloud Run revision `bot-backend-00076-9q8`). Not deployed yet: the review fixes (in the working tree, not committed).
+
+Pressure tests (files in `test_results/respondent_pressure_2026-11-27`, simulator `simulate.py`):
+- [x] **Respondent pressure test on production**: 52 simulated respondents of 17 types (people on desktop, phone and keyboard, low-quality text, pasters, straight-liners, near straight-liners, speeders, bots of each signal type, a device farm, dropouts), 1,470 requests, no 429s or HTTP errors. First run: 45/52 as expected; 14 of 150 open ends were skipped or only partly checked by the AI; final check median 4.8 s. After the fixes (`after_fixes/`): 52/52 as expected, 150/150 open ends checked, final check median 1.7 s (p95 2.4 s)
+- [x] **Honeypot in a real browser** (`test_results/honeypot_browser`): off-screen "Leave this empty" box with no name (never sent to Decipher), `tabIndex` -1 and `aria-hidden`
+
+Deployed (commits `f19c2ee`, `7dd5d5a`):
+- [x] **Open-end check fix** (`text_analysis_service.py`, `openai_service.py`, `config.py`): one OpenAI call per answer covers gibberish, copy_paste, relevance, generic and quality, all judged against the question (before: five calls, only relevance saw the question). Per-server limit `OPENAI_REQUESTS_PER_MINUTE` (300); an answer waits up to `OPENAI_RATE_WAIT_SECONDS` (20) for a slot. An answer that still cannot be checked is stored as not checked (`quality_score` null, `analysis_details.unchecked`), not flagged, never a neutral 50. Live Quality counts `text_unchecked` per respondent and `text.unchecked` in totals; the CSV has a `text_unchecked` column
+- [x] **Final check speed**: timing and grid results saved in one batch (71 database round trips down to 24); production median 1.7 s under load, 1.1 s idle (was 4.8 s / 2.8 s), within the tracker's 3 s wait on the last page. Duplicate answers compare only open ends of 20+ characters (exact copies across the survey, near copies among the latest 2,000)
+- [x] **Straight-lining rule**: the same answer on every row of a grid with at least 3 rows (was 80% identical); Live Quality applies the survey's `straightline_min_rows` when the tracker sent grid answers
+- [x] **`robotic_timing` signal** (reason code 7): printable-key gaps varying by under 3 ms in at least 3 separate stretches of 8+ keys (holding Backspace never triggers it), or at least 3 ruler-straight runs of equal mouse steps covering 40%+ of 30+ mouse points
+- [x] **Grid page counting**: the tracker's copy of a page submit carrying grid answers (`qos-grid:...`) is no longer counted as a second page (affects `no_input` and the untyped-answers count)
+
+Review fixes (not deployed yet):
+- [x] **Merge choice**: when LQ_ columns are added, a uuid with several sessions uses the checked session first, then the latest (was the oldest, often abandoned); Live Quality `totals.respondents` counts people, `totals.sessions` counts sessions, each row has `other_sessions`
+- [x] **`timeline_mismatch` signal** (reason code 8): browser-reported page times of 60+ s that exceed the server-observed time (session creation to last event) by more than max(30 s, 25%)
+- [x] **Rules-following final check and data variables**: `is_bot` and `behavioral_details.is_bot` follow the survey's bot threshold and enabled bot signals (same verdict as Live Quality); `engine_is_bot` keeps the verdict under `DETECTION_THRESHOLD`; only behaviour decides `is_bot`; `composite_is_bot` keeps the combined-score verdict; a behavioural bot gets risk level at least HIGH. `survey_variables` use only enabled bot signals as reason codes, `datacenter_ip` only when `flag_datacenter` is on, and the low-quality open-end reason only for text reasons the rules count
+- [x] **Duplicate risk**: `QOS_DUP_SCORE` uses the duplicate risk (under 0.70 similarity 0, from 0.70 0.6, from 0.85 0.8, from 0.95 1.0), not raw similarity; `fraud_details.response_similarity` keeps the raw value
+- [x] **Speeder meaning**: `QOS_SPEEDER` is the number of pages faster than the survey's `speeder_page_seconds` ("Pages answered too fast"); reason 22 applies when pages average under that rule, as on the dashboard (was: answers finished in under 2 s)
+- [x] **Location weighting**: no IP-to-country lookup yet, so the location score is left out of the fraud score (weights renormalised over IP 0.25, device 0.25, duplicate answers 0.20, velocity 0.15) instead of counting as 0; reason 15 relabelled "Same respondent seen from different countries within an hour"
+- [x] **Cross-network device reuse**: a fingerprint seen only on other networks (IPv4 /24, IPv6 /48) counts half; on the same network it counts fully
+- [x] **Noisy-OR behaviour score** (`utils/helpers.py` `calculate_confidence_score`): score = 1 − Π(1 − reliability × check score), reliabilities keystroke 0.5, mouse 0.45, timing 0.35, device 0.4, network 0; two strong checks reach 0.7, one alone does not (was a weighted average where perfect keyboard and mouse scores reached only 0.61). Decisive signals still lift to 0.85 / 0.95
+- [x] **Signals for saved rules**: saved rules record which signals existed when saved; signals added later start switched on, signals the survey switched off stay off
+- [x] **Repeated events**: events the tracker sent twice (same type, timestamp, element, x, y, key) are counted once
+- [x] **Slimmer stored events**: event JSON no longer repeats fields kept in their own columns or on the session; rejected events are logged by type only (page addresses can hold personal details)
+- [x] **Signed-upload protection**: a successful Upload to Decipher of a signed tracked file marks the survey as requiring signed sessions at once (before: only when its first signed respondent arrived)
+- [x] **Tests**: shared `backend/tests/conftest.py` switches the timeline check off unless a test is marked `timeline`; 348 backend tests pass
+
+Open items:
+- [ ] Deploy the review fixes
+- [ ] Set `TRACKING_TOKEN_SECRET` on production (tracking there is unsigned today)
+- [ ] Add an IP-to-country lookup so the location check can count again
+- [ ] Validate the new behaviour score (noisy-OR) on real survey data
+
 ### Live Quality, Decipher XML tracking, real Settings, dashboard redesign and deployment (2026-11-26)
 Commits `cfc4499` and `6244608` on `main`. Deployed 2026-11-26.
 - [x] **Self-contained**: The folder has no dependency on Quant_Sys (Quant OS). It stays compatible with surveys Quant OS tracked: same `QOS_` labels, recognises the Quant OS tracking marker and re-tracks instead of tracking twice, same device-fingerprint text. `TRACKING_TOKEN_SECRET` is optional and only shared if both systems should issue matching tokens.

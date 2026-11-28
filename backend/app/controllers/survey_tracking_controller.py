@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import Session, TrackedSurvey
+from app.models import ProtectedSurvey, Session, TrackedSurvey
 from app.services.decipher_tracking import (
     BOT_SIGNALS,
     DEFAULT_PRIVACY_TEXT,
@@ -396,6 +396,7 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
             },
         ) from error
     await remember(result.survey_path)
+    await _protect_if_signed(db, body.survey_id, xml)
     logger.info(f"Uploaded tracked survey {body.survey_id} to Decipher at {result.survey_path}")
     return {
         "survey_id": body.survey_id,
@@ -406,6 +407,26 @@ async def upload_to_decipher(body: DecipherUploadRequest, db: AsyncSession = Dep
         "layouts_updated": result.layouts_updated,
         "warnings": result.warnings,
     }
+
+
+async def _protect_if_signed(db: AsyncSession, survey_id: str, xml: str) -> None:
+    """Require signed sessions for this survey once a signed tracker is live in Decipher.
+
+    Before this, a survey became protected only when its first signed respondent
+    arrived, so fake unsigned sessions were accepted until then. Protecting when the
+    tracked file is created would refuse real respondents of a survey still running
+    an older, unsigned tracker; a successful upload is when the signed one goes live.
+    """
+    token = survey_token(survey_id)
+    if not token or token not in xml:
+        return
+    try:
+        if await db.get(ProtectedSurvey, survey_id) is None:
+            db.add(ProtectedSurvey(survey_id=survey_id))
+            await db.commit()
+    except Exception as error:  # noqa: BLE001 - the upload itself already happened
+        await db.rollback()
+        logger.warning(f"Could not mark {survey_id} as requiring signed sessions: {error}")
 
 
 async def _read_upload(file: UploadFile) -> bytes:

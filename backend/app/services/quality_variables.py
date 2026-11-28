@@ -21,13 +21,14 @@ REASON_CODES = (
     (4, "honeypot", "Hidden honeypot field filled in"),
     (5, "untyped_answers", "Open ends that appeared without typing"),
     (7, "robotic_timing", "Typing or mouse movement with machine-exact timing"),
+    (8, "timeline_mismatch", "Page times longer than the time the server saw"),
     (6, "behaviour", "Bot-like behaviour score"),
     (10, "datacenter_ip", "Data centre, VPN or proxy IP address"),
     (11, "device_reuse", "Same device seen on other sessions of this survey"),
     (12, "ip_reuse", "Same IP address used repeatedly"),
     (13, "duplicate_responses", "Answers copied from another respondent"),
     (14, "high_velocity", "Many surveys started in a short time"),
-    (15, "geolocation_inconsistency", "Location does not match the browser's time zone or language"),
+    (15, "geolocation_inconsistency", "Same respondent seen from different countries within an hour"),
     (20, "low_quality_open_ends", "Low-quality open-ended answers"),
     (21, "straight_lining", "Straight-lined grid questions"),
     (22, "speeder", "Questions answered too fast"),
@@ -39,6 +40,8 @@ STATUS_HUMAN, STATUS_SUSPECT, STATUS_BOT = 1, 2, 3
 STATUS_LABELS = {STATUS_HUMAN: "Human", STATUS_SUSPECT: "Suspect", STATUS_BOT: "Bot"}
 
 _DUPLICATE_REASONS = ("device_reuse", "ip_reuse", "duplicate_responses")
+# Text flags the rules know about: the AI's reasons plus how an answer was entered.
+_KNOWN_TEXT_FLAGS = {"gibberish", "generic", "irrelevant", "copy_paste", "low_quality", "pasted", "no_typing"}
 
 
 def _pct(value: Any) -> Optional[int]:
@@ -61,17 +64,26 @@ def _whole(value: Any, top: int = 100) -> Optional[int]:
         return None
 
 
-def survey_variables(composite: Dict[str, Any]) -> Dict[str, Any]:
+def survey_variables(
+    composite: Dict[str, Any], rules: Any = None, page_ms: Optional[List[int]] = None
+) -> Dict[str, Any]:
     """Build the survey data variables from a composite analysis result.
 
     Args:
         composite: The dict returned by the composite analysis, with
             ``behavioral_details``, ``text_quality_details``, ``fraud_details``,
             ``grid_details`` and ``timing_details`` where those checks ran.
+        rules: The survey's QualityRules, so the data says what Live Quality says
+            (enabled bot signals, flags switched off). Defaults when None.
+        page_ms: The respondent's page times. With them, a speeder is judged by the
+            survey's page rule, as on the dashboard.
 
     Returns:
         dict: QOS_* label to value. Numbers are ints, QOS_REASONS is a string.
     """
+    from app.services.quality_rules import QualityRules
+
+    rules = rules or QualityRules()
     behaviour = composite.get("behavioral_details") or {}
     text = composite.get("text_quality_details") or {}
     fraud = composite.get("fraud_details") or {}
@@ -80,16 +92,28 @@ def survey_variables(composite: Dict[str, Any]) -> Dict[str, Any]:
 
     reasons: List[str] = []
     patterns = behaviour.get("flagged_patterns") or {}
-    reasons.extend(code for code in patterns.get("decisive_codes") or [] if code in REASON_NUMBERS)
+    reasons.extend(
+        code for code in patterns.get("decisive_codes") or [] if code in REASON_NUMBERS and code in rules.bot_signals
+    )
     if behaviour.get("is_bot") and not reasons:
         reasons.append("behaviour")
-    flags = fraud.get("flag_reasons") or {}
+    flags = dict(fraud.get("flag_reasons") or {})
+    if not rules.flag_datacenter:
+        flags.pop("datacenter_ip", None)
     reasons.extend(name for name in flags if name in REASON_NUMBERS)
-    if text.get("flagged_count"):
+    counted = set(rules.text_reasons) | ({"pasted", "no_typing"} if rules.flag_pasted else set())
+    flag_types = set((text.get("flag_types") or {}).keys())
+    if text.get("flagged_count") and (not flag_types or flag_types & counted or flag_types - _KNOWN_TEXT_FLAGS):
         reasons.append("low_quality_open_ends")
     if grid.get("straight_lined_questions"):
         reasons.append("straight_lining")
-    if timing.get("speeders"):
+    fast_pages = None
+    if page_ms:
+        # The dashboard's rule: pages averaging under the survey's seconds per page.
+        fast_pages = sum(1 for ms in page_ms if ms / 1000 < rules.speeder_page_seconds)
+        if sum(page_ms) / 1000 / len(page_ms) < rules.speeder_page_seconds:
+            reasons.append("speeder")
+    elif timing.get("speeders"):
         reasons.append("speeder")
     codes = sorted({REASON_NUMBERS[name] for name in reasons})
 
@@ -122,7 +146,7 @@ def survey_variables(composite: Dict[str, Any]) -> Dict[str, Any]:
         "QOS_GEO_RISK": _pct(fraud.get("geolocation_risk_score")) if has_fraud else None,
         "QOS_VELOCITY": _pct(fraud.get("velocity_risk_score")) if has_fraud else None,
         "QOS_DATACENTER": (1 if "datacenter_ip" in flags else 0) if has_fraud else None,
-        "QOS_SPEEDER": _whole(timing.get("speeders"), 9999) if timing else None,
+        "QOS_SPEEDER": fast_pages if fast_pages is not None else (_whole(timing.get("speeders"), 9999) if timing else None),
         "QOS_STRAIGHTLINE": _whole(grid.get("straight_lined_questions"), 9999) if grid else None,
         "QOS_FLAGCOUNT": len(codes),
         "QOS_REASON": codes[0] if codes else 0,

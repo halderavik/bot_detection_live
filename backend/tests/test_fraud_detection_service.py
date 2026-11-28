@@ -92,32 +92,31 @@ class TestFraudDetectionService:
     
     @pytest.mark.asyncio
     async def test_analyze_device_fingerprint_unique(self, fraud_service, mock_session, mock_behavior_data, mock_db):
-        """Test device fingerprint analysis with unique fingerprint."""
-        # No other session in the survey has this device
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 0
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        
+        """No other session in the survey has this device."""
+        mock_db.execute = AsyncMock(return_value=_rows([]))
         result = await fraud_service._analyze_device_fingerprint(mock_session, mock_behavior_data, mock_db)
-        
         assert result["risk_score"] == 0.0
         assert result["usage_count"] == 1  # this session only
         assert result["fingerprint"] is not None
-    
+
     @pytest.mark.asyncio
     async def test_analyze_device_fingerprint_duplicate(self, fraud_service, mock_session, mock_behavior_data, mock_db):
-        """Test device fingerprint analysis with duplicate fingerprint."""
-        # Five other sessions in the survey share this device
-        mock_result = MagicMock()
-        mock_result.scalar.return_value = 5
-        mock_db.execute = AsyncMock(return_value=mock_result)
-        
+        """Five other sessions share this device, on the same network: full risk."""
+        mock_db.execute = AsyncMock(return_value=_rows(["192.168.1.%d" % n for n in range(5)]))
         result = await fraud_service._analyze_device_fingerprint(mock_session, mock_behavior_data, mock_db)
-        
         assert result["risk_score"] >= 0.9  # High risk for >=5 matches
         assert result["usage_count"] == 6  # five others plus this one
+        assert result["same_network"] == 5
         assert result["fingerprint"] is not None
-    
+
+    @pytest.mark.asyncio
+    async def test_same_fingerprint_only_on_other_networks_counts_half(self, fraud_service, mock_session, mock_behavior_data, mock_db):
+        """Identical phone models look alike: on other networks the match counts half."""
+        mock_db.execute = AsyncMock(return_value=_rows(["10.%d.0.1" % n for n in range(5)]))
+        result = await fraud_service._analyze_device_fingerprint(mock_session, mock_behavior_data, mock_db)
+        assert result["usage_count"] == 6 and result["same_network"] == 0
+        assert result["risk_score"] == 0.45  # below the 0.5 that names device reuse
+
     @pytest.mark.asyncio
     async def test_analyze_duplicate_responses_exact_match(self, fraud_service, mock_session, mock_db):
         """An exact copy of an open-ended answer elsewhere in the survey is the highest risk."""
@@ -225,3 +224,18 @@ def _duplicate_queries(own, exact, recent):
     exact_result = MagicMock(); exact_result.scalar.return_value = exact
     recent_result = MagicMock(); recent_result.all.return_value = [(text,) for text in recent]
     return [own_result, exact_result, recent_result]
+
+
+def _rows(ips):
+    """A query result whose rows are (ip_address,) tuples."""
+    result = MagicMock()
+    result.all.return_value = [(ip,) for ip in ips]
+    return result
+
+
+def test_location_left_out_when_unknown_instead_of_counted_as_zero():
+    from app.utils.fraud_helpers import calculate_weighted_fraud_score
+
+    with_zero = calculate_weighted_fraud_score(1.0, 1.0, 1.0, 0.0, 1.0)
+    left_out = calculate_weighted_fraud_score(1.0, 1.0, 1.0, None, 1.0)
+    assert round(with_zero, 2) == 0.85 and left_out == 1.0

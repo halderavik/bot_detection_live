@@ -8,6 +8,8 @@ This folder is self-contained: it has no dependency on Quant OS (Quant_Sys). It 
 - Dashboard: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html (pages use addresses like `index.html#/quality`)
 - Backend API: https://bot-backend-119522247395.northamerica-northeast2.run.app (docs at `/docs`, health at `/health`)
 - Deployed 2026-11-26 from commits `cfc4499` (backend image) and `6244608` (dashboard); see [Deployment](#-deployment).
+- Not yet deployed: the latest changes (final check following each survey's rules, `timeline_mismatch`, the combined behaviour score, fraud reweighting, the data-file merge fix, protection on signed upload) are in the code but not in production.
+- Pressure test (production, 52 simulated respondents, 2026-11-27): 52/52 got the expected result and 150/150 open ends were checked. Files: `test_results/respondent_pressure_2026-11-27`.
 
 ## 🚀 Features
 
@@ -16,12 +18,13 @@ This folder is self-contained: it has no dependency on Quant OS (Quant_Sys). It 
 - **Live Quality**: one survey's live results under its own quality rules (bot threshold, decisive signals, speeders, straight-lining, open-end reasons, fraud), with charts, a respondent table, CSV export, and `LQ_` flags added to an SPSS, CSV or Excel data file. See [Live quality](#live-quality).
 - **Results in the survey data**: 21 `QOS_` variables (verdict, scores, reasons) are written into each completed respondent's Decipher record, matched by Decipher's `uuid`.
 - **Overview, Sessions and session details**: every survey's bot rate, starts and bots per day, the latest bots, and each session's verdict with the reasons behind it.
-- **Open-end quality** (OpenAI GPT-4o-mini, with a built-in fallback) and **Reports** (summary and detailed, CSV and PDF).
+- **Open-end quality** (OpenAI GPT-4o-mini, one call per answer; an answer that cannot be checked is stored as not checked) and **Reports** (summary and detailed, CSV and PDF).
 
 **Detection**
-- Behaviour analysis (typing, mouse, timing, device, network) with decisive signals: automated browser, scripted input, no input, honeypot, open ends that appeared without typing.
-- Composite score: 40% behaviour, 30% open-end quality, 30% fraud. Fraud checks: IP reuse, device fingerprint, copied answers, location mismatch, velocity, data-centre/VPN IPs.
-- Grid analysis (straight-lining, patterns) and timing analysis (speeders, flatliners).
+- Behaviour analysis (typing, mouse, timing, device; network is not implemented and carries no weight). The checks are combined so agreeing evidence adds up: score = 1 - product(1 - reliability x check score), with reliabilities keystroke 0.5, mouse 0.45, timing 0.35, device 0.4. Two strong checks reach the 0.7 bot threshold; one alone does not. Events the tracker sent twice are counted once, and a grid page counts as one page (the copy of the page submit carrying grid answers is not counted again).
+- Seven decisive signals: automated browser, scripted input, no input, honeypot, open ends that appeared without typing, machine-exact typing or mouse timing (`robotic_timing`), and page times longer than the time the server saw (`timeline_mismatch`). One lifts the behaviour score to 0.85, two or more to 0.95.
+- Bot or human is decided by behaviour alone, under the survey's quality rules (bot threshold and enabled signals); open-end quality and fraud are shown as their own flags and scores. The composite score (40% behaviour, 30% open-end quality, 30% fraud) is still calculated and reported. Fraud checks: IP reuse, device fingerprint (counts half when seen only on other networks, IPv4 /24 or IPv6 /48), copied answers (open ends of 20+ characters only; exact copies across the whole survey, near copies of 70%+ among the latest 2,000 answers), velocity, data-centre/VPN IPs (fraud score at least 0.75). The fraud score weights IP 0.25, device 0.25, copied answers 0.20, velocity 0.15; location is left out until there is an IP-to-country lookup, and the weights are renormalised over the rest.
+- Grid analysis (straight-lining: the same answer on every row of a grid with at least 3 rows; patterns) and timing analysis (speeders, flatliners).
 - **Bot rate** means the same on every page: sessions judged bots out of sessions checked, each session counted once.
 
 **Operations**
@@ -117,11 +120,11 @@ Open **Add tracking** in the dashboard (`/tracking`; in production `index.html#/
 
 What goes into the file (nothing else changes):
 
-- the tracker script (`backend/app/assets/live_quality_tracker.js`) as a `respview.client.js` style with `mode="after"`, so it runs on every page alongside the survey's own scripts. It sends behaviour (keys, mouse, scrolling, focus), open-end text, page timing, and grid answers to this API, and runs the composite check on the last page. It never blocks the survey: every call times out, and when the API is slow or unreachable the respondent carries on;
+- the tracker script (`backend/app/assets/live_quality_tracker.js`) as a `respview.client.js` style with `mode="after"`, so it runs on every page alongside the survey's own scripts. It sends behaviour (keys, mouse, scrolling, focus), open-end text, page timing, and grid answers to this API, and runs the composite check on the last page. It never blocks the survey: every call times out (the last page waits at most 3 s for the final check, 2.5 s for the in-survey check, 1.5 s for answers), and when the API is slow or unreachable the respondent carries on. The final check saves timing and grid results in one batch; in production it took a median 1.7 s under load and 1.1 s idle;
 - the respondent id: the tracker reports each respondent under Decipher's own `uuid`, which Decipher writes into the script as it renders the page (`${uuid}`, the only Decipher expression in the script). The same value is the `uuid` variable in Decipher's SPSS, Excel and CSV exports, so a respondent's row in the Decipher data and its results here share one id. In a preview where Decipher does not render it, the tracker makes its own id;
 - a hidden results page at the end with the quality variables below, which the tracker fills so each respondent's results are in the Decipher data (SPSS, Excel, CSV) too;
 - **Show a privacy notice** (on by default): a short notice at the top of the first page (`QOS_privacy`). The wording can be changed; `$` and square brackets are refused because Decipher would read them as code;
-- **End the survey on a clear bot signal** (off by default): a hidden `QOS_EARLY` question on the page you choose and a termination (`QOS_bot_term`) after it. Only the decisive signals you tick end the survey (automated browser, scripted clicks, no mouse or keyboard use, honeypot, open ends that appeared without typing); a score on its own never does. The check only goes on a page break every respondent reaches, never inside a loop or a conditional block; when there is no such page, it is left out and the summary says so.
+- **End the survey on a clear bot signal** (off by default): a hidden `QOS_EARLY` question on the page you choose and a termination (`QOS_bot_term`) after it. Only the decisive signals you tick end the survey (automated browser, scripted clicks, no mouse or keyboard use, honeypot, open ends that appeared without typing, machine-exact timing, page times longer than the server saw); a score on its own never does. The check only goes on a page break every respondent reaches, never inside a loop or a conditional block; when there is no such page, it is left out and the summary says so.
 
 **Quality variables in the data export.** The tracker fills these on the last page, from the composite check. Text questions come through as strings, number questions as numeric variables. They are filled for respondents who reach the end of the survey; terminates and drop-outs have them blank (their results are still here under the same `uuid`). A number is blank when its check had nothing to work on (for example `QOS_STRAIGHTLINE` in a survey with no grids).
 
@@ -129,28 +132,32 @@ What goes into the file (nothing else changes):
 |---|---|---|
 | `QOS_RESPONDENT` | text | Respondent id here; Decipher's `uuid` |
 | `QOS_SESSION` | text | Session id here (opens the respondent's details) |
-| `QOS_FLAG` | text | `bot`, `human`, or `unknown` (service not reached) |
-| `QOS_SCORE` | text | Composite score 0-1 (40% behaviour, 30% open-end quality, 30% fraud); bot from 0.7 |
+| `QOS_FLAG` | text | `bot`, `human`, or `unknown` (service not reached); bot or human follows the survey's quality rules, as on Live Quality |
+| `QOS_SCORE` | text | Composite score 0-1 (40% behaviour, 30% open-end quality, 30% fraud); shown for reference, the verdict comes from behaviour |
 | `QOS_RISK` | text | `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
 | `QOS_STATUS` | 1-3 | 1 human, 2 suspect (a reason below, or medium risk or worse), 3 bot |
 | `QOS_BEHAV` | 0-100 | Behaviour bot score; higher is worse |
 | `QOS_OES` | 0-100 | Open-ended answer quality; **higher is better** |
-| `QOS_FRAUD` | 0-100 | Fraud score (IP, device, duplicates, location, velocity); higher is worse |
+| `QOS_FRAUD` | 0-100 | Fraud score (IP, device, duplicates, velocity; location is left out until there is an IP-to-country lookup); higher is worse |
 | `QOS_DUP` | 0/1 | Duplicate: same device, repeated IP, or copied answers |
-| `QOS_DUP_SCORE` | 0-100 | Highest of the device, IP and copied-answer risks |
+| `QOS_DUP_SCORE` | 0-100 | Highest of the device, IP and copied-answer risks. The copied-answer risk is 0 under 70% similarity, 60 from 70%, 80 from 85%, 100 from 95% (not the raw similarity) |
 | `QOS_IP_RISK` | 0-100 | IP address reuse risk |
-| `QOS_DEVICE_RISK` | 0-100 | Same device on other sessions of this survey |
-| `QOS_GEO_RISK` | 0-100 | Location does not match the browser's time zone or language |
+| `QOS_DEVICE_RISK` | 0-100 | Same device on other sessions of this survey (counts half when seen only on other networks) |
+| `QOS_GEO_RISK` | 0-100 | Same respondent seen from different countries within an hour |
 | `QOS_VELOCITY` | 0-100 | Many surveys started in a short time |
 | `QOS_DATACENTER` | 0/1 | Data centre, VPN or proxy IP address |
-| `QOS_SPEEDER` | count | Questions answered too fast |
+| `QOS_SPEEDER` | count | Pages answered too fast: pages faster than the survey's speeder seconds-per-page rule |
 | `QOS_STRAIGHTLINE` | count | Straight-lined grid questions |
 | `QOS_FLAGCOUNT` | count | Number of reason codes |
 | `QOS_REASON` | code | Main reason (the most severe), 0 for none |
 | `QOS_REASONS` | text | Every reason code, comma-separated, for example `10,11,22` |
 | `QOS_EARLY` | text | Only with **End the survey on a clear bot signal**: `bot` or `human` at the mid-survey check |
 
-Reason codes (`backend/app/services/quality_variables.py`), most severe first: 1 automated or headless browser, 2 scripted clicks and key presses, 3 pages answered with no mouse or keyboard use, 4 honeypot filled in, 5 open ends that appeared without typing, 6 bot-like behaviour score, 10 data centre / VPN / proxy IP, 11 same device reused, 12 same IP reused, 13 answers copied from another respondent, 14 many surveys in a short time, 15 location mismatch, 20 low-quality open ends, 21 straight-lined grids, 22 speeding.
+Reason codes (`backend/app/services/quality_variables.py`), most severe first: 1 automated or headless browser, 2 scripted clicks and key presses, 3 pages answered with no mouse or keyboard use, 4 honeypot filled in, 5 open ends that appeared without typing, 7 typing or mouse movement with machine-exact timing, 8 page times longer than the time the server saw, 6 bot-like behaviour score, 10 data centre / VPN / proxy IP, 11 same device reused, 12 same IP reused, 13 answers copied from another respondent, 14 many surveys in a short time, 15 same respondent seen from different countries within an hour, 20 low-quality open ends, 21 straight-lined grids, 22 speeding (pages average under the survey's seconds-per-page rule). `QOS_REASONS` and `QOS_FLAG` follow the survey's quality rules: only enabled bot signals become reason codes, 10 only when data-centre flagging is on, and 20 only for text reasons the rules count.
+
+The two newer signals: **machine-exact timing** (7) is printable-key typing whose gaps vary by under 3 ms in at least 3 separate stretches of 8+ keys (a stretch ends at a field change or a 2 s pause; holding Backspace never triggers it), or at least 3 ruler-straight runs of equal mouse steps (4+ points, within 1.5 px) covering at least 40% of 30+ mouse points. **Page times longer than the server saw** (8) is when the page times the browser reports add up to 60+ s and exceed the time the server observed (session creation to the last event received) by more than 30 s or 25% of the reported time, whichever is larger. Page times are measured in the browser and could be made up; the server's own arrival times cannot. A survey that saved its rules before a signal existed gets that signal switched on; signals it switched off stay off.
+
+The honeypot is an off-screen text box labelled "Leave this empty", with no name (so it is never sent to Decipher), `tabIndex` -1 and `aria-hidden`.
 
 A survey tracked before these variables existed keeps working; upload it again to add them. If you import the XML in Decipher yourself instead of using **Upload to Decipher**, and the survey has saved data layouts, add the `QOS_` variables to the layout you export with (or export with all variables).
 
@@ -170,7 +177,7 @@ Decipher checks the file before saving it (`validate=true`) and never replaces t
 
 **What is refused**, with the reason: files that are not a `<survey>` XML, XML that is not well-formed or not UTF-8, files with a DOCTYPE, and surveys that already use `QOS_` labels of their own.
 
-**Signing.** With `TRACKING_TOKEN_SECRET` set, the tracker carries a token signed for its survey id; after the first signed session, the service refuses sessions for that survey without it, so nobody can add fake sessions under its name. Signing is optional: without the secret, tracking works the same, just unsigned, and nothing warns about it.
+**Signing.** With `TRACKING_TOKEN_SECRET` set, the tracker carries an HMAC token signed for its survey id, and a survey that requires tokens refuses sessions without it, so nobody can add fake sessions under its name. A survey starts requiring tokens as soon as a signed tracked file is uploaded to Decipher successfully through **Upload to Decipher**, or otherwise when its first signed session arrives. Making the tracked file alone does not protect it, because the live survey may still run an older unsigned tracker. The token stops outsiders who never saw the survey; anyone who opens the survey page can read it. Signing is optional: without the secret, tracking works the same, just unsigned, and nothing warns about it. Production currently has no `TRACKING_TOKEN_SECRET`, so tracking there is unsigned.
 
 **Which API the tracker calls.** Set `TRACKER_API_BASE` to the service's public URL, for example `https://bot-backend-<id>.run.app/api/v1`. Without it, the upload uses the address the request came in on. It must be `https://` (Decipher pages are https); plain `http://` is only allowed for `localhost`, and the summary warns that such a file only works on your own computer.
 
@@ -207,25 +214,27 @@ Open **Live Quality** in the dashboard (`/quality`, or `/quality?survey=<survey 
 - tiles for started, checked, flagged, bot-like, low-quality text, straight-liners, speeders and duplicates;
 - starts over time (clean and flagged, by hour or by day), open-end quality as a histogram, and the number of respondents with each flag (click a bar to filter the table);
 - the respondent table: status, text quality, time, flags; click a row for the reasons (behaviour, fraud signals, grid, timing, each flagged open end) and a link to the session;
-- **Export CSV**: one row per respondent with the verdict, scores and flags.
+- **Export CSV**: one row per respondent with the verdict, scores and flags, including `text_unchecked` (open ends the AI check could not score).
+
+In the results payload, `totals.respondents` counts people (sessions sharing a respondent id, the Decipher `uuid`, count once) and `totals.sessions` counts sessions; each row has `other_sessions` (other sessions with the same respondent id) and `text_unchecked`, and `text.unchecked` is the total of open ends not checked.
 
 **Quality rules** are saved per survey id (`survey_quality_rules` table, created at startup) and start on the recommended defaults. They decide:
 
 | Rule | Default | Meaning |
 |---|---|---|
 | Bot score threshold | 0.7 | Behaviour score (before decisive signals) at which a respondent is a bot |
-| Signals that always mean bot | all five | Automated browser, scripted input, no input, honeypot, untyped open ends |
+| Signals that always mean bot | all seven | Automated browser, scripted input, no input, honeypot, untyped open ends, machine-exact timing, page times longer than the server saw |
 | Speeder: seconds per page | 3.5 | Average page time below this is a speeder (from the tracker's page times) |
 | Speeder: share of median | 0.5 | Also a speeder under this share of the median total time, once 5 respondents are checked (0 turns it off) |
-| Straight-lining: minimum grid rows | 3 | Same answer on every row of a grid this size or larger |
+| Straight-lining: minimum grid rows | 3 | Same answer on every row of a grid this size or larger (applied when the tracker sent grid answers) |
 | Low-quality reasons | all five | Gibberish, generic, off-topic, copied, low effort |
 | Flag pasted answers | on | Open ends that were mostly pasted or appeared without typing |
 | High fraud risk threshold | 0.7 | Fraud score at which a respondent is high risk |
 | Flag duplicates / data-centre IPs | on / on | |
 
-Rules apply on every read, so the dashboard, the CSV export and the `LQ_` variables follow them as soon as they are saved. They don't change what the service stores, or the `QOS_*` values the tracker writes into the Decipher data (those use the standard scoring). Ending the survey on a bot signal and the privacy notice are chosen on **Add tracking**.
+Rules apply on every read, so the dashboard, the CSV export and the `LQ_` variables follow them as soon as they are saved. They don't change what the service stores. The final check on the last page also uses the survey's rules (bot threshold, enabled signals, data-centre flag, counted text reasons, speeder seconds per page), so the `QOS_*` values written into the Decipher data agree with Live Quality at that moment; values already in Decipher do not change when the rules are edited later. Ending the survey on a bot signal and the privacy notice are chosen on **Add tracking**.
 
-**Add flags to a data file.** Upload the survey's Decipher export (SPSS `.sav`, `.csv` or `.xlsx`, up to 50 MB) and you get the same file back as `<name>_quality.<ext>` with these variables added at the end. Records match on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid` (the tracker reports respondents under it), so exports without the `QOS_` columns still match.
+**Add flags to a data file.** Upload the survey's Decipher export (SPSS `.sav`, `.csv` or `.xlsx`, up to 50 MB) and you get the same file back as `<name>_quality.<ext>` with these variables added at the end. Records match on `QOS_SESSION`, then `QOS_RESPONDENT`, then Decipher's `uuid` (the tracker reports respondents under it), so exports without the `QOS_` columns still match. When a `uuid` has several sessions (the respondent reopened the survey), the checked session is used first, then the latest.
 
 | Variable | Meaning |
 |---|---|
@@ -502,12 +511,18 @@ DECIPHER_API_KEY=
 DECIPHER_API_BASE=https://selfserve.decipherinc.com/api/v1
 DECIPHER_COMPANY=self
 QUALTRICS_API_TOKEN=
-OPENAI_API_KEY=                      # without it, open ends get a neutral fallback score (50)
+OPENAI_API_KEY=                      # without it, open ends are stored as not checked (no score, not flagged)
 OPENAI_MODEL=gpt-4o-mini
 TRACKER_API_BASE=                    # public https address the tracker calls, ending in /api/v1
 TRACKING_TOKEN_SECRET=               # optional: signs trackers
 DETECTION_THRESHOLD=0.7              # bot probability for the stored verdict
+
+# Environment only
+OPENAI_REQUESTS_PER_MINUTE=300       # OpenAI calls per minute, per server instance
+OPENAI_RATE_WAIT_SECONDS=20          # how long an answer waits for a free slot before it is stored as not checked
 ```
+
+**Open-end check.** One OpenAI call per answer covers all five checks (gibberish, copied, relevance, generic, quality), each judged against the question. When the per-minute limit is reached, an answer waits up to `OPENAI_RATE_WAIT_SECONDS` for a slot. An answer that still cannot be checked (OpenAI unavailable, or the limit still reached) is stored as not checked: `quality_score` empty, `analysis_details` `{"unchecked": true, "error": ...}`, not flagged. It is never given a middle score and never counted as acceptable. How an answer was entered is judged separately: "pasted" when at least half of a 20+ character answer was pasted, "no typing" when a 20+ character answer had no input events.
 
 `backend/.env.example` lists every variable.
 
@@ -540,8 +555,9 @@ SECRET_KEY=test python -m pytest tests          # 275 tests; uses SQLite via aio
 
 - The dashboard and API have no user login. Changing settings requires `ADMIN_TOKEN` (header `X-Admin-Token`); saved secrets are encrypted at rest and never returned to the browser.
 - Decipher API keys are sent only to Decipher and removed from any error text.
-- Signed trackers (`TRACKING_TOKEN_SECRET`, optional) stop others from adding sessions under a survey's name.
-- Rate limits on session creation and event writes; input validation with Pydantic; parameterised queries.
+- Signed trackers (`TRACKING_TOKEN_SECRET`, optional) stop outsiders who never saw the survey from adding sessions under its name; anyone who opens the survey page can read the token. Production currently runs without it.
+- Rate limits per IP, per server instance: new sessions 30 a minute, other writes 600 a minute, Fix with AI 20 an hour. Input validation with Pydantic; parameterised queries.
+- Rejected events are logged by type only, because the page address can hold personal details. Stored event JSON keeps only the event's own fields (page details, ids and sizes are kept in their own columns or once on the session).
 - `.gcloudignore` and `.dockerignore` keep `.env` and local data out of builds and images.
 
 ## 🚀 Deployment

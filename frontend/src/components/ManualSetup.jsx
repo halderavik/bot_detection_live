@@ -41,7 +41,7 @@ const RESULT_FIELDS = [
   ['QOS_GEO_RISK', 'QOS_GEO_RISK', 'Whole number', 'Location mismatch risk 0–100'],
   ['QOS_VELOCITY', 'QOS_VELOCITY', 'Whole number', 'Survey-taking velocity risk 0–100'],
   ['QOS_DATACENTER', 'QOS_DATACENTER', 'Whole number', 'Data centre, VPN or proxy IP: 1 yes, 0 no'],
-  ['QOS_SPEEDER', 'QOS_SPEEDER', 'Whole number', 'Questions answered too fast'],
+  ['QOS_SPEEDER', 'QOS_SPEEDER', 'Whole number', 'Pages answered too fast'],
   ['QOS_STRAIGHTLINE', 'QOS_STRAIGHTLINE', 'Whole number', 'Straight-lined grid questions'],
   ['QOS_FLAGCOUNT', 'QOS_FLAGCOUNT', 'Whole number', 'Number of quality reasons'],
   ['QOS_REASON', 'QOS_REASON', 'Whole number', 'Main reason code (0 none)'],

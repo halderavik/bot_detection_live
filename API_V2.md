@@ -561,6 +561,7 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 **Notes:**
 - These hierarchical endpoints are ideal for dashboards and reporting (survey/platform/respondent rollups).
 - You must have the correct hierarchy identifiers (`survey_id`, `platform_id`, `respondent_id`) for the session.
+- Each answer is checked with one OpenAI call covering gibberish, copy-paste, relevance, generic and quality, all judged against the question. An answer that could not be checked (OpenAI unavailable, or the per-minute limit still reached after waiting) is stored as not checked: `quality_score` is null, its details hold `{"unchecked": true, "error": ...}`, and it is not flagged by the AI check. It is not given a neutral 50, and averages leave it out.
 
 ---
 
@@ -626,7 +627,7 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 
 **Notes:**
 - Grid analysis detects satisficing behavior in matrix/grid questions
-- Straight-lining detection identifies identical responses across rows (>80% threshold)
+- Straight-lining detection: the same answer on every row of a grid with at least 3 rows
 - Pattern detection identifies systematic response patterns (diagonal, zigzag, etc.)
 - Variance and satisficing scores help identify low-effort responses
 
@@ -694,7 +695,8 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 **Notes:**
 - Speeder detection: Responses faster than threshold (< 2000ms default)
 - Flatliner detection: Responses slower than threshold (> 300000ms default)
-- Anomaly detection: Statistical outliers using z-score analysis (|z-score| > 2.0)
+- Anomaly detection: Statistical outliers using z-score analysis (|z-score| > 2.5)
+- Live Quality and the `QOS_SPEEDER` survey variable use a different, per-survey rule (seconds per page); these endpoints use the per-answer thresholds above
 - Adaptive thresholds: Context-aware thresholds based on question complexity
 
 ---
@@ -811,7 +813,11 @@ GET /surveys/{survey_id}/platforms/{platform_id}/respondents/{respondent_id}/ses
 
 **Notes:**
 - These hierarchical endpoints enable fraud analysis at different aggregation levels.
-- Fraud scores are integrated into the composite bot detection algorithm (40% behavioral, 30% text quality, 30% fraud).
+- Fraud scores feed the composite score (40% behavioral, 30% text quality, 30% fraud). The composite score is reported, but bot or human is decided by behaviour alone under the survey's quality rules; fraud is shown as its own score and flags.
+- `overall_fraud_score` weights IP 0.25, device 0.25, duplicate answers 0.20, velocity 0.15 and geolocation 0.15. There is no IP-to-country lookup yet, so geolocation is left out and the other weights are renormalised. A data-centre IP raises the score to at least 0.75.
+- `device_fingerprint.risk_score` counts half when the same fingerprint was seen only on other networks (IPv4 /24, IPv6 /48).
+- `duplicate_responses.similarity_score` is the raw text similarity. Only open-ended answers of 20+ characters are compared: exact copies across the whole survey, near copies (70%+ similar) among the latest 2,000 answers.
+- `geolocation` flags the same respondent seen from different countries within an hour; with no country lookup it currently stays consistent with risk 0.
 - Use these endpoints for reporting and dashboards that need fraud metrics per survey, platform, or respondent.
 
 ---
@@ -1042,6 +1048,9 @@ For questions or issues with the hierarchical API:
 ## Changelog
 
 ### November 2026
+- Grid straight-lining is the same answer on every row of a grid with at least 3 rows (was 80% identical)
+- Fraud: geolocation is left out of `overall_fraud_score` until there is an IP-to-country lookup (weights renormalised); a device fingerprint seen only on other networks counts half; duplicate answers compare only open ends of 20+ characters
+- Text analysis: one OpenAI call per answer; answers that cannot be checked have a null `quality_score` instead of a neutral 50
 - Bot rate on survey, platform and respondent aggregations is bots / checked (analysed) sessions, counting each session once
 - `GET /surveys` returns `checked_count`; `human_count` is checked minus bots
 

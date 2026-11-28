@@ -171,6 +171,14 @@ def _column(frame: pd.DataFrame, name: str) -> pd.Series:
     return pd.Series([""] * len(frame), index=frame.index)
 
 
+_STATUS_ORDER = {"checked": 2, "in_progress": 1}
+
+
+def _preference(row: Dict[str, Any]) -> tuple:
+    """Which of a respondent's sessions speaks for them: checked first, then the latest."""
+    return (_STATUS_ORDER.get(row.get("status"), 0), str(row.get("started") or ""))
+
+
 def match_columns(frame: pd.DataFrame) -> List[str]:
     """The id columns present with any values, in match order."""
     found = []
@@ -198,8 +206,11 @@ def add_quality_columns(frame: pd.DataFrame, result: Dict[str, Any]) -> Tuple[pd
     for row in result.get("respondents") or []:
         if _key(row.get("session_id")):
             by_session[_key(row.get("session_id"))] = row
-        if _key(row.get("respondent_id")):
-            by_respondent[_key(row.get("respondent_id"))] = row
+        key = _key(row.get("respondent_id"))
+        # A respondent who reopened the survey has several sessions: use the one that
+        # was checked, then the latest, never an abandoned earlier one.
+        if key and (key not in by_respondent or _preference(row) > _preference(by_respondent[key])):
+            by_respondent[key] = row
     sessions = _column(frame, SESSION_COLUMN)
     respondents = _column(frame, RESPONDENT_COLUMN)
     uuids = _column(frame, UUID_COLUMN)

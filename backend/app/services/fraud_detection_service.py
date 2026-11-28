@@ -23,7 +23,8 @@ from app.utils.fraud_helpers import (
     calculate_ip_risk_score,
     calculate_fingerprint_risk_score,
     calculate_duplicate_response_risk_score,
-    calculate_velocity_risk_score
+    calculate_velocity_risk_score,
+    network_of,
 )
 from app.models import Session, BehaviorData, SurveyResponse, SurveyQuestion, FraudIndicator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,8 @@ class FraudDetectionService:
             ip_analysis["risk_score"],
             fingerprint_analysis["risk_score"],
             duplicate_analysis["risk_score"],
-            geolocation_analysis["risk_score"],
+            # No country lookup yet: leave the location check out instead of counting a 0.
+            geolocation_analysis["risk_score"] if geolocation_analysis.get("country_code") else None,
             velocity_analysis["risk_score"]
         )
         
@@ -252,23 +254,31 @@ class FraudDetectionService:
                 "fingerprint": None
             }
         
-        # Count sessions with matching fingerprint
-        count_query = select(func.count(Session.id)).where(
-            and_(
-                Session.device_fingerprint == fingerprint,
-                Session.id != session.id,
-                *self._same_survey(session)
+        # Other sessions of this survey with the same fingerprint, and their networks
+        others = await db.execute(
+            select(Session.ip_address).where(
+                and_(
+                    Session.device_fingerprint == fingerprint,
+                    Session.id != session.id,
+                    *self._same_survey(session)
+                )
             )
         )
-        count_result = await db.execute(count_query)
-        usage_count = (count_result.scalar() or 0) + 1  # other sessions plus this one
-        
-        # Calculate risk score
+        other_ips = [ip for (ip,) in others.all()]
+        usage_count = len(other_ips) + 1  # other sessions plus this one
+
         risk_score = calculate_fingerprint_risk_score(usage_count)
-        
+        # Identical phones and office laptops report the same fingerprint. The same
+        # "device" only on other networks counts half; on this network it counts fully.
+        own_network = network_of(session.ip_address)
+        same_network = sum(1 for ip in other_ips if own_network and network_of(ip) == own_network)
+        if other_ips and not same_network:
+            risk_score = round(risk_score * 0.5, 2)
+
         return {
             "risk_score": risk_score,
             "usage_count": usage_count,
+            "same_network": same_network,
             "fingerprint": fingerprint
         }
     

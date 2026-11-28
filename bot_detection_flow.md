@@ -12,15 +12,17 @@
   - IP Address Tracking ✅ **COMPLETED**
   - Device Fingerprinting ✅ **COMPLETED**
   - Duplicate Response Detection ✅ **COMPLETED**
-  - Geolocation Consistency Checking ✅ **COMPLETED**
+  - Geolocation Consistency Checking ✅ **COMPLETED** (no IP-to-country lookup yet, so it is left out of the fraud score)
   - Velocity Checking ✅ **COMPLETED**
 - **Composite Scoring**: 40% behavioral, 30% text quality, 30% fraud detection ✅ **COMPLETED**
 - **Hierarchical API**: Survey → Platform → Respondent → Session structure ✅ **DEPLOYED**
 - **Fraud Detection Hierarchical Endpoints**: All levels implemented ✅ **COMPLETED**
 - **Grid/Matrix Analysis**: Straight-lining, pattern detection, variance, satisficing ✅ **DEPLOYED**
 - **Per-Question Timing Analysis**: Speeder/flatliner detection, anomaly scoring ✅ **DEPLOYED**
-- **Configurable Bot Threshold**: `DETECTION_THRESHOLD` (Settings page, 0.3–0.99, default 0.7) decides the stored verdict and the composite verdict **DEPLOYED**
-- **Decisive Bot Signals**: automation, scripted_input, no_input, honeypot, untyped_answers lift the behaviour score; the score before the lift is kept as `base_score` and the signals as `decisive_codes` **DEPLOYED**
+- **Configurable Bot Threshold**: `DETECTION_THRESHOLD` (Settings page, 0.3–0.99, default 0.7) decides the stored verdict and `composite_is_bot` **DEPLOYED**; the final check's `is_bot` follows the survey's quality rules (in the code, not yet deployed)
+- **Decisive Bot Signals**: seven signals (automation, scripted_input, no_input, honeypot, untyped_answers, robotic_timing, timeline_mismatch) lift the behaviour score; the score before the lift is kept as `base_score` and the signals as `decisive_codes` (timeline_mismatch is in the code, not yet deployed)
+- **Behaviour Score**: noisy-OR of the four checks (in the code, not yet deployed; production still uses the weighted average)
+- **Signed Tracking**: HMAC token of the survey id when `TRACKING_TOKEN_SECRET` is set; production has no secret, so tracking there is unsigned
 - **Decipher XML Tracking**: Add tracking page adds the tracker, the hidden `QOS_` results page, an optional privacy notice and an optional early end on a clear bot signal **DEPLOYED**
 - **Live Quality**: per-survey quality rules that re-judge results on every read without changing stored results; `LQ_` variables added to uploaded data files **DEPLOYED**
 - **Database**: fraud_indicators, grid_responses, timing_analysis tables with hierarchical indexes ✅ **COMPLETED**
@@ -30,7 +32,7 @@
 
 ### ⏳ **PLANNED** - Future Enhancements
 - Authentication & Authorization (JWT, API keys)
-- Rate Limiting
+- Quota management (per-IP rate limits already exist: new sessions 30/min, other writes 600/min, Fix with AI 20/hour, per server instance)
 - WebSocket Support
 - Machine Learning Models
 
@@ -59,8 +61,9 @@
 - **Production Testing**: Automated test suite with 100% passing rate ✅ **DEPLOYED**
 
 ### Not Yet Deployed
+- **In the code, not yet in production (November 2026)**: rules-following final check, `timeline_mismatch` signal, noisy-OR behaviour score, fraud reweighting (location left out), data-file merge fix, signed-upload protection
 - **Authentication & Authorization**: JWT tokens, API keys, role-based access control ⏳ **PLANNED**
-- **Rate Limiting**: Request throttling and quota management ⏳ **PLANNED**
+- **Quota Management**: per-IP rate limits per server instance are in place (new sessions 30/min, other writes 600/min, Fix with AI 20/hour); quotas are ⏳ **PLANNED**
 - **WebSocket Support**: Real-time bidirectional communication ⏳ **PLANNED**
 - **Machine Learning Models**: ML-based bot detection algorithms ⏳ **PLANNED**
 - **Multi-tenancy**: Tenant isolation and custom branding ⏳ **PLANNED**
@@ -313,11 +316,11 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Behavioral Detection Methods ✅ DEPLOYED"
-        A[Keystroke Analysis<br/>30% Weight]
-        B[Mouse Analysis<br/>25% Weight]
-        C[Timing Analysis<br/>20% Weight]
-        D[Device Analysis<br/>15% Weight]
-        E[Network Analysis<br/>0% Weight, not implemented]
+        A[Keystroke Analysis<br/>reliability 0.5]
+        B[Mouse Analysis<br/>reliability 0.45]
+        C[Timing Analysis<br/>reliability 0.35]
+        D[Device Analysis<br/>reliability 0.4]
+        E[Network Analysis<br/>reliability 0, not implemented]
     end
     
     subgraph "Decisive Signals"
@@ -326,27 +329,29 @@ graph TB
         DS3[no_input]
         DS4[honeypot]
         DS5[untyped_answers]
+        DS7[robotic_timing]
+        DS8[timeline_mismatch]
         DS6[One signal: score at least 0.85<br/>Two or more: at least 0.95]
     end
     
-    subgraph "Text Quality Analysis ✅ DEPLOYED"
-        F1[Gibberish Detection<br/>GPT-4o-mini]
-        F2[Copy-Paste Detection<br/>GPT-4o-mini]
-        F3[Relevance Analysis<br/>GPT-4o-mini]
-        F4[Generic Answer Detection<br/>GPT-4o-mini]
-        F5[Overall Quality Score<br/>GPT-4o-mini]
+    subgraph "Text Quality Analysis ✅ DEPLOYED - one GPT-4o-mini request per answer"
+        F1[Gibberish Detection]
+        F2[Copy-Paste Detection]
+        F3[Relevance Analysis]
+        F4[Generic Answer Detection]
+        F5[Overall Quality Score]
     end
     
     subgraph "Fraud Detection Methods ✅ DEPLOYED"
         G1[IP Address Tracking<br/>25% Weight]
         G2[Device Fingerprinting<br/>25% Weight]
         G3[Duplicate Response Detection<br/>20% Weight]
-        G4[Geolocation Consistency<br/>15% Weight]
+        G4[Geolocation Consistency<br/>15% Weight, left out:<br/>no country lookup yet]
         G5[Velocity Checking<br/>15% Weight]
     end
     
     subgraph "Grid/Matrix Analysis ✅ DEPLOYED"
-        H1[Straight-lining Detection<br/>80%+ identical values]
+        H1[Straight-lining Detection<br/>same answer on every row,<br/>3+ rows]
         H2[Pattern Detection<br/>Diagonal/Zigzag/Reverse]
         H3[Variance Scoring<br/>0-1 scale]
         H4[Satisficing Scoring<br/>0-1 scale]
@@ -366,7 +371,7 @@ graph TB
         K[Fraud Detection Weight: 30%]
         L[Weighted Combination]
         M[Confidence Calculation]
-        N[Classification Decision<br/>score >= DETECTION_THRESHOLD, default 0.7]
+        N[Classification Decision<br/>behaviour under the survey's rules;<br/>composite >= DETECTION_THRESHOLD kept as composite_is_bot]
     end
     
     A --> H
@@ -380,6 +385,8 @@ graph TB
     DS3 --> DS6
     DS4 --> DS6
     DS5 --> DS6
+    DS7 --> DS6
+    DS8 --> DS6
     DS6 --> H
     
     F1 --> H
@@ -445,11 +452,16 @@ graph TB
 ```
 
 **How the weights are used**:
-- The behaviour score is the weighted average of keystroke (0.3), mouse (0.25), timing (0.2) and device (0.15). Network analysis returns 0.0 and has no weight.
+- The behaviour score combines the four checks so that agreeing evidence adds up (noisy-OR): score = 1 − product(1 − reliability × check score), with reliabilities keystroke 0.5, mouse 0.45, timing 0.35, device 0.4 and network 0 (not implemented). Two strong checks reach 0.7; one alone does not. (Before, it was a weighted average with keystroke 0.3, mouse 0.25, timing 0.2 and device 0.15, where even perfect keystroke and mouse scores only reached 0.61.) Events the tracker sent twice are counted once.
 - Decisive signals are patterns people do not produce. One raises the behaviour score to at least 0.85, two or more to at least 0.95. The score before that lift is stored as `base_score`, and the signal codes as `decisive_codes`.
 - A session is stored as a bot when its behaviour score is at or above `DETECTION_THRESHOLD` (Settings page, default 0.7).
-- The composite score is 40% behaviour, 30% text-quality risk (1 − quality/100) and 30% fraud. The composite verdict uses the same `DETECTION_THRESHOLD`.
+- The composite score is 40% behaviour, 30% text-quality risk (1 − quality/100, over checked answers; 0.5 when none was checked) and 30% fraud. Whether it reaches `DETECTION_THRESHOLD` is kept as `composite_is_bot`. The final check's `is_bot` is decided by behaviour alone under the survey's quality rules (see section 6).
+- Fraud: the geolocation weight is left out (no IP-to-country lookup yet) and the other weights are renormalised over IP 0.25, device 0.25, duplicate answers 0.20 and velocity 0.15.
 - Grid and per-question timing results are reported next to the composite score (and in the `QOS_` variables), but they do not change the composite number.
+
+**robotic_timing** (reason code 7): printable-key typing whose gaps vary by under 3 ms in at least 3 separate stretches of 8 or more keys, with every such stretch like this (a stretch ends at a field change or a 2 s pause; holding Backspace never triggers it); or, with 30 or more mouse points, at least 3 ruler-straight runs of equal steps (4 or more points, within 1.5 px) covering at least 40% of the points.
+
+**timeline_mismatch** (reason code 8): the page times the browser reports add up to 60 seconds or more and exceed the time the server observed (from session creation to the last event received) by more than the larger of 30 seconds and 25%. Page times are measured in the browser and could be made up; the server's own arrival times cannot.
 
 ## 4. Fraud Detection Analysis Flow
 
@@ -464,27 +476,27 @@ graph TD
     B --> F[Geolocation Check]
     B --> G[Velocity Calculation]
     
-    C --> C1[Check IP Usage Count]
-    C1 --> C2[Calculate IP Risk Score]
+    C --> C1[Check IP Usage Count<br/>in this survey]
+    C1 --> C2[Calculate IP Risk Score<br/>halved if the device is not seen elsewhere]
     C2 --> C3[Flag if High Reuse]
     
     D --> D1[Generate Device Hash]
-    D1 --> D2[Check Fingerprint Reuse]
-    D2 --> D3[Calculate Fingerprint Risk]
+    D1 --> D2[Check Fingerprint Reuse<br/>in this survey]
+    D2 --> D3[Calculate Fingerprint Risk<br/>half if seen only on other networks]
     
-    E --> E1[Compare Response Texts]
-    E1 --> E2[Calculate Similarity Score]
+    E --> E1[Compare open-ended answers<br/>of 20+ characters]
+    E1 --> E2[Exact copies: whole survey<br/>Near copies 70%+: latest 2,000 answers]
     E2 --> E3[Count Duplicate Responses]
     
-    F --> F1[Extract IP Geolocation]
+    F --> F1[Extract IP Geolocation<br/>no lookup yet: no country]
     F1 --> F2[Check Consistency]
-    F2 --> F3[Flag Inconsistencies]
+    F2 --> F3[Left out of the fraud score<br/>while there is no country]
     
     G --> G1[Count Responses per Hour]
     G1 --> G2[Calculate Velocity Risk]
     G2 --> G3[Flag High Velocity]
     
-    C3 --> H[Weighted Fraud Score Calculation]
+    C3 --> H[Weighted Fraud Score Calculation<br/>weights renormalised over the parts that have a value]
     D3 --> H
     E3 --> H
     F3 --> H
@@ -509,6 +521,10 @@ graph TD
     style N fill:#4caf50
 ```
 
+- Data-centre IPs are those in the published AWS, Google Cloud, Oracle and DigitalOcean ranges.
+- Reason 15 (`geolocation_inconsistency`) means the same respondent was seen from different countries within an hour. It cannot fire until there is an IP-to-country lookup.
+- `QOS_DUP_SCORE` uses the duplicate-answer risk (under 0.70 similarity gives 0, from 0.70 gives 0.6, from 0.85 gives 0.8, from 0.95 gives 1.0), not the raw similarity, which is kept in `fraud_details.response_similarity`.
+
 ## 5. Text Quality Analysis Flow
 
 **Status**: ✅ **DEPLOYED** - OpenAI GPT-4o-mini integration fully operational with 100% test accuracy
@@ -521,7 +537,15 @@ graph TD
     D --> E[User Submits Response]
     E --> F[Send to Text Analysis API]
     
-    F --> G[OpenAI GPT-4o-mini Analysis<br/>✅ DEPLOYED]
+    F --> RL{Request slot free?<br/>OPENAI_REQUESTS_PER_MINUTE, default 300}
+    RL -->|Yes| G
+    RL -->|No| RW[Wait up to OPENAI_RATE_WAIT_SECONDS<br/>default 20]
+    RW -->|Slot found| G
+    RW -->|Still no slot| UC[Store as NOT CHECKED<br/>quality_score null, not flagged]
+    G -->|OpenAI unavailable| UC
+    UC --> R
+    
+    G[One OpenAI GPT-4o-mini request<br/>all five checks, judged against the question<br/>✅ DEPLOYED]
     G --> H[Gibberish Check]
     G --> I[Copy-Paste Detection]
     G --> J[Relevance Analysis]
@@ -551,21 +575,27 @@ graph TD
     style S fill:#4caf50
 ```
 
+**Unchecked open ends**: an answer that still cannot be checked (OpenAI unavailable, or the limit still reached after the wait) is stored with `quality_score` null and `analysis_details` `{"unchecked": true, "error": ...}`, and is not flagged. It is never given a neutral 50 and never counted as acceptable. Live Quality counts these per respondent (`text_unchecked`) and in the totals (`text.unchecked`); the CSV export has a `text_unchecked` column.
+
+**Entry method** (separate from the AI checks): "pasted" when at least half of an answer of 20 or more characters was pasted; "no_typing" when an answer of 20 or more characters had no input events.
+
 ## 6. Decision Making Process
 
-The tracker calls `composite-analyze` when the respondent submits the last page. That call stores a fresh behavioural verdict, runs the grid, timing and fraud checks, then builds the composite result. Analysis does not wait for a minimum number of events: with fewer than 5 key presses the keystroke score is 0.3, and a touch device gets a mouse score of 0.3.
+The tracker calls `composite-analyze` when the respondent submits the last page. That call stores a fresh behavioural verdict, runs the grid, timing and fraud checks, then builds the composite result and judges it under the survey's quality rules. Analysis does not wait for a minimum number of events: with fewer than 5 key presses the keystroke score is 0.3, and a touch device gets a mouse score of 0.3.
+
+Timing and grid results are saved in one batch (24 database round trips, down from 71). In production the final check took a median 1.7 s under load and 1.1 s idle (was 4.8 s and 2.8 s), within the tracker's 3-second wait on the last page.
 
 ```mermaid
 graph TD
     A[Events arrive in batches<br/>every 5 s and on each page submit] --> D[Last page submitted:<br/>composite-analyze]
     
-    D --> E[Keystroke Analysis<br/>0.3]
-    D --> F[Mouse Analysis<br/>0.25]
-    D --> G[Timing Analysis<br/>0.2]
-    D --> H[Device Analysis<br/>0.15]
-    D --> DS{Decisive signals?<br/>automation, scripted_input, no_input,<br/>honeypot, untyped_answers}
+    D --> E[Keystroke Analysis<br/>reliability 0.5]
+    D --> F[Mouse Analysis<br/>reliability 0.45]
+    D --> G[Timing Analysis<br/>reliability 0.35]
+    D --> H[Device Analysis<br/>reliability 0.4]
+    D --> DS{Decisive signals?<br/>automation, scripted_input, no_input,<br/>honeypot, untyped_answers,<br/>robotic_timing, timeline_mismatch}
     
-    E --> B1[Weighted average = base_score]
+    E --> B1[Noisy-OR: 1 - product of<br/>1 - reliability x score = base_score]
     F --> B1
     G --> B1
     H --> B1
@@ -593,13 +623,16 @@ graph TD
     J --> S
     K --> S
     
-    S --> S1{Composite >= DETECTION_THRESHOLD?}
-    S1 -->|Yes| S2[Composite verdict: BOT]
-    S1 -->|No| S3[Composite verdict: HUMAN]
-    S2 --> S4[Composite risk:<br/>CRITICAL >= 0.8, HIGH >= 0.6,<br/>MEDIUM >= 0.4, else LOW]
-    S3 --> S4
+    S --> S1[composite_is_bot:<br/>composite >= DETECTION_THRESHOLD]
+    S1 --> S4[Composite risk:<br/>CRITICAL >= 0.8, HIGH >= 0.6,<br/>MEDIUM >= 0.4, else LOW]
     
-    S4 --> Y[Return composite result<br/>with survey_variables QOS_]
+    RU[(Survey quality rules<br/>or defaults)] --> SV
+    X1 --> SV{base_score >= survey bot_threshold<br/>or an enabled bot signal fired?}
+    SV -->|Yes| S2[is_bot: BOT<br/>risk raised to at least HIGH]
+    SV -->|No| S3[is_bot: HUMAN]
+    S4 --> Y
+    S2 --> Y[Return composite result<br/>with survey_variables QOS_<br/>built under the survey's rules]
+    S3 --> Y
     L1 --> Y
     L2 --> Y
     
@@ -612,7 +645,7 @@ graph TD
     style K fill:#e1bee7
 ```
 
-The stored verdict and the composite verdict both use `DETECTION_THRESHOLD`. Changing it on the Settings page affects analyses run after the change; results already stored keep their verdict. Live Quality can judge stored results again under a survey's own rules (see section 14).
+The stored verdict and `composite_is_bot` use `DETECTION_THRESHOLD`; `behavioral_details.engine_is_bot` keeps the stored verdict. The `is_bot` returned by the final check, and `behavioral_details.is_bot`, follow the survey's quality rules (bot threshold and enabled bot signals), so they match Live Quality. Only behaviour decides `is_bot`; text and fraud show as their own flags and scores. Changing `DETECTION_THRESHOLD` on the Settings page affects analyses run after the change; results already stored keep their verdict. Live Quality can judge stored results again under a survey's own rules (see section 14).
 
 ## 7. Confidence Scoring & Risk Levels
 
@@ -650,7 +683,7 @@ graph LR
 ```
 
 - A session judged a bot is at least HIGH, even if the threshold was set below 0.7.
-- The composite result has its own risk level: CRITICAL from 0.8, HIGH from 0.6, MEDIUM from 0.4, otherwise LOW.
+- The composite result has its own risk level: CRITICAL from 0.8, HIGH from 0.6, MEDIUM from 0.4, otherwise LOW. In the final check it is raised to at least HIGH when the survey's rules judge the behaviour a bot.
 - Live Quality shows the behaviour risk from the stored score (HIGH from 0.7, MEDIUM from 0.5, otherwise LOW), raised to HIGH for any respondent its rules judge a bot.
 
 ## 8. Integration Flow
@@ -664,6 +697,7 @@ graph TB
         X2[Check compat and delphi settings<br/>Decipher would refuse]
         X3[Add tracker, QOS_ results page,<br/>optional privacy notice and early end]
         X4[Download tracked XML or<br/>upload to Decipher, never over a live survey]
+        X5[Signed upload succeeded:<br/>survey now requires signed sessions]
     end
     
     subgraph "Survey Platform Integration"
@@ -691,6 +725,7 @@ graph TB
     X1 --> X2
     X2 --> X3
     X3 --> X4
+    X4 -->|Signed upload| X5
     X4 --> A
     A --> B
     B --> C
@@ -718,7 +753,9 @@ graph TB
 
 **Early end on a clear bot signal**: when turned on, a hidden `QOS_EARLY` question goes on a page break every respondent reaches (page 2 by default). On that submit the tracker holds the page for at most 2.5 seconds, scores the behaviour so far, and writes `bot` only if one of the decisive signals chosen for the survey fired. The `QOS_bot_term` termination reads that value. A behaviour score alone, an error or a timeout leaves the respondent in the survey. If the survey has no such page break, the early check is not added and the final check still runs.
 
-**Final check**: on the last page the tracker holds the submit for at most 3 seconds while `composite-analyze` runs, then fills `QOS_FLAG` (bot, human or unknown), `QOS_SCORE`, `QOS_RISK` and the numeric `QOS_` variables from `survey_variables`. These values reach Decipher's own data exports. They are fixed when written; per-survey rules on Live Quality do not change them.
+**Final check**: on the last page the tracker holds the submit for at most 3 seconds while `composite-analyze` runs, then fills `QOS_FLAG` (bot, human or unknown), `QOS_SCORE`, `QOS_RISK` and the numeric `QOS_` variables from `survey_variables`. These values reach Decipher's own data exports. They follow the survey's quality rules in force at that moment: the verdict uses the survey's bot threshold and enabled bot signals, only enabled bot signals become reason codes, `datacenter_ip` only when `flag_datacenter` is on, and the low-quality open-end reason only for text reasons the rules count. They are fixed when written; later rule changes on Live Quality do not change them.
+
+**Signed tracking**: with `TRACKING_TOKEN_SECRET` set, the tracker carries an HMAC token of the survey id, and a survey that requires tokens refuses unsigned sessions. A successful upload of a signed tracked file to Decipher marks the survey as requiring signed sessions at once. (Before, this happened only when its first signed respondent arrived, so fake unsigned sessions were accepted until then.) Making the tracked file alone does not protect the survey, because the live survey may still run an older unsigned tracker. The token stops outsiders who never saw the survey; anyone who opens the survey page can read it. Production currently has no `TRACKING_TOKEN_SECRET`, so tracking there is unsigned.
 
 ## 9. Data Processing Pipeline
 
@@ -827,6 +864,8 @@ graph TB
         D3[no_input<br/>pages answered with no mouse or keyboard]
         D4[honeypot<br/>hidden field filled in]
         D5[untyped_answers<br/>open ends with no typing, pasting or dictation]
+        D6[robotic_timing<br/>key gaps vary under 3 ms, or<br/>ruler-straight equal mouse steps]
+        D7[timeline_mismatch<br/>page times longer than<br/>the time the server saw]
     end
     
     subgraph "Behavioral Human Indicators"
@@ -847,7 +886,7 @@ graph TB
     end
     
     subgraph "Grid/Matrix Bot Indicators ✅ DEPLOYED"
-        A17[Straight-lining<br/>80%+ identical values]
+        A17[Straight-lining<br/>same answer on every row, 3+ rows]
         A18[Diagonal Patterns<br/>Mechanical patterns]
         A19[Low Variance<br/>No response diversity]
         A20[High Satisficing<br/>Low-effort responses]
@@ -864,7 +903,7 @@ graph TB
         A12[IP Address Reuse<br/>Multiple sessions from same IP]
         A13[Device Fingerprint Reuse<br/>Same device across sessions]
         A14[Duplicate Responses<br/>High text similarity]
-        A15[Geolocation Inconsistency<br/>IP location mismatch]
+        A15[Geolocation Inconsistency<br/>different countries within an hour,<br/>no lookup yet]
         A16[High Velocity<br/>Rapid response submission]
     end
     
@@ -905,6 +944,8 @@ graph TB
     D3 --> C14
     D4 --> C14
     D5 --> C14
+    D6 --> C14
+    D7 --> C14
     
     B1 --> C1
     B2 --> C1
@@ -1000,7 +1041,7 @@ graph TD
     D --> G[Variance Calculation]
     D --> H[Satisficing Scoring]
     
-    E --> E1{80%+ Identical?}
+    E --> E1{Same answer on every row<br/>and 3+ rows?}
     E1 -->|Yes| E2[Flag as Straight-lined]
     E1 -->|No| E3[No Straight-lining]
     
@@ -1034,7 +1075,7 @@ graph TD
     style J fill:#4caf50
 ```
 
-The number of straight-lined grids from this analysis is written to `QOS_STRAIGHTLINE`. Live Quality also reads the grid answers the tracker stores for each page (`qos-grid:`, sent for grids with 3 or more rows) and flags Straight-lining when every row of a grid has the same answer and the grid has at least the survey's `straightline_min_rows` rows (default 3), or when this analysis already flagged it.
+Straight-lining means the same answer on every row of a grid with at least 3 rows (before, 80% identical answers was enough). The number of straight-lined grids from this analysis is written to `QOS_STRAIGHTLINE`. A grid page counts as one page: the copy of the page submit that carries the grid answers (element id `qos-grid:...`) is not counted as a second page. Live Quality also reads the grid answers the tracker stores for each page (`qos-grid:`, sent for grids with 3 or more rows) and flags Straight-lining when every row of a grid has the same answer and the grid has at least the survey's `straightline_min_rows` rows (default 3), or when this analysis already flagged it.
 
 ## 12. Per-Question Timing Analysis Flow
 
@@ -1080,7 +1121,7 @@ graph TD
     style J fill:#4caf50
 ```
 
-The number of speeder answers from this analysis is written to `QOS_SPEEDER`, and flatliners show as the Flatliner flag on Live Quality. The Live Quality Speeder flag does not use per-answer times, because a quick short answer would count. It uses page times instead (see section 14).
+`QOS_SPEEDER` is the number of pages faster than the survey's `speeder_page_seconds` rule (label "Pages answered too fast"), and speeder reason 22 applies when pages average under that rule, as on the dashboard. Only when no page times were received does `QOS_SPEEDER` fall back to the number of speeder answers from this analysis. (Before, it counted any answer finished in under 2 seconds.) Flatliners show as the Flatliner flag on Live Quality. The Live Quality Speeder flag does not use per-answer times, because a quick short answer would count. It uses page times instead (see section 14).
 
 ## 13. Text Analysis Dashboard Flow
 
@@ -1138,7 +1179,7 @@ Live Quality (`/quality` page, `GET /api/v1/quality/results?survey_id=`) judges 
 | Rule | Default | What it does |
 |------|---------|--------------|
 | `bot_threshold` | 0.7 | Bot when the stored `base_score` (the behaviour score before decisive signals lifted it) is at or above this |
-| `bot_signals` | all five | Decisive signals that make a respondent a bot on their own |
+| `bot_signals` | all seven | Decisive signals that make a respondent a bot on their own |
 | `speeder_page_seconds` | 3.5 | Speeder when pages average under this many seconds |
 | `speeder_median_share` | 0.5 | Speeder when total time is under this share of the median (needs 5 checked respondents with page times; 0 = off) |
 | `straightline_min_rows` | 3 | Smallest grid that counts for straight-lining |
@@ -1192,6 +1233,11 @@ graph TD
 - Results stored before `base_score` existed are judged on their stored score.
 - If a fraud score is missing, High fraud risk falls back to a stored fraud risk level of HIGH or CRITICAL.
 - Respondents are `checked` once analysed, `in_progress` if active in the last 20 minutes, otherwise `dropped`. Only checked respondents get a bot or human verdict.
+- Saved rules record which bot signals existed when they were saved. A signal added later (such as `robotic_timing` or `timeline_mismatch`) starts switched on for a survey that saved its rules earlier; signals the survey switched off stay off.
+- Open ends that could not be checked are counted per respondent as `text_unchecked` and in the totals as `text.unchecked`, and appear as a `text_unchecked` column in the CSV export.
+- Straight-lining is applied with the survey's `straightline_min_rows` when the tracker sent grid answers.
+
+**Repeat sessions per respondent**: `totals.respondents` counts people: sessions sharing a respondent id (the Decipher uuid) count once. `totals.sessions` still counts sessions, and each row has `other_sessions`. When `LQ_` variables are added to a data file and a uuid has several sessions, the checked session is used first, then the latest (before, the oldest was used, which was often an abandoned one).
 
 **Bot rate**: everywhere in the service (Overview, Sessions, survey and platform pages, `/dashboard/overview`, `/surveys`), the bot rate is distinct sessions judged bots divided by distinct sessions checked (analysed). A session analysed twice counts once. These pages use the stored verdicts; the Live Quality bot count uses the survey's rules.
 
@@ -1214,7 +1260,7 @@ graph LR
     D --> E
 ```
 
-**`QOS_` variables** (fixed when the respondent finishes): QOS_RESPONDENT, QOS_SESSION, QOS_FLAG, QOS_SCORE, QOS_RISK, QOS_STATUS (1 human, 2 suspect, 3 bot), QOS_BEHAV, QOS_OES, QOS_FRAUD, QOS_DUP, QOS_DUP_SCORE, QOS_IP_RISK, QOS_DEVICE_RISK, QOS_GEO_RISK, QOS_VELOCITY, QOS_DATACENTER, QOS_SPEEDER, QOS_STRAIGHTLINE, QOS_FLAGCOUNT, QOS_REASON, QOS_REASONS. Scores are whole numbers from 0 to 100. QOS_OES is a quality score (higher is better); the other scores are risk scores (higher is worse). A value is left blank when its check had nothing to work on. QOS_STATUS is 3 when the stored or composite verdict is bot, 2 when any reason code applies or the composite risk is MEDIUM or higher, otherwise 1.
+**`QOS_` variables** (fixed when the respondent finishes): QOS_RESPONDENT, QOS_SESSION, QOS_FLAG, QOS_SCORE, QOS_RISK, QOS_STATUS (1 human, 2 suspect, 3 bot), QOS_BEHAV, QOS_OES, QOS_FRAUD, QOS_DUP, QOS_DUP_SCORE, QOS_IP_RISK, QOS_DEVICE_RISK, QOS_GEO_RISK, QOS_VELOCITY, QOS_DATACENTER, QOS_SPEEDER, QOS_STRAIGHTLINE, QOS_FLAGCOUNT, QOS_REASON, QOS_REASONS. Scores are whole numbers from 0 to 100. QOS_OES is a quality score (higher is better); the other scores are risk scores (higher is worse). A value is left blank when its check had nothing to work on. QOS_STATUS is 3 when the final check's verdict is bot (behaviour under the survey's rules), 2 when any reason code applies or the composite risk is MEDIUM or higher, otherwise 1. QOS_SPEEDER is the number of pages faster than the survey's `speeder_page_seconds` ("Pages answered too fast"). QOS_DUP_SCORE is the highest of the device, IP and duplicate-answer risks, where the duplicate-answer part is the risk (0, 0.6, 0.8 or 1.0 from similarity 0.70, 0.85 and 0.95), not the raw similarity.
 
 **Reason codes** (QOS_REASONS lists all that apply; QOS_REASON is the lowest, most severe one; 0 means none):
 
@@ -1225,15 +1271,19 @@ graph LR
 | 3 | no_input: pages answered with no mouse or keyboard use |
 | 4 | honeypot: hidden honeypot field filled in |
 | 5 | untyped_answers: open ends that appeared without typing |
-| 6 | behaviour: bot-like behaviour score (only when judged a bot with no decisive signal) |
+| 6 | behaviour: bot-like behaviour score (only when judged a bot with no enabled decisive signal) |
+| 7 | robotic_timing: typing or mouse movement with machine-exact timing |
+| 8 | timeline_mismatch: page times longer than the time the server saw |
 | 10 | datacenter_ip: data centre, VPN or proxy IP address |
 | 11 | device_reuse: same device seen on other sessions |
 | 12 | ip_reuse: same IP address used repeatedly |
 | 13 | duplicate_responses: answers copied from another respondent |
 | 14 | high_velocity: many surveys started in a short time |
-| 15 | geolocation_inconsistency: location does not match |
+| 15 | geolocation_inconsistency: same respondent seen from different countries within an hour |
 | 20 | low_quality_open_ends: low-quality open-ended answers |
 | 21 | straight_lining: straight-lined grid questions |
-| 22 | speeder: questions answered too fast |
+| 22 | speeder: pages average under the survey's `speeder_page_seconds` (per-question speeders only when no page times were received) |
+
+Reason codes 1–5, 7 and 8 come only from the survey's enabled bot signals, `datacenter_ip` (10) only when `flag_datacenter` is on, and reason 20 only for text reasons the survey's rules count.
 
 **`LQ_` variables** (judged under the survey's rules at upload time): LQ_MATCHED, LQ_STATUS, LQ_VERDICT, LQ_BOT_SCORE, LQ_BOT_RISK, LQ_BOT_SIGNALS, LQ_SECONDS, LQ_PAGES, LQ_SEC_PER_PAGE, LQ_TEXT_QUALITY, LQ_FRAUD_SCORE, LQ_FRAUD_RISK, one 0/1 variable per flag (LQ_F_BOT, LQ_F_TEXT, LQ_F_PASTED, LQ_F_STRAIGHT, LQ_F_SPEEDER, LQ_F_FLATLINE, LQ_F_DUPLICATE, LQ_F_FRAUD, LQ_F_DATACENTRE), LQ_NFLAGS and LQ_FLAGS. Uploading again replaces existing `LQ_` columns.

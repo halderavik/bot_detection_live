@@ -47,8 +47,9 @@
 - **Rule-based analysis** - Implemented with configurable thresholds
 - **Behavioral pattern detection** - Keystrokes, mouse, timing, device
 - **Real-time processing** - <200ms median processing time
-- **Confidence scoring** - 0.0-1.0 scale with risk levels
-- **Multi-method analysis** - 5 detection methods implemented
+- **Confidence scoring** - 0.0-1.0 scale with risk levels; checks combined by noisy-OR so agreeing evidence adds up (see "Detection" below)
+- **Multi-method analysis** - 5 detection methods defined; keystroke, mouse, timing and device are implemented, network is not and carries no weight
+- **Decisive signals** - Seven patterns people do not produce (automation, scripted_input, no_input, honeypot, untyped_answers, robotic_timing, timeline_mismatch) lift the score to 0.85 / 0.95
 
 ## 8. API Performance & Reliability ✅
 - **Async database operations** - Fixed async relationship loading
@@ -154,27 +155,37 @@
 - **Quick Start Guide** - Comprehensive onboarding documentation
 
 - **Live Quality, Decipher XML tracking, real Settings and dashboard redesign (November 2026)** - Deployed 2026-11-26 as Cloud Run revision `bot-backend-00069-28j` and to the frontend bucket
+- **Detection review and pressure test (2026-11-27)** - 52 simulated respondents on production: 52/52 expected results and 150/150 open ends checked after the fixes. Fixes up to the grid-page count deployed as revision `bot-backend-00076-9q8`; the review fixes (see "Detection" below) are not deployed yet
 
 ## Current Architecture & Constraints (November 2026)
 
 ### Self-contained, Quant OS compatible
 - The folder has no dependency on Quant_Sys (Quant OS).
 - It stays compatible with surveys Quant OS tracked: same `QOS_` labels, it recognises the Quant OS tracking marker and re-tracks instead of tracking twice, and it uses the same device-fingerprint text.
-- `TRACKING_TOKEN_SECRET` is optional. Share it only if both systems should issue matching tokens.
+- `TRACKING_TOKEN_SECRET` is optional. Share it only if both systems should issue matching tokens. With it set, trackers carry an HMAC token of the survey id and a survey that requires tokens refuses unsigned sessions; a successful Upload to Decipher of a signed tracked file marks the survey as requiring them at once (in code, not yet deployed). The token stops outsiders who never saw the survey; anyone who opens the survey page can read it. Production has no secret set yet, so tracking there is unsigned.
 
 ### Stack
 - **Backend**: FastAPI with async SQLAlchemy on Cloud SQL PostgreSQL. pandas, pyreadstat and openpyxl read and write .sav, .csv and .xlsx files for the LQ_ merge.
 - **Frontend**: React (Vite, Tailwind CSS). Shared UI kit in `frontend/src/components/ui/index.jsx`; layout in `frontend/src/components/layout/AppShell.jsx` (grouped left sidebar, top bar and slide-out menu on phones).
 - **Routing**: production uses hash addresses (`index.html#/quality`) because the dashboard is served from a storage bucket with no server-side rewrites (`VITE_ROUTER_MODE=hash` in `frontend/.env.production`). Local dev uses normal paths.
 - **Decipher**: tracking is added to the survey XML itself (tracker script, `${uuid}` as respondent id, hidden page with 21 `QOS_` variables). Upload uses Decipher's API with `validate=true` and `overwriteLive=false`, so a live survey is never overwritten. Settings Decipher would refuse (`compat` missing, below 143, or 151+ without `delphi="1"`) are caught before anything is sent.
-- **Live Quality**: per-survey rules (table `survey_quality_rules`) are applied on every read (dashboard, CSV, LQ_ variables). They never change stored results or the QOS_ values already written into Decipher.
+- **Live Quality**: per-survey rules (table `survey_quality_rules`) are applied on every read (dashboard, CSV, LQ_ variables), and by the final check (composite-analyze) when it sets `is_bot` and the QOS_ values. Changing them later never changes stored results or the QOS_ values already written into Decipher. Saved rules record which bot signals existed when saved, so signals added later start switched on. The respondent total counts people (sessions sharing a respondent id count once); the LQ_ merge uses a uuid's checked session first, then the latest.
+
+### Detection (review of 2026-11-27)
+Deployed up to commit 7dd5d5a (revision `bot-backend-00076-9q8`); items marked (not deployed) are in the code only.
+- **Open ends**: one OpenAI call per answer covers gibberish, copy_paste, relevance, generic and quality, all judged against the question. Per-server limit `OPENAI_REQUESTS_PER_MINUTE` (300); an answer waits up to `OPENAI_RATE_WAIT_SECONDS` (20) for a slot, and if it still cannot be checked it is stored as not checked (score null, `analysis_details.unchecked`), never as a neutral 50. Live Quality and the CSV count these (`text_unchecked`).
+- **Behaviour score** (not deployed): score = 1 − Π(1 − reliability × check score), reliabilities keystroke 0.5, mouse 0.45, timing 0.35, device 0.4, network 0. Two strong checks reach 0.7; one alone does not. Events sent twice are counted once (not deployed); a grid page's extra submit copy is not counted as a second page.
+- **Final check**: `is_bot` follows the survey's rules and behaviour only (not deployed); `behavioral_details.engine_is_bot` keeps the verdict under `DETECTION_THRESHOLD`; `composite_is_bot` keeps the combined-score verdict. Timing and grid results are saved in one batch (median 1.7 s under load, within the tracker's 3 s wait).
+- **Fraud** (not deployed): location left out until an IP-to-country lookup exists, weights renormalised over IP 0.25, device 0.25, duplicate answers 0.20, velocity 0.15; a fingerprint seen only on other networks (/24, /48) counts half; `QOS_DUP_SCORE` uses the duplicate risk.
+- **Stored events** (not deployed): event JSON no longer repeats fields kept in columns or on the session; rejected events are logged by type only.
+- **Limits** (unchanged): per IP, per instance: new sessions 30/min, other writes 600/min, Fix with AI 20/hour. The tracker holds the last page at most 3 s for the final check, 2.5 s for the in-survey check, 1.5 s for answers.
 
 ### Settings model
 - A small set of keys can be edited on the Settings page: DECIPHER_API_KEY, DECIPHER_API_BASE, DECIPHER_COMPANY, QUALTRICS_API_TOKEN, OPENAI_API_KEY, OPENAI_MODEL, TRACKER_API_BASE, TRACKING_TOKEN_SECRET, DETECTION_THRESHOLD.
 - A saved value (table `app_settings`) overrides the environment variable of the same name. It applies at once on that instance; every instance re-reads every 30 s. Removing the saved value goes back to the environment.
 - Secrets are encrypted at rest with a key derived from SECRET_KEY and are never returned to the browser.
 - Saving needs header `X-Admin-Token` matching env `ADMIN_TOKEN`. `ADMIN_TOKEN` is env only; without it the page is read-only.
-- `DETECTION_THRESHOLD` (default 0.7) is used by the detection engine for the stored verdict.
+- `DETECTION_THRESHOLD` (default 0.7) is used by the detection engine for the stored verdict. The final check reports that verdict as `engine_is_bot` and sets `is_bot` from the survey's own bot threshold (not yet deployed).
 
 ### Numbers
 - Bot rate everywhere = sessions judged bots / sessions checked, counting distinct sessions.

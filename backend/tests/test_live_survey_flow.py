@@ -275,9 +275,11 @@ async def test_composite_after_analyze_includes_grid_and_timing(api):
     assert body["text_quality_details"]["total_responses"] == 1  # the grid rows are not counted as text
     # The same results as numbers for the survey data (SPSS): straight-lining, speeding, weak open end
     variables = body["survey_variables"]
-    assert variables["QOS_STRAIGHTLINE"] == 1 and variables["QOS_SPEEDER"] >= 1
-    assert {"20", "21", "22"} <= set(variables["QOS_REASONS"].split(","))
-    assert variables["QOS_STATUS"] == 2 and variables["QOS_FLAGCOUNT"] >= 3
+    # Speeding is judged by page times, as on the dashboard: this respondent's pages took
+    # normal time, so quick grid rows alone do not make a speeder.
+    assert variables["QOS_STRAIGHTLINE"] == 1 and variables["QOS_SPEEDER"] == 0
+    assert {"20", "21"} <= set(variables["QOS_REASONS"].split(",")) and "22" not in variables["QOS_REASONS"].split(",")
+    assert variables["QOS_STATUS"] == 2 and variables["QOS_FLAGCOUNT"] >= 2
     assert variables["QOS_OES"] is not None and variables["QOS_FRAUD"] is not None
 
     # Running it twice must also work
@@ -536,3 +538,22 @@ async def test_browser_signals_separate_identical_laptops(api):
         details = (await api.get(f"/dashboard/sessions/{sid}/details")).json()
         fingerprints.add(details.get("device_fingerprint") or sid)
     assert len(fingerprints) == 2
+
+
+@pytest.mark.asyncio
+async def test_final_check_follows_the_surveys_rules(api):
+    """A honeypot bot in a survey that switched the honeypot signal off is not called a bot."""
+    sid = await start(api, respondent="hp-rules")
+    events = human_events(t0())
+    events[-1]["honeypot"] = True
+    await send(api, sid, events)
+    body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
+    assert body["is_bot"] is True and body["behavioral_details"]["is_bot"] is True
+    assert body["survey_variables"]["QOS_STATUS"] == 3 and "4" in body["survey_variables"]["QOS_REASONS"].split(",")
+
+    state = (await api.get("/quality/rules", params={"survey_id": SURVEY})).json()
+    rules = {**state["rules"], "bot_signals": [code for code in state["rules"]["bot_signals"] if code != "honeypot"]}
+    assert (await api.put("/quality/rules", params={"survey_id": SURVEY}, json=rules)).status_code == 200
+    body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
+    assert body["is_bot"] is False and body["behavioral_details"]["engine_is_bot"] is True
+    assert body["survey_variables"]["QOS_STATUS"] != 3 and "4" not in body["survey_variables"]["QOS_REASONS"].split(",")

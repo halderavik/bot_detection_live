@@ -366,3 +366,17 @@ def test_script_errors_from_decipher_are_shown_in_full():
     assert _messages(body) == ["Exec (page 58): File 'USA_Zip_Code.dat' does not exist"]
     assert _messages({"$error": "Bad content."}) == ["Bad content."]
 
+
+
+@pytest.mark.asyncio
+async def test_a_signed_upload_makes_the_survey_require_signed_sessions(api):
+    from app.models import ProtectedSurvey
+
+    survey = await tracked(api)
+    url = "/detection/sessions?survey_id=Coffee%20Machine%20Study&respondent_id=r1"
+    # Tracked but not uploaded yet: the live survey may still run an unsigned tracker.
+    assert (await api.post(url)).status_code == 200
+    assert (await api.post("/tracking/decipher/upload", json={"xml": survey["xml"], "survey_id": survey["survey_id"]})).status_code == 200
+    async with api.maker() as db:
+        assert await db.get(ProtectedSurvey, "Coffee Machine Study") is not None
+    assert (await api.post(url)).status_code == 403  # unsigned sessions are refused from now on

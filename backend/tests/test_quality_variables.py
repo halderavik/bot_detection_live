@@ -113,3 +113,22 @@ def test_survey_tracked_with_the_older_five_fields_is_upgraded():
     assert "<number" not in old and 'label="QOS_RISK"' in old
     assert remove_tracking(old) == plain
     assert remove_tracking(new) == plain
+
+
+def test_variables_follow_the_surveys_rules_and_page_speed():
+    from app.services.quality_rules import QualityRules
+
+    composite = {
+        "is_bot": True,
+        "behavioral_details": {"is_bot": True, "confidence_score": 0.85,
+                               "flagged_patterns": {"base_score": 0.1, "decisive_codes": ["honeypot"]}},
+        "fraud_details": {"fraud_score": 0.75, "flag_reasons": {"datacenter_ip": {}}, "duplicate_risk_score": 0.0,
+                          "ip_risk_score": 0.0, "fingerprint_risk_score": 0.0},
+        "text_quality_details": {"flagged_count": 1, "flag_types": {"generic": 1}},
+    }
+    rules = QualityRules(bot_signals=["automation"], flag_datacenter=False, text_reasons=["gibberish"])
+    variables = survey_variables(composite, rules=rules, page_ms=[1500, 2000, 2500])
+    reasons = variables["QOS_REASONS"].split(",")
+    assert "4" not in reasons and "10" not in reasons and "20" not in reasons  # switched off in the rules
+    assert "22" in reasons and variables["QOS_SPEEDER"] == 3  # pages under 3.5 s each
+    assert survey_variables(composite, rules=QualityRules(), page_ms=[30000, 40000])["QOS_SPEEDER"] == 0

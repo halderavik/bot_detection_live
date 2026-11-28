@@ -15,11 +15,29 @@ The main backend tests run with pytest. They need no running server and no Postg
    cd backend
    $env:SECRET_KEY = "test"; python -m pytest tests
    ```
-   In bash: `SECRET_KEY=test python -m pytest tests`
+   In bash: `SECRET_KEY=test python -m pytest tests` (with the project virtualenv on Windows: `SECRET_KEY=test .venv/Scripts/python.exe -m pytest -q tests`)
 
-All 275 tests should pass. The tests are in `backend/tests/`. They cover detection, fraud, grid and timing analysis, text analysis, reports, dashboard numbers (`test_dashboard_numbers.py`), Decipher tracking and upload (`test_decipher_tracking.py`, `test_tracking_upload_endpoint.py`, `test_decipher_upload.py`), Live Quality and the LQ_ file merge (`test_quality_variables.py`, `test_live_quality.py`, `test_live_quality_endpoints.py`, `test_quality_merge.py`) and the Settings page store (`test_runtime_settings.py`). Example Decipher surveys used by the tracking tests are in `backend/tests/fixtures/`.
+All 348 tests should pass (count from 2026-11-27).
+
+**Timeline check in tests.** `backend/tests/conftest.py` holds a shared fixture that runs for every test and switches the `timeline_mismatch` check off, because integration tests post minutes of page time within milliseconds, which the check would rightly call made up. A test that needs the check marks itself with `@pytest.mark.timeline` (the marker is registered in the same file).
+
+The tests are in `backend/tests/`. They cover detection, fraud, grid and timing analysis, text analysis, reports, dashboard numbers (`test_dashboard_numbers.py`), Decipher tracking and upload (`test_decipher_tracking.py`, `test_tracking_upload_endpoint.py`, `test_decipher_upload.py`), Live Quality and the LQ_ file merge (`test_quality_variables.py`, `test_live_quality.py`, `test_live_quality_endpoints.py`, `test_quality_merge.py`) and the Settings page store (`test_runtime_settings.py`). Example Decipher surveys used by the tracking tests are in `backend/tests/fixtures/`.
 
 If collection fails with `ModuleNotFoundError`, you are probably using a Python without the backend requirements. Activate the backend virtualenv first.
+
+## Respondent Pressure Test (Simulator)
+
+`test_results/respondent_pressure_2026-11-27/simulate.py` plays many simulated respondents (people of several kinds, bots of each signal type, a device farm, dropouts) through the same API calls the live tracker makes from a Decipher survey, then reads the Live Quality results and the CSV export and scores each respondent against what its type should get.
+
+```bash
+python simulate.py <out_dir> [survey_id]
+```
+
+- `out_dir`: where the results are written (summary, scored respondents, open-end answers, the CSV export).
+- `survey_id`: optional; defaults to `PRESSURE_RESP_<date>_<time>`.
+- Environment: `BASE` (API base URL, default the production API) and `CONCURRENCY` (respondents played at once, default 6).
+
+It needs `httpx`. It waits in real time to match the page times it reports (otherwise the `timeline_mismatch` check would rightly flag them), so a full run takes a few minutes. It sends real requests and creates real sessions on the target server, including AI checks of open ends. Results from 2026-11-27 are in `test_results/respondent_pressure_2026-11-27` (first run) and its `after_fixes` folder.
 
 ## Text Analysis Checks Against a Running Backend
 
@@ -78,6 +96,7 @@ Make sure your `backend/.env` file has:
 - Valid `OPENAI_API_KEY`
 - `OPENAI_MODEL=gpt-4o-mini` (or your preferred model)
 - Database connection configured
+- Optional: `OPENAI_REQUESTS_PER_MINUTE` (default 300) and `OPENAI_RATE_WAIT_SECONDS` (default 20). One OpenAI call per answer covers all five checks. An answer that cannot be checked (OpenAI unavailable, or the limit still reached after the wait) is stored as not checked (`quality_score` null, `analysis_details.unchecked` true) instead of passing
 
 ### Troubleshooting
 

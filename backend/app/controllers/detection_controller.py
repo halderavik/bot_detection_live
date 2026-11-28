@@ -140,7 +140,7 @@ class DetectionController:
                             session_id=session_id,
                             event_type=event_data['event_type'],
                             timestamp=timestamp,
-                            event_data=event_data,
+                            event_data=_event_payload(event_data),
                             element_id=event_data.get('element_id'),
                             element_type=event_data.get('element_type'),
                             element_class=event_data.get('element_class'),
@@ -156,7 +156,8 @@ class DetectionController:
                         
                         valid_events.append(behavior_data)
                     else:
-                        logger.warning(f"Invalid event data: {event_data}")
+                        # Type only: the full event carries the page address, which may hold personal details.
+                        logger.warning(f"Invalid event skipped: {str(event_data.get('event_type'))[:40]!r}")
                 
                 # Save valid events
                 if valid_events:
@@ -257,7 +258,7 @@ class DetectionController:
                     )
                 
                 # Perform bot detection analysis
-                detection_result = await self.detection_engine.analyze_session(behavior_data, session.user_agent)
+                detection_result = await self.detection_engine.analyze_session(behavior_data, session.user_agent, session_started=session.created_at)
                 
                 # Set the session_id explicitly
                 detection_result.session_id = session_id
@@ -316,7 +317,7 @@ class DetectionController:
                 # Behavioural analysis first, so the composite never falls back to a
                 # neutral 0.5 when /analyze was not called (or ran before new events).
                 if behavior_data:
-                    detection = await self.detection_engine.analyze_session(behavior_data, session.user_agent)
+                    detection = await self.detection_engine.analyze_session(behavior_data, session.user_agent, session_started=session.created_at)
                     detection.session_id = session_id
                     db.add(detection)
                     await db.commit()
@@ -344,8 +345,26 @@ class DetectionController:
                 composite_result = await self.detection_engine.calculate_composite_score(session_id, db)
                 composite_result['grid_details'] = _grid_digest(grid_summary)
                 composite_result['timing_details'] = _timing_digest(timing_summary)
+                # Judge by the survey's own rules (threshold, enabled signals), so the verdict,
+                # the tracker's QOS_FLAG and the data variables agree with Live Quality.
+                from app.services.live_quality import bot_verdict
+                from app.services.quality_rules import get_rules
+
+                rules = await get_rules(db, session.survey_id)
+                behaviour = composite_result.get('behavioral_details') or {}
+                if behaviour:
+                    verdict, _ = bot_verdict(behaviour, rules)
+                    behaviour['engine_is_bot'] = behaviour.get('is_bot')
+                    behaviour['is_bot'] = verdict
+                    # Behaviour decides bot or human, as in Live Quality; text and fraud are reported
+                    # as their own flags and scores. A behavioural bot is a bot whatever they add up to.
+                    composite_result['composite_is_bot'] = composite_result.get('is_bot')
+                    composite_result['is_bot'] = bool(verdict)
+                    if verdict and str(composite_result.get('risk_level') or '').upper() in ('LOW', 'MEDIUM'):
+                        composite_result['risk_level'] = 'HIGH'
+                page_ms = _page_times(behavior_data)
                 # Per-respondent values the tracker writes into the survey data (SPSS and other exports)
-                composite_result['survey_variables'] = survey_variables(composite_result)
+                composite_result['survey_variables'] = survey_variables(composite_result, rules=rules, page_ms=page_ms)
 
                 # Copy the fraud score onto the latest detection result
                 fraud_details = composite_result.get('fraud_details')
@@ -453,6 +472,24 @@ class DetectionController:
         """Get the router for this controller."""
         return self.router 
 
+def _page_times(behavior_data):
+    """Page times (ms) the tracker reported, one per page, repeats removed."""
+    seen, pages = set(), []
+    for event in behavior_data or []:
+        element = str(event.element_id or '')
+        if event.event_type != 'form_submit' or not element.startswith('qos-page:'):
+            continue
+        key = (event.timestamp, element)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            pages.append(max(int(element.split(':', 1)[1]), 0))
+        except ValueError:
+            continue
+    return pages
+
+
 def _grid_digest(summary):
     """Compact grid result for the composite response."""
     if not summary:
@@ -480,6 +517,18 @@ def _timing_digest(summary):
 
 # Events per ingest request, and how far event times may be from the server clock.
 MAX_EVENTS_PER_REQUEST = 500
+
+# Kept in their own columns, or once on the session: not copied into every event's JSON.
+_STORED_ELSEWHERE = {
+    "event_type", "timestamp", "element_id", "element_type", "element_class", "page_url", "page_title",
+    "screen_width", "screen_height", "viewport_width", "viewport_height", "load_time", "response_time",
+    "user_agent", "survey_id", "respondent_id", "platform_id",
+}
+
+
+def _event_payload(event_data: Dict[str, Any]) -> Dict[str, Any]:
+    """The event's own fields (coordinates, keys, signals), without the page details repeated on every event."""
+    return {key: value for key, value in event_data.items() if key not in _STORED_ELSEWHERE}
 _FUTURE_SLACK = 600  # seconds
 _PAST_LIMIT = 7 * 24 * 3600  # seconds
 

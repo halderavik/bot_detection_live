@@ -15,6 +15,7 @@ import logging
 from app.config import settings
 from app.utils.logger import setup_logger
 from app.utils.helpers import calculate_confidence_score, determine_risk_level
+from app.utils.fraud_helpers import calculate_duplicate_response_risk_score
 from app.models import BehaviorData, DetectionResult, SurveyResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -56,7 +57,8 @@ class BotDetectionEngine:
         return float(settings.DETECTION_THRESHOLD)
 
     async def analyze_session(
-        self, behavior_data: List[BehaviorData], user_agent: Optional[str] = None
+        self, behavior_data: List[BehaviorData], user_agent: Optional[str] = None,
+        session_started: Optional[datetime] = None,
     ) -> DetectionResult:
         """
         Analyze a session's behavior data for bot detection.
@@ -75,8 +77,9 @@ class BotDetectionEngine:
             logger.warning("No behavior data provided for analysis")
             raise ValueError("No behavior data provided for analysis")
 
-        behavior_data = sorted(behavior_data, key=lambda event: event.timestamp)
+        behavior_data = self._without_repeats(sorted(behavior_data, key=lambda event: event.timestamp))
         context = self._session_context(behavior_data, user_agent)
+        context['session_started'] = session_started
 
         method_scores = {
             'keystroke_analysis': self._analyze_keystrokes(behavior_data),
@@ -93,7 +96,10 @@ class BotDetectionEngine:
         decisive = [text for _, text in found]
         base_score = round(confidence_score, 4)
         if decisive:
-            confidence_score = max(confidence_score, 0.95 if len(decisive) > 1 else 0.85)
+            # Two different signals, not two reasons for the same one (webdriver and a
+            # headless user agent are both "automation").
+            distinct = len({code for code, _ in found})
+            confidence_score = max(confidence_score, 0.95 if distinct > 1 else 0.85)
         confidence_score = round(min(confidence_score, 1.0), 4)
 
         is_bot = confidence_score >= self.BOT_THRESHOLD
@@ -170,7 +176,9 @@ class BotDetectionEngine:
             else:
                 risk_level = "LOW"
             
-            # Determine if session is flagged as bot/fraud
+            # Whether the combined score alone reaches the threshold. The final-check endpoint
+            # keeps this as composite_is_bot and sets is_bot from behaviour under the survey's
+            # rules, as Live Quality does.
             is_bot = composite_score >= self.BOT_THRESHOLD
             
             logger.info(f"Composite score calculated: {composite_score:.3f}, risk: {risk_level}")
@@ -202,8 +210,8 @@ class BotDetectionEngine:
                 'text_quality_score': None,
                 'text_quality_normalized': 0.5,
                 'fraud_score': None,
-                'risk_level': "HIGH" if behavioral_score >= 0.7 else "MEDIUM",
-                'is_bot': behavioral_score >= 0.7,
+                'risk_level': "HIGH" if behavioral_score >= self.BOT_THRESHOLD else "MEDIUM",
+                'is_bot': behavioral_score >= self.BOT_THRESHOLD,
                 'behavioral_details': behavior_result,
                 'text_quality_details': None,
                 'fraud_details': None,
@@ -309,7 +317,9 @@ class BotDetectionEngine:
                     'risk_level': fraud_indicator.risk_level,
                     'ip_risk_score': float(fraud_indicator.ip_risk_score) if fraud_indicator.ip_risk_score else 0.0,
                     'fingerprint_risk_score': float(fraud_indicator.fingerprint_risk_score) if fraud_indicator.fingerprint_risk_score else 0.0,
-                    'duplicate_risk_score': float(fraud_indicator.response_similarity_score) if fraud_indicator.response_similarity_score else 0.0,
+                    # A risk, not the raw similarity: 60% alike answers carry no duplicate risk.
+                    'duplicate_risk_score': calculate_duplicate_response_risk_score(float(fraud_indicator.response_similarity_score or 0.0)),
+                    'response_similarity': float(fraud_indicator.response_similarity_score or 0.0),
                     'geolocation_risk_score': float(fraud_indicator.geolocation_risk_score) if fraud_indicator.geolocation_risk_score else 0.0,
                     'velocity_risk_score': float(fraud_indicator.velocity_risk_score) if fraud_indicator.velocity_risk_score else 0.0,
                     'flag_reasons': fraud_indicator.flag_reasons,
@@ -321,6 +331,19 @@ class BotDetectionEngine:
             logger.error(f"Error getting fraud analysis: {e}")
             return None
     
+    @classmethod
+    def _without_repeats(cls, behavior_data: List[BehaviorData]) -> List[BehaviorData]:
+        """Drop events the tracker sent twice (it re-sends a batch when a send seems to fail)."""
+        seen, kept = set(), []
+        for event in behavior_data:
+            data = cls._data(event)
+            key = (event.event_type, event.timestamp, event.element_id, data.get('x'), data.get('y'), data.get('key'))
+            if key in seen:
+                continue
+            seen.add(key)
+            kept.append(event)
+        return kept
+
     @staticmethod
     def _data(event: BehaviorData) -> Dict[str, Any]:
         return event.event_data if isinstance(event.event_data, dict) else {}
@@ -372,6 +395,9 @@ class BotDetectionEngine:
         rhythm = self._robotic_timing(context)
         if rhythm:
             signals.append(('robotic_timing', rhythm))
+        faked = self._timeline_mismatch(behavior_data, context)
+        if faked:
+            signals.append(('timeline_mismatch', faked))
 
         pages = len(context['submits'])
         if not context['touch'] and pages >= 2:
@@ -390,6 +416,41 @@ class BotDetectionEngine:
     ROBOTIC_MIN_MOVES = 30
     ROBOTIC_RUN = 4                # points in a ruler-straight run of equal steps
     ROBOTIC_RUN_SHARE = 0.4        # share of mouse points in such runs
+
+    # Page times are measured in the browser, so a script can report any it likes. The
+    # server stamps each batch of events when it arrives; claimed page times that add up
+    # to far more than the time the server saw cannot be real.
+    TIMELINE_MIN_CLAIM_S = 60
+    TIMELINE_SLACK_S = 30
+    TIMELINE_SLACK_SHARE = 0.25
+
+    def _timeline_mismatch(self, behavior_data: List[BehaviorData], context: Dict[str, Any]) -> Optional[str]:
+        """Plain-words description when claimed page times exceed the server-observed time, else None."""
+        claimed_ms = 0
+        for event in context['submits']:
+            element = str(event.element_id or '')
+            if element.startswith('qos-page:'):
+                try:
+                    claimed_ms += max(int(element.split(':', 1)[1]), 0)
+                except ValueError:
+                    continue
+        claimed = claimed_ms / 1000
+        received = [event.created_at for event in behavior_data if getattr(event, 'created_at', None) is not None]
+        if claimed < self.TIMELINE_MIN_CLAIM_S or len(received) < 2:
+            return None
+        # The tracker creates the session when the first page opens, so that is the start;
+        # the earliest event to arrive is the fallback.
+        started = context.get('session_started')
+        if started is not None:
+            received.append(started)
+        try:
+            seen = (max(received) - min(received)).total_seconds()
+        except TypeError:  # mixed naive and aware times; cannot compare safely
+            return None
+        if claimed > seen + max(self.TIMELINE_SLACK_S, self.TIMELINE_SLACK_SHARE * claimed):
+            return (f"Reported {claimed:.0f} seconds on its pages, but the server received everything "
+                    f"within {seen:.0f} seconds (page times were made up)")
+        return None
 
     def _robotic_timing(self, context: Dict[str, Any]) -> Optional[str]:
         """Plain-words description when typing or mouse movement is machine-exact, else None."""
