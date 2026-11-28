@@ -120,10 +120,12 @@ Review fixes (not deployed yet):
 - [x] **Repeated events**: events the tracker sent twice (same type, timestamp, element, x, y, key) are counted once
 - [x] **Slimmer stored events**: event JSON no longer repeats fields kept in their own columns or on the session; rejected events are logged by type only (page addresses can hold personal details)
 - [x] **Signed-upload protection**: a successful Upload to Decipher of a signed tracked file marks the survey as requiring signed sessions at once (before: only when its first signed respondent arrived)
-- [x] **Tests**: shared `backend/tests/conftest.py` switches the timeline check off unless a test is marked `timeline`; 348 backend tests pass
+- [x] **Tests**: shared `backend/tests/conftest.py` switches the timeline check off unless a test is marked `timeline` and turns the connection pool off; 349 backend tests pass
+
+- [x] **Final check under heavy load** (production run with 60 respondents active at once: final check median 1.9 s but 95th percentile 7.9 s, over the tracker's 3 s wait; database CPU 9% -> 74%, server CPU idle). Causes: no index on the columns every final check filters by (behavior_data, survey_responses, survey_questions, detection_results by session; sessions by IP), so each check scanned whole tables; and a new database connection for every request (NullPool). Fixes: `app/db_indexes.py` creates the missing indexes at startup (CONCURRENTLY, logs created/existing); a connection pool per server (`DB_POOL_SIZE` 4, `DB_MAX_OVERFLOW` 4); an open-end answer hands its connection back while OpenAI is asked. Not deployed yet
 
 Open items:
-- [ ] Deploy the review fixes
+- [x] Deploy the review fixes (commit `64bb2b8`, revision `bot-backend-00077-ggz`; production run 54/54)
 - [ ] Set `TRACKING_TOKEN_SECRET` on production (tracking there is unsigned today)
 - [ ] Add an IP-to-country lookup so the location check can count again
 - [ ] Validate the new behaviour score (noisy-OR) on real survey data

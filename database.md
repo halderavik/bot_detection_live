@@ -335,11 +335,10 @@ The aggregation queries (`/dashboard/overview`, `/dashboard/analytics/trends`, `
 
 ## Indexes (summary)
 
-- **sessions:** survey_id, respondent_id, platform_id, created_at; composite (survey_id, platform_id, respondent_id, id), (survey_id, platform_id), (survey_id, platform_id, respondent_id); device_fingerprint.
-- **behavior_data:** session_id, event_type, timestamp, created_at.
-- **detection_results:** session_id, is_bot, confidence_score, risk_level, created_at.
-- **survey_questions:** session_id, question_type, created_at.
-- **survey_responses:** question_id, session_id, quality_score, is_flagged, created_at.
+PostgreSQL does not index foreign keys by itself, and `create_all` never adds an index to a table that already exists. The indexes the per-respondent queries need are therefore created at startup by `backend/app/db_indexes.py` (in the background, with `CREATE INDEX CONCURRENTLY IF NOT EXISTS`, so writes are not blocked); the log line "Database indexes: created ...; already there ..." says which were missing. Without them each final check scanned whole tables, and a burst of respondents finishing at once overloaded the database.
+
+- **Created at startup** (`db_indexes.py`): behavior_data (session_id); survey_responses (session_id), (question_id); survey_questions (session_id); detection_results (session_id, created_at); sessions (ip_address, survey_id); timing_analysis (session_id).
+- **sessions:** survey_id, respondent_id, platform_id; composite (survey_id, platform_id, respondent_id, id), (survey_id, platform_id), (survey_id, platform_id, respondent_id); device_fingerprint.
 - **fraud_indicators:** session_id, survey_id, platform_id, ip_address, device_fingerprint, created_at; composites for survey, survey+platform, survey+platform+respondent, survey+platform+respondent+session; partial for is_duplicate and high risk.
 - **grid_responses:** survey_id, session_id, question_id; composites for hierarchy; partial for straight_lined, pattern_type; date-filtered for recent data.
 - **timing_analysis:** survey_id, session_id, question_id; composites for hierarchy; partial for speeder, flatliner; date-filtered for recent data.

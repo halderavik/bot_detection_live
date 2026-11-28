@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     OPENAI_MAX_RETRIES: int = 3
     # Open-end checks: OpenAI calls allowed per minute on one server, and how long an
     # answer waits for a free slot before it is stored as not checked.
+    # Database connections kept open per server (PostgreSQL), and extra ones allowed in a burst.
+    # 0 turns the pool off (a new connection per request).
+    DB_POOL_SIZE: int = 4
+    DB_MAX_OVERFLOW: int = 4
     OPENAI_REQUESTS_PER_MINUTE: int = 300
     OPENAI_RATE_WAIT_SECONDS: float = 20.0
     # Model for "Fix with AI" on survey XML; empty uses gpt-4o (services/decipher_ai_fix.py).

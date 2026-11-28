@@ -1,6 +1,12 @@
 """Shared test setup."""
 
+import os
+
 import pytest
+
+# Some tests drive the app through a client that opens a new event loop per request;
+# pooled database connections cannot cross event loops, so tests run without a pool.
+os.environ.setdefault("DB_POOL_SIZE", "0")
 
 
 def pytest_configure(config):

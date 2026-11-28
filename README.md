@@ -520,6 +520,8 @@ DETECTION_THRESHOLD=0.7              # bot probability for the stored verdict
 # Environment only
 OPENAI_REQUESTS_PER_MINUTE=300       # OpenAI calls per minute, per server instance
 OPENAI_RATE_WAIT_SECONDS=20          # how long an answer waits for a free slot before it is stored as not checked
+DB_POOL_SIZE=4                       # PostgreSQL connections kept open per server (0 = a new one per request)
+DB_MAX_OVERFLOW=4                    # extra connections a server may open in a burst (keep size + overflow x max servers under the database's limit)
 ```
 
 **Open-end check.** One OpenAI call per answer covers all five checks (gibberish, copied, relevance, generic, quality), each judged against the question. When the per-minute limit is reached, an answer waits up to `OPENAI_RATE_WAIT_SECONDS` for a slot. An answer that still cannot be checked (OpenAI unavailable, or the limit still reached) is stored as not checked: `quality_score` empty, `analysis_details` `{"unchecked": true, "error": ...}`, not flagged. It is never given a middle score and never counted as acceptable. How an answer was entered is judged separately: "pasted" when at least half of a 20+ character answer was pasted, "no typing" when a 20+ character answer had no input events.

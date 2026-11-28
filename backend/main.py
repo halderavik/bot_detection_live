@@ -42,6 +42,10 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to create database tables: {e}")
         logger.warning("Application will start without database tables")
 
+    # Indexes the per-respondent queries need, built in the background (see app/db_indexes.py).
+    from app.db_indexes import ensure_indexes
+    indexes_task = asyncio.create_task(ensure_indexes(engine))
+
     # Settings saved on the Settings page override the environment; re-read every 30 s.
     from app.database import AsyncSessionLocal
     from app.services import runtime_settings
@@ -57,6 +61,7 @@ async def lifespan(app: FastAPI):
     yield
     ranges_task.cancel()
     settings_task.cancel()
+    indexes_task.cancel()
     
     # Shutdown
     logger.info("Shutting down Bot Detection API...")

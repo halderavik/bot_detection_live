@@ -14,13 +14,28 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,  # Log SQL queries in debug mode
-    poolclass=NullPool,   # Disable connection pooling for async
-    future=True
-)
+# PostgreSQL keeps a small pool of open connections per server. Opening a fresh one
+# for every request made the database authenticate and start a backend process each
+# time, and a burst of respondents pushed its CPU up. Pool size x max servers stays
+# under the database's connection limit (defaults 4 + 4 per server, 10 servers).
+if settings.DATABASE_URL.startswith("postgresql") and settings.DB_POOL_SIZE > 0:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_MAX_OVERFLOW,
+        pool_timeout=30,
+        pool_pre_ping=True,   # a connection the database closed is replaced, not used
+        pool_recycle=1800,
+        future=True,
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        poolclass=NullPool,   # SQLite, or DB_POOL_SIZE=0 (tests that open a new event loop per request)
+        future=True,
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

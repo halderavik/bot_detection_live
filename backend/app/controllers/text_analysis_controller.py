@@ -205,6 +205,10 @@ async def submit_response(
                 detail=f"Question {request.question_id} not found"
             )
         
+        # Hand the database connection back while OpenAI is asked (which can take
+        # seconds, or wait for a free slot); the answer is saved with a fresh one.
+        await db.commit()
+
         # Closed questions (grid rows, single and multi choice) are stored for grid and
         # timing analysis only; an AI text-quality check would only misjudge them.
         if (question.question_type or "").lower() in CLOSED_QUESTION_TYPES:

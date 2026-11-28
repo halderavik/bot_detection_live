@@ -17,7 +17,7 @@ The main backend tests run with pytest. They need no running server and no Postg
    ```
    In bash: `SECRET_KEY=test python -m pytest tests` (with the project virtualenv on Windows: `SECRET_KEY=test .venv/Scripts/python.exe -m pytest -q tests`)
 
-All 348 tests should pass (count from 2026-11-27).
+All 349 tests should pass (count from 2026-11-27).
 
 **Timeline check in tests.** `backend/tests/conftest.py` holds a shared fixture that runs for every test and switches the `timeline_mismatch` check off, because integration tests post minutes of page time within milliseconds, which the check would rightly call made up. A test that needs the check marks itself with `@pytest.mark.timeline` (the marker is registered in the same file).
 
