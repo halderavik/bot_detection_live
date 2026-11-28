@@ -343,7 +343,10 @@ class BotDetectionEngine:
             'moves': [e for e in behavior_data if e.event_type == 'mouse_move'],
             'clicks': [e for e in behavior_data if e.event_type == 'mouse_click'],
             'keys': [e for e in behavior_data if e.event_type == 'keystroke'],
-            'submits': [e for e in behavior_data if e.event_type == 'form_submit'],
+            # One per page. The tracker also sends a copy of a grid page's submit carrying the
+            # grid answers (element id qos-grid:...); counting it would double the page.
+            'submits': [e for e in behavior_data if e.event_type == 'form_submit'
+                        and not str(e.element_id or '').startswith('qos-grid:')],
         }
 
     def _decisive_signals(self, behavior_data: List[BehaviorData], context: Dict[str, Any]) -> List[Tuple[str, str]]:

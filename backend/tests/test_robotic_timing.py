@@ -79,3 +79,18 @@ async def test_signal_makes_the_session_a_bot_and_is_a_known_rule_code():
     result = await BotDetectionEngine().analyze_session(events, "Mozilla/5.0 (Windows NT 10.0)")
     assert "robotic_timing" in result.flagged_patterns["decisive_codes"] and result.is_bot
     assert "robotic_timing" in BOT_SIGNALS and REASON_NUMBERS["robotic_timing"] == 7
+
+
+def test_a_grid_page_counts_once():
+    """The grid copy of a page's submit is not a second page (nor a second untyped answer)."""
+    engine = BotDetectionEngine()
+    one_page = [_ev("mouse_click", n * 300, element="r%d" % n) for n in range(4)]
+    one_page += [_ev("form_submit", 5000, element="qos-page:5000", untyped_answers=1),
+                 _ev("form_submit", 5000, element="qos-grid:3,4,1,5", untyped_answers=1)]
+    found = engine._decisive_signals(one_page, engine._session_context(one_page, "Mozilla/5.0 (Windows NT 10.0)"))
+    codes = [code for code, _ in found]
+    assert "no_input" not in codes  # one page only; no_input needs two
+    assert [text for code, text in found if code == "untyped_answers"] == [
+        "1 open-ended answer(s) appeared without any typing, pasting, or dictation"]
+    two_pages = one_page + [_ev("form_submit", 9000, element="qos-page:4000")]
+    assert "no_input" in [code for code, _ in engine._decisive_signals(two_pages, engine._session_context(two_pages, "Mozilla/5.0 (Windows NT 10.0)"))]
