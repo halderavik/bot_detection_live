@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import {
   Activity,
   BookOpen,
+  Calculator,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -35,6 +36,7 @@ export const NAV_GROUPS = [
     items: [
       { name: 'Open-end quality', to: '/text-analysis', icon: MessageSquare },
       { name: 'Reports', to: '/reports', icon: FileText },
+      { name: 'How checks work', to: '/how-checks-work', icon: Calculator },
     ],
   },
   {

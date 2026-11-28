@@ -127,6 +127,8 @@ Review fixes (deployed in `64bb2b8`, revision `bot-backend-00077-ggz`):
 - [x] **Check against real data** (930 sessions re-scored from Botv13 and SURVEY_2025): the new behaviour score flagged nobody new; the machine-timing mouse rule wrongly flagged 5 mouse-only sessions from the older tracker (8 ms sampling, 2-5 px steps), fixed by judging only steps of 10 px or more (0 flagged after; deployed in `8f89c0f`, revision `bot-backend-00079-lpm`). Scores in the 0.5-0.7 band went from 2 to 54, mostly short old-tracker fragments that trip the events-per-second timing rule; none reach 0.7
 - [x] **Dashboard walkthrough** (production, all pages): no console errors; rules editor lists all seven signals. Corrected the Settings text for the OpenAI key (answers are stored as not checked without it) and for the signing secret (set it once: changing it refuses live signed surveys' respondents)
 
+- [x] **How checks work page** (`frontend/src/components/HowChecksWork.jsx`, route `/how-checks-work`, menu Analyse): all checks with exact rules, thresholds and formulas, and a behaviour-score calculator
+
 Open items:
 - [x] Deploy the review fixes (commit `64bb2b8`, revision `bot-backend-00077-ggz`; production run 54/54)
 - [ ] Set `TRACKING_TOKEN_SECRET` on production (tracking there is unsigned today)

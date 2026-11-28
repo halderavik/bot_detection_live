@@ -47,6 +47,7 @@ These were removed because they showed made-up or non-working content: hard-code
 | Monitor | Sessions | `/sessions` | `SessionList.jsx` |
 | Analyse | Open-end quality | `/text-analysis` | `TextAnalysis.jsx` |
 | Analyse | Reports | `/reports` | `ReportBuilder.jsx` |
+| Analyse | How checks work | `/how-checks-work` | `HowChecksWork.jsx` |
 | Set up | Add tracking | `/tracking` | `SurveyTracking.jsx` |
 | Set up | Integrations | `/integrations` | `Integrations.jsx` |
 | Set up | Settings | `/settings` | `Settings.jsx` |
@@ -68,6 +69,7 @@ These were removed because they showed made-up or non-working content: hard-code
 - **Sessions:** latest verdict, risk, bot score, platform and event count per session. Filters (verdict, risk, platform, search) are kept in the URL; results are paginated.
 - **Session details:** the verdict and the signals that decided it first, then behaviour scores with plain labels, session facts (time in survey, browser, IP), fraud checks, open ends, grid, timing, and collapsible event log and raw analysis output.
 - **Open-end quality:** text quality results for open-ended answers.
+- **How checks work:** every check with its exact rules, thresholds and formulas (behaviour checks, the combined behaviour score with a small calculator, the seven bot signals, open ends, grids and speed, fraud, the final verdict, Live Quality flags, QOS_ values and reason codes), with the backend file for each. Static text that mirrors the backend code: update both together.
 - **Reports:** report builder on the Live Quality results of one survey, under that survey's rules: a period (all time, last 24 hours, 7 or 30 days, or custom dates), sections to include (summary, headline numbers, why respondents were flagged, starts over time, open-end quality, checks in detail, respondent list with reasons, rules and method), which respondents to list (flagged, bot-like, checked, or everyone who started), CSV columns, and print or PDF.
 - **Add tracking:** upload a Decipher survey XML (up to 5 MB), choose the privacy notice and the early end on a clear bot signal, then **Upload to Decipher** (new survey, the survey uploaded last time, or replace the XML of a given survey path) or download the tracked file. Shows what was added, warnings (including "Decipher will refuse this file: ..."), and Decipher's own error messages in full. The upload panel only appears when the service has a Decipher API key.
 - **Integrations:** Qualtrics and Decipher webhook addresses and configuration status, the API base URL, and setup notes.
