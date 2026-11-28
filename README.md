@@ -559,6 +559,7 @@ SECRET_KEY=test python -m pytest tests          # 275 tests; uses SQLite via aio
 - Decipher API keys are sent only to Decipher and removed from any error text.
 - Signed trackers (`TRACKING_TOKEN_SECRET`, optional) stop outsiders who never saw the survey from adding sessions under its name; anyone who opens the survey page can read the token. Production currently runs without it.
 - Rate limits per IP, per server instance: new sessions 30 a minute, other writes 600 a minute, Fix with AI 20 an hour. Input validation with Pydantic; parameterised queries.
+- Personal details: page addresses and referrers are stored without query strings; answers to text boxes that ask for an email, phone number, name, address, postcode, date of birth or government id are not stored or sent to OpenAI; emails and phone numbers in other answers are masked (`backend/app/utils/privacy.py`).
 - Rejected events are logged by type only, because the page address can hold personal details. Stored event JSON keeps only the event's own fields (page details, ids and sizes are kept in their own columns or once on the session).
 - `.gcloudignore` and `.dockerignore` keep `.env` and local data out of builds and images.
 

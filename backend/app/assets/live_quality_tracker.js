@@ -89,9 +89,16 @@
     });
   }
 
+  /* The page address without its query string or fragment: panel and respondent ids
+     often travel there, and the service only needs to tell pages apart. */
+  function pageAddress() {
+    var loc = window.location;
+    return loc.protocol + "//" + loc.host + loc.pathname;
+  }
+
   function context(target) {
     return {
-      page_url: window.location.href,
+      page_url: pageAddress(),
       user_agent: navigator.userAgent,
       screen_width: window.screen.width,
       screen_height: window.screen.height,
@@ -190,7 +197,7 @@
         question_text: questionText(el),
         question_type: "open_ended",
         element_id: el.id || el.name || "",
-        page_url: window.location.href,
+        page_url: pageAddress(),
         page_title: document.title
       }).then(function (data) { entry.ready = true; return data.question_id; });
     });
@@ -227,8 +234,29 @@
 
   function isTextInput(el) {
     if (!el || isOurs(el)) { return false; }
-    if (el.tagName === "TEXTAREA") { return true; }
-    return el.tagName === "INPUT" && (el.type === "text" || el.type === "") ;
+    if (el.tagName !== "TEXTAREA" && !(el.tagName === "INPUT" && (el.type === "text" || el.type === ""))) { return false; }
+    return !isPersonal(el);
+  }
+
+  /* Boxes that ask for contact or identity details (email, phone, name, address,
+     postcode, date of birth, government ids) are left alone: their answers are never
+     sent. The wording list matches the service's (backend/app/utils/privacy.py). */
+  var PERSONAL_WORDING = new RegExp([
+    /e-?mail address|your e-?mail\b|phone number|telephone|mobile number|cell number|contact number/.source,
+    /\b(?:first|last|full|given|family|sur|middle|maiden)\s?name\b|\byour name\b/.source,
+    /street address|mailing address|home address|postal address|your address|delivery address/.source,
+    /post\s?code|postal code|zip\s?code|date of birth|birth\s?date|\bdob\b/.source,
+    /social security|\bssn\b|social insurance|passport number|driver'?s licen[cs]e/.source
+  ].join("|"), "i");
+  var PERSONAL_FIELD = /e-?mail|phone|\btel\b|postcode|postal|zip/i;
+  var PERSONAL_AUTOFILL = /email|tel|name|street|address|postal|bday|cc-/i;
+  function isPersonal(el) {
+    if (el.qosPersonal === undefined) {
+      var auto = (el.getAttribute && el.getAttribute("autocomplete")) || "";
+      el.qosPersonal = PERSONAL_AUTOFILL.test(auto) || PERSONAL_FIELD.test((el.id || "") + " " + (el.name || "")) ||
+        PERSONAL_WORDING.test(questionText(el));
+    }
+    return el.qosPersonal;
   }
 
   /* Grids: three or more radio groups on a page are treated as a grid. */
@@ -294,7 +322,7 @@
         session_id: sid,
         question_text: questionText(first),
         question_type: "grid",
-        page_url: window.location.href,
+        page_url: pageAddress(),
         page_title: document.title
       });
     }).then(function (data) { gridQuestion.id = data.question_id; gridQuestion.ready = true; }).catch(function () {});

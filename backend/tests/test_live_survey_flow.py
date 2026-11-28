@@ -557,3 +557,47 @@ async def test_final_check_follows_the_surveys_rules(api):
     body = (await api.post(f"/detection/sessions/{sid}/composite-analyze")).json()
     assert body["is_bot"] is False and body["behavioral_details"]["engine_is_bot"] is True
     assert body["survey_variables"]["QOS_STATUS"] != 3 and "4" not in body["survey_variables"]["QOS_REASONS"].split(",")
+
+
+# ------------------------------------------------------------------ personal details
+
+@pytest.mark.asyncio
+async def test_personal_details_are_not_stored_or_text_checked(api, monkeypatch):
+    seen = []
+    original = text_analysis_controller.text_analysis_service.analyze_response
+
+    async def spy(question, answer):
+        seen.append(answer)
+        return await original(question, answer)
+
+    monkeypatch.setattr(text_analysis_controller.text_analysis_service, "analyze_response", spy)
+    sid = await start(api)
+    email_q = await register(api, sid, "What is your email address?", "open_ended")
+    open_q = await register(api, sid, "Why did you choose this brand?", "open_ended")
+    await answer(api, sid, email_q, "jane.doe@example.com", 4000)
+    await answer(api, sid, open_q, "Good value, and support answered at 416 555 0199 quickly", 9000)
+
+    assert seen == ["Good value, and support answered at [phone] quickly"]
+    from sqlalchemy import text as sql
+    async with api.engine.connect() as conn:
+        types = dict((await conn.execute(sql("SELECT question_text, question_type FROM survey_questions"))).all())
+        stored = [row[0] for row in (await conn.execute(sql("SELECT response_text FROM survey_responses"))).all()]
+    assert types["What is your email address?"] == "personal"
+    assert "jane.doe@example.com" not in stored and "" in stored
+    assert "Good value, and support answered at [phone] quickly" in stored
+
+
+@pytest.mark.asyncio
+async def test_page_addresses_are_kept_without_query_strings(api):
+    response = await api.post(
+        f"/detection/sessions?survey_id={SURVEY}&platform_id=decipher&respondent_id=r9",
+        headers={"user-agent": DESKTOP, "referer": "https://panel.example.com/start?pid=12345&email=a%40b.com"},
+    )
+    sid = response.json()["session_id"]
+    events = human_events(t0(), pages=1)
+    for event in events:
+        event["page_url"] = "https://survey.example.com/survey/selfserve/53b/250101?psid=abc&list=2#top"
+    await send(api, sid, events)
+    details = (await api.get(f"/dashboard/sessions/{sid}/details")).json()
+    assert details["session"]["referrer"] == "https://panel.example.com/start"
+    assert {e["page_url"] for e in details["behavior_data"]} == {"https://survey.example.com/survey/selfserve/53b/250101"}

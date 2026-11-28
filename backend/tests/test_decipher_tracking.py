@@ -286,6 +286,14 @@ def test_tracker_uses_decipher_uuid_as_the_respondent_id():
     assert remove_tracking(xml) == PLAIN
 
 
+def test_tracker_skips_personal_boxes_and_sends_addresses_without_query_strings():
+    script = tracker_script("Coffee Machine Study", API, "ab12", None)
+    assert "location.href" not in script
+    assert "page_url: pageAddress()" in script
+    assert "return !isPersonal(el);" in script
+    assert "e-?mail address" in script and "date of birth" in script
+
+
 # ------------------------------------------------------------------ settings Decipher refuses
 
 

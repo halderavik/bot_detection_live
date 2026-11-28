@@ -8,6 +8,7 @@ import {
   BookOpen,
   Calculator,
   ClipboardList,
+  Database,
   FileText,
   LayoutDashboard,
   Menu,
@@ -37,6 +38,7 @@ export const NAV_GROUPS = [
       { name: 'Open-end quality', to: '/text-analysis', icon: MessageSquare },
       { name: 'Reports', to: '/reports', icon: FileText },
       { name: 'How checks work', to: '/how-checks-work', icon: Calculator },
+      { name: 'Data & SPSS file', to: '/data-and-spss', icon: Database },
     ],
   },
   {

@@ -14,6 +14,7 @@ import logging
 from app.database import get_db
 from app.models import Session, BehaviorData, DetectionResult, FraudIndicator, ProtectedSurvey
 from app.utils.survey_tokens import token_valid
+from app.utils.privacy import strip_url
 from fastapi.encoders import jsonable_encoder
 from app.services.grid_analysis_service import GridAnalysisService
 from app.services.quality_variables import survey_variables
@@ -52,7 +53,7 @@ class DetectionController:
                 # Extract client information
                 user_agent = request.headers.get("user-agent", "")
                 ip_address = client_ip(request)
-                referrer = request.headers.get("referer", "")
+                referrer = strip_url(request.headers.get("referer", ""))
                 
                 # Sanitize inputs
                 user_agent = sanitize_user_agent(user_agent)
@@ -144,7 +145,7 @@ class DetectionController:
                             element_id=event_data.get('element_id'),
                             element_type=event_data.get('element_type'),
                             element_class=event_data.get('element_class'),
-                            page_url=event_data.get('page_url'),
+                            page_url=strip_url(event_data.get('page_url')),
                             page_title=event_data.get('page_title'),
                             screen_width=event_data.get('screen_width'),
                             screen_height=event_data.get('screen_height'),

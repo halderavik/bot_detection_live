@@ -553,6 +553,7 @@ curl -s -X GET \
 ## 8) Security & Privacy Notes
 
 - Do not capture PII in raw events. Only capture interaction metadata needed for behavioral analysis.
+- The tracker never sends answers from text boxes that ask for an email address, phone number, name, address, postcode, date of birth or government id, and sends page addresses without their query string. The service applies the same rules on arrival (answers to such questions are not stored; emails and phone numbers in other open ends are masked before the AI text check). Wording that doesn't match the list (for example "How can we reach you?") is not recognised, so keep contact questions worded plainly or outside tracked pages.
 - Transport is HTTPS; data at rest is stored in Cloud SQL.
 - If you need to disable specific event types for a page (e.g., open-ended PII), wrap listeners with page-level guards.
 

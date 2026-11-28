@@ -26,6 +26,7 @@ router = APIRouter(prefix="/text-analysis", tags=["text-analysis"])
 
 # Question types whose answers are not free text.
 from app.utils.question_types import CLOSED_QUESTION_TYPES  # noqa: E402
+from app.utils.privacy import PERSONAL_QUESTION_TYPE, is_personal_question, mask_personal, strip_url  # noqa: E402
 
 # Pydantic models for API requests and responses
 
@@ -136,15 +137,23 @@ async def submit_question(
                 detail=f"Session {request.session_id} not found"
             )
         
+        # Text boxes that ask for contact or identity details are kept as "personal":
+        # their answers are never stored or sent for the text check.
+        question_type = request.question_type
+        if (question_type or "").lower() not in CLOSED_QUESTION_TYPES and is_personal_question(
+            request.question_text, request.element_id
+        ):
+            question_type = PERSONAL_QUESTION_TYPE
+
         # Create survey question
         question = SurveyQuestion(
             id=str(uuid.uuid4()),
             session_id=request.session_id,
             question_text=request.question_text,
-            question_type=request.question_type,
+            question_type=question_type,
             element_id=request.element_id,
             element_type=request.element_type,
-            page_url=request.page_url,
+            page_url=strip_url(request.page_url),
             page_title=request.page_title
         )
         
@@ -209,9 +218,19 @@ async def submit_response(
         # seconds, or wait for a free slot); the answer is saved with a fresh one.
         await db.commit()
 
+        # Personal-detail answers are not kept; emails and phone numbers in other free
+        # text are masked before the text check and before saving.
+        question_type = (question.question_type or "").lower()
+        if question_type == PERSONAL_QUESTION_TYPE:
+            response_text = ""
+        elif question_type in CLOSED_QUESTION_TYPES:
+            response_text = request.response_text
+        else:
+            response_text = mask_personal(request.response_text)
+
         # Closed questions (grid rows, single and multi choice) are stored for grid and
         # timing analysis only; an AI text-quality check would only misjudge them.
-        if (question.question_type or "").lower() in CLOSED_QUESTION_TYPES:
+        if question_type in CLOSED_QUESTION_TYPES:
             analysis_result = TextAnalysisResult(
                 quality_score=None,
                 is_flagged=False,
@@ -226,10 +245,11 @@ async def submit_response(
         else:
             analysis_result = await text_analysis_service.analyze_response(
                 question.question_text,
-                request.response_text
+                response_text
             )
         
-        entry = entry_method_flags(request)
+        # Autofill and pasting are normal for contact details: no entry-method flags there.
+        entry = entry_method_flags(request) if question_type != PERSONAL_QUESTION_TYPE else None
         if entry:
             analysis_result.flag_reasons = {**(analysis_result.flag_reasons or {}), **entry["flags"]}
             analysis_result.analysis_details = {**(analysis_result.analysis_details or {}), "entry_method": entry["details"]}
@@ -241,7 +261,7 @@ async def submit_response(
             id=str(uuid.uuid4()),
             question_id=request.question_id,
             session_id=request.session_id,
-            response_text=request.response_text,
+            response_text=response_text,
             response_time_ms=request.response_time_ms,
             text_analysis_result=analysis_result.analysis_details,
             quality_score=analysis_result.quality_score,

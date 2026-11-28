@@ -17,6 +17,7 @@ import SurveyTracking from './components/SurveyTracking'
 import LiveQuality from './components/LiveQuality'
 import ManualSetup from './components/ManualSetup'
 import HowChecksWork from './components/HowChecksWork'
+import DataAndSpss from './components/DataAndSpss'
 import { EmptyState, buttonClass } from './components/ui'
 import { ToastContainer } from 'react-toastify'
 import { Compass } from 'lucide-react'
@@ -55,6 +56,7 @@ function App() {
           <Route path="/text-analysis" element={<TextAnalysis />} />
           <Route path="/reports" element={<ReportBuilder />} />
           <Route path="/how-checks-work" element={<HowChecksWork />} />
+          <Route path="/data-and-spss" element={<DataAndSpss />} />
           <Route path="/tracking" element={<SurveyTracking />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/manual-setup" element={<ManualSetup />} />

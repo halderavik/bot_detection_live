@@ -392,6 +392,7 @@ Events are sent to the API in batches:
 - **Enrichment**: Additional context added (session info, device data)
 - **Storage**: Events stored in PostgreSQL database. The stored event JSON does not repeat fields kept in their own columns or once on the session (page_url, page_title, user_agent, screen and viewport sizes, survey_id, respondent_id, platform_id, element ids, timestamp, event_type)
 - **Rejected events**: Logged by event type only, because the page address can hold personal details
+- **Personal details (November 2026)**: page addresses and referrers are stored without their query string or fragment. The tracker leaves text boxes that ask for contact or identity details alone (email address, phone number, name, address, postcode, date of birth, government ids; also boxes whose autocomplete, id or name says so). The service applies the same wording check on arrival, so trackers already in live surveys are covered too: such questions are stored as `personal`, their answers are not kept, text-checked, compared for duplicates, or flagged for entry method. Emails and phone numbers inside other answers are masked before the OpenAI call (`utils/privacy.py`)
 - **Repeated events**: Events the tracker sent twice (same type, timestamp, element, x, y and key) are counted once in the analysis
 
 ### 2. Session Management
