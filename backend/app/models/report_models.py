@@ -103,6 +103,7 @@ class RespondentDetail(BaseModel):
     avg_text_quality_score: Optional[float] = Field(None, description="Average text quality score")
     flagged_text_responses: Optional[int] = Field(None, description="Number of flagged text responses")
     text_quality_percentage: Optional[float] = Field(None, description="Percentage of flagged text responses")
+    text_unchecked: int = Field(0, description="Open-ended answers the AI check could not score (not counted as passed)")
     
     # Fraud detection (per session)
     fraud_score: Optional[float] = Field(None, description="Overall fraud score for this session")

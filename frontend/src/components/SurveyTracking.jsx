@@ -21,6 +21,7 @@ const FALLBACK_SIGNALS = [
   { code: 'no_input', label: 'Pages answered with no mouse or keyboard use' },
   { code: 'honeypot', label: 'Hidden honeypot field filled in' },
   { code: 'untyped_answers', label: 'Open ends that appeared without typing' },
+  { code: 'robotic_timing', label: 'Typing or mouse movement with machine-exact timing' },
 ];
 
 const errorMessage = (err) => {

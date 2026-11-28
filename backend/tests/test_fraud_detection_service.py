@@ -120,53 +120,38 @@ class TestFraudDetectionService:
     
     @pytest.mark.asyncio
     async def test_analyze_duplicate_responses_exact_match(self, fraud_service, mock_session, mock_db):
-        """Test duplicate response detection with exact match."""
-        # Mock session responses
-        session_response = SurveyResponse()
-        session_response.response_text = "This is a test response"
-        
-        other_response = SurveyResponse()
-        other_response.response_text = "This is a test response"
-        
-        # Mock database queries
-        mock_result_session = MagicMock()
-        mock_result_session.scalars.return_value.all.return_value = [session_response]
-        
-        mock_result_other = MagicMock()
-        mock_result_other.scalars.return_value.all.return_value = [other_response]
-        
-        mock_db.execute = AsyncMock(side_effect=[mock_result_session, mock_result_other])
-        
+        """An exact copy of an open-ended answer elsewhere in the survey is the highest risk."""
+        mock_db.execute = AsyncMock(side_effect=_duplicate_queries(
+            ["This is a test response from me"], exact=1, recent=["This is a test response from me"]))
         result = await fraud_service._analyze_duplicate_responses(mock_session, mock_db)
-        
-        assert result["risk_score"] == 1.0  # Exact match = 100% similarity = max risk
+        assert result["risk_score"] == 1.0
         assert result["duplicate_count"] >= 1
         assert result["max_similarity"] >= 0.95
-    
+
+    @pytest.mark.asyncio
+    async def test_analyze_duplicate_responses_near_copy(self, fraud_service, mock_session, mock_db):
+        mock_db.execute = AsyncMock(side_effect=_duplicate_queries(
+            ["I like the smooth taste and the fair price"], exact=0, recent=["I like the smooth taste and a fair price!"]))
+        result = await fraud_service._analyze_duplicate_responses(mock_session, mock_db)
+        assert result["max_similarity"] >= 0.85 and result["duplicate_count"] == 1
+
     @pytest.mark.asyncio
     async def test_analyze_duplicate_responses_unique(self, fraud_service, mock_session, mock_db):
-        """Test duplicate response detection with unique responses."""
-        # Mock session responses
-        session_response = SurveyResponse()
-        session_response.response_text = "This is a unique response"
-        
-        other_response = SurveyResponse()
-        other_response.response_text = "This is a completely different response"
-        
-        # Mock database queries
-        mock_result_session = MagicMock()
-        mock_result_session.scalars.return_value.all.return_value = [session_response]
-        
-        mock_result_other = MagicMock()
-        mock_result_other.scalars.return_value.all.return_value = [other_response]
-        
-        mock_db.execute = AsyncMock(side_effect=[mock_result_session, mock_result_other])
-        
+        """Different answers, and answers too short to compare, are not duplicates."""
+        mock_db.execute = AsyncMock(side_effect=_duplicate_queries(
+            ["This is a unique response from me", "good"], exact=0,
+            recent=["This is a completely different response", "good", "3"]))
         result = await fraud_service._analyze_duplicate_responses(mock_session, mock_db)
-        
-        assert result["risk_score"] < 0.6  # Low similarity = low risk
-        assert result["max_similarity"] < 0.70
-    
+        assert result["risk_score"] < 0.6
+        assert result["duplicate_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_short_answers_alone_are_never_compared(self, fraud_service, mock_session, mock_db):
+        mock_db.execute = AsyncMock(side_effect=_duplicate_queries(["3", "good"], exact=0, recent=[]))
+        result = await fraud_service._analyze_duplicate_responses(mock_session, mock_db)
+        assert result == {"risk_score": 0.0, "duplicate_count": 0, "max_similarity": 0.0}
+        assert mock_db.execute.await_count == 1  # nothing else is read
+
     @pytest.mark.asyncio
     async def test_analyze_geolocation_consistent(self, fraud_service, mock_session, mock_db):
         """Test geolocation analysis with consistent location."""
@@ -232,3 +217,11 @@ class TestFraudDetectionService:
             assert result.is_duplicate == (result.overall_fraud_score >= 0.7)
             assert result.flag_reasons is not None
             assert len(result.flag_reasons) > 0
+
+
+def _duplicate_queries(own, exact, recent):
+    """Results for the duplicate check's queries: own answers, exact copies, recent answers."""
+    own_result = MagicMock(); own_result.all.return_value = [(text,) for text in own]
+    exact_result = MagicMock(); exact_result.scalar.return_value = exact
+    recent_result = MagicMock(); recent_result.all.return_value = [(text,) for text in recent]
+    return [own_result, exact_result, recent_result]

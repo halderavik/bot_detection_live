@@ -47,27 +47,27 @@ class RateLimiter:
         self.requests = []
         self._lock = asyncio.Lock()
     
-    async def acquire(self) -> bool:
+    async def acquire(self, wait: float = 0.0) -> bool:
         """
-        Try to acquire a request slot.
-        
+        Take a request slot, waiting up to ``wait`` seconds for one to free up.
+
         Returns:
-            True if request is allowed, False if rate limited
+            True if a slot was taken, False if none freed up in time
         """
-        async with self._lock:
-            now = time.time()
-            
-            # Remove old requests outside the window
-            self.requests = [req_time for req_time in self.requests 
-                           if now - req_time < self.window_seconds]
-            
-            # Check if we can make another request
-            if len(self.requests) >= self.max_requests:
+        deadline = time.time() + max(wait, 0.0)
+        while True:
+            async with self._lock:
+                now = time.time()
+                # Remove old requests outside the window
+                self.requests = [req_time for req_time in self.requests
+                                 if now - req_time < self.window_seconds]
+                if len(self.requests) < self.max_requests:
+                    self.requests.append(now)
+                    return True
+                free_at = self.requests[0] + self.window_seconds
+            if now >= deadline:
                 return False
-            
-            # Add current request
-            self.requests.append(now)
-            return True
+            await asyncio.sleep(max(0.05, min(free_at, deadline) - now))
 
 class ResponseCache:
     """Simple in-memory cache for OpenAI responses."""
@@ -135,7 +135,7 @@ class OpenAIService:
         self.max_retries = settings.OPENAI_MAX_RETRIES
         
         # Initialize components
-        self.rate_limiter = RateLimiter(max_requests=100, window_minutes=1)
+        self.rate_limiter = RateLimiter(max_requests=settings.OPENAI_REQUESTS_PER_MINUTE, window_minutes=1)
         self.cache = ResponseCache(ttl_hours=24)
         self.usage_stats = UsageStats()
         
@@ -185,7 +185,7 @@ class OpenAIService:
             return cached_result
         
         # Rate limiting
-        if not await self.rate_limiter.acquire():
+        if not await self.rate_limiter.acquire(wait=settings.OPENAI_RATE_WAIT_SECONDS):
             raise Exception("Rate limit exceeded. Please try again later.")
         
         # Prepare request
@@ -289,7 +289,7 @@ class OpenAIService:
         
         return processed_results
     
-    async def analyze_with_formatted_prompt(self, formatted_prompt: str) -> Dict[str, Any]:
+    async def analyze_with_formatted_prompt(self, formatted_prompt: str, max_tokens: Optional[int] = None) -> Dict[str, Any]:
         """
         Analyze text using a pre-formatted prompt.
         
@@ -314,7 +314,7 @@ class OpenAIService:
             return cached_result
         
         # Rate limiting
-        if not await self.rate_limiter.acquire():
+        if not await self.rate_limiter.acquire(wait=settings.OPENAI_RATE_WAIT_SECONDS):
             raise Exception("Rate limit exceeded. Please try again later.")
         
         # Make API request with retries
@@ -324,7 +324,7 @@ class OpenAIService:
                     self.client.chat.completions.create(
                         model=self.model,
                         messages=[{"role": "user", "content": formatted_prompt}],
-                        max_tokens=self.max_tokens,
+                        max_tokens=max_tokens or self.max_tokens,
                         temperature=self.temperature,
                         response_format={"type": "json_object"}
                     ),

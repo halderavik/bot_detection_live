@@ -16,16 +16,19 @@ from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# The combined check returns five short parts; leave room for them.
+COMBINED_MAX_TOKENS = 700
+
 @dataclass
 class TextAnalysisResult:
     """Result of text analysis."""
-    quality_score: float  # 0-100
+    quality_score: Optional[float]  # 0-100; None when the answer could not be checked
     is_flagged: bool
     flag_reasons: Dict[str, Any]
-    gibberish_score: float  # 0-1
-    copy_paste_score: float  # 0-1
-    relevance_score: float  # 0-1
-    generic_score: float  # 0-1
+    gibberish_score: Optional[float]  # 0-1
+    copy_paste_score: Optional[float]  # 0-1
+    relevance_score: Optional[float]  # 0-1
+    generic_score: Optional[float]  # 0-1
     analysis_details: Dict[str, Any]
     confidence: float  # 0-1 overall confidence
 
@@ -111,6 +114,29 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
 """
         }
         
+        # All five checks in one request (the separate prompts above document each check).
+        self.prompts["combined"] = """
+You check one open-ended survey answer. Judge it against the question.
+
+Question: "{question}"
+Answer: "{text}"
+
+Return JSON with exactly these keys, each reason under 20 words:
+{{
+  "gibberish": {{"is_gibberish": bool, "confidence": 0.0-1.0, "reason": "..."}},
+  "copy_paste": {{"is_copypaste": bool, "confidence": 0.0-1.0, "reason": "..."}},
+  "relevance": {{"is_relevant": bool, "confidence": 0.0-1.0, "reason": "..."}},
+  "generic": {{"is_generic": bool, "confidence": 0.0-1.0, "reason": "..."}},
+  "quality": {{"score": 0-100, "reasoning": "..."}}
+}}
+
+- gibberish: random characters, keyboard mashing, incoherent words, repeated characters.
+- copy_paste: reads as pasted or pre-written: formal, marketing or encyclopedic language unlike a casual survey answer, or text that could answer any question.
+- relevance: does the answer address what the question asks?
+- generic: low effort, such as "idk", "nothing", "good", "fine", "n/a", or one word where detail is expected. Do not mark gibberish or off-topic answers as generic.
+- quality: overall 0-100 for coherence, relevance to the question, effort and detail. A specific, on-topic answer of a sentence or two is good quality even if short.
+"""
+
         logger.info("Text analysis service initialized")
     
     async def analyze_response(self, question: str, answer: str) -> TextAnalysisResult:
@@ -140,72 +166,21 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
                 confidence=1.0
             )
         
-        # Run all analyses in parallel
-        tasks = [
-            self._analyze_gibberish(answer),
-            self._analyze_copy_paste(answer),
-            self._analyze_relevance(question, answer),
-            self._analyze_generic(answer),
-            self._analyze_quality(answer)
-        ]
-        
+        # One request answers all five checks; five separate calls per answer ran into
+        # the per-minute limit as soon as a survey had a few respondents at once.
+        prompt = self.prompts["combined"].format(question=question, text=answer)
         try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Process results with detailed error logging
-            def process_result(result, name, default_result):
-                """Process a single analysis result, handling exceptions."""
-                if isinstance(result, Exception):
-                    error_msg = str(result)
-                    logger.error(f"Text analysis failed for {name}: {error_msg}", exc_info=result)
-                    # Create a copy of default_result to avoid modifying the original
-                    error_result = default_result.copy() if isinstance(default_result, dict) else default_result
-                    # Include error details in the reason
-                    if isinstance(error_result, dict):
-                        if "reason" in error_result:
-                            error_result["reason"] = f"Analysis failed: {error_msg}"
-                        elif "reasoning" in error_result:
-                            error_result["reasoning"] = f"Analysis failed: {error_msg}"
-                    return error_result
-                return result
-            
-            # Process each result with appropriate defaults
-            gibberish_result = process_result(
-                results[0], "gibberish", 
-                {"is_gibberish": False, "confidence": 0.0, "reason": "Analysis failed"}
-            )
-            copy_paste_result = process_result(
-                results[1], "copy_paste",
-                {"is_copypaste": False, "confidence": 0.0, "reason": "Analysis failed"}
-            )
-            relevance_result = process_result(
-                results[2], "relevance",
-                {"is_relevant": True, "confidence": 0.5, "reason": "Analysis failed"}
-            )
-            generic_result = process_result(
-                results[3], "generic",
-                {"is_generic": False, "confidence": 0.0, "reason": "Analysis failed"}
-            )
-            quality_result = process_result(
-                results[4], "quality",
-                {"score": 50, "reasoning": "Analysis failed"}
-            )
-            
+            combined = await self.openai_service.analyze_with_formatted_prompt(prompt, max_tokens=COMBINED_MAX_TOKENS)
+            parts = self._split_combined(combined)
         except Exception as e:
             logger.error(f"Text analysis failed: {e}")
-            # Return default result on failure
-            return TextAnalysisResult(
-                quality_score=50.0,
-                is_flagged=False,
-                flag_reasons={},
-                gibberish_score=0.0,
-                copy_paste_score=0.0,
-                relevance_score=0.5,
-                generic_score=0.0,
-                analysis_details={"error": str(e)},
-                confidence=0.0
-            )
-        
+            return self.unchecked_result(str(e))
+        gibberish_result = parts["gibberish"]
+        copy_paste_result = parts["copy_paste"]
+        relevance_result = parts["relevance"]
+        generic_result = parts["generic"]
+        quality_result = parts["quality"]
+
         # Extract scores
         gibberish_score = gibberish_result.get("confidence", 0.0) if gibberish_result.get("is_gibberish", False) else 0.0
         copy_paste_score = copy_paste_result.get("confidence", 0.0) if copy_paste_result.get("is_copypaste", False) else 0.0
@@ -289,29 +264,43 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
             confidence=overall_confidence
         )
     
-    async def _analyze_gibberish(self, text: str) -> Dict[str, Any]:
-        """Analyze if text is gibberish."""
-        return await self.openai_service.analyze_text(text, self.prompts["gibberish"])
-    
-    async def _analyze_copy_paste(self, text: str) -> Dict[str, Any]:
-        """Analyze if text appears to be copy-pasted."""
-        return await self.openai_service.analyze_text(text, self.prompts["copy_paste"])
-    
-    async def _analyze_relevance(self, question: str, text: str) -> Dict[str, Any]:
-        """Analyze if text is relevant to the question."""
-        # For relevance analysis, we need to format the prompt with both question and text
-        prompt_template = self.prompts["relevance"]
-        formatted_prompt = prompt_template.format(question=question, text=text)
-        return await self.openai_service.analyze_with_formatted_prompt(formatted_prompt)
-    
-    async def _analyze_generic(self, text: str) -> Dict[str, Any]:
-        """Analyze if text is a generic response."""
-        return await self.openai_service.analyze_text(text, self.prompts["generic"])
-    
-    async def _analyze_quality(self, text: str) -> Dict[str, Any]:
-        """Analyze overall quality of the text."""
-        return await self.openai_service.analyze_text(text, self.prompts["quality"])
-    
+    @staticmethod
+    def _split_combined(combined: Any) -> Dict[str, Dict[str, Any]]:
+        """Check the combined reply has all five parts in the expected shape."""
+        if not isinstance(combined, dict):
+            raise ValueError("The text check returned no JSON object")
+        needed = {"gibberish": "is_gibberish", "copy_paste": "is_copypaste", "relevance": "is_relevant",
+                  "generic": "is_generic", "quality": "score"}
+        parts = {}
+        for name, key in needed.items():
+            part = combined.get(name)
+            if not isinstance(part, dict) or key not in part:
+                raise ValueError(f"The text check left out {name}")
+            parts[name] = part
+        try:
+            parts["quality"]["score"] = max(0.0, min(100.0, float(parts["quality"]["score"])))
+        except (TypeError, ValueError):
+            raise ValueError("The text check gave no quality score")
+        return parts
+
+    @staticmethod
+    def unchecked_result(reason: str) -> TextAnalysisResult:
+        """An answer the AI check could not score: no score and no flags, marked as not checked.
+
+        It is not given a middle score, so it never passes as a checked, acceptable answer.
+        """
+        return TextAnalysisResult(
+            quality_score=None,
+            is_flagged=False,
+            flag_reasons={},
+            gibberish_score=None,
+            copy_paste_score=None,
+            relevance_score=None,
+            generic_score=None,
+            analysis_details={"unchecked": True, "error": reason[:300]},
+            confidence=0.0,
+        )
+
     async def batch_analyze_responses(self, questions_and_answers: List[tuple]) -> List[TextAnalysisResult]:
         """
         Analyze multiple question-answer pairs in parallel.
@@ -330,17 +319,7 @@ Return JSON with: {{"score": 0-100, "reasoning": "detailed explanation"}}
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(f"Batch analysis failed for item {i}: {result}")
-                processed_results.append(TextAnalysisResult(
-                    quality_score=50.0,
-                    is_flagged=False,
-                    flag_reasons={"error": {"confidence": 1.0, "reason": str(result)}},
-                    gibberish_score=0.0,
-                    copy_paste_score=0.0,
-                    relevance_score=0.5,
-                    generic_score=0.0,
-                    analysis_details={"error": str(result)},
-                    confidence=0.0
-                ))
+                processed_results.append(self.unchecked_result(str(result)))
             else:
                 processed_results.append(result)
         

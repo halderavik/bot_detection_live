@@ -6,6 +6,7 @@ IP addresses, device fingerprints, duplicate responses, geolocation,
 and velocity patterns to identify duplicate and suspicious respondents.
 """
 
+import difflib
 import time
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
@@ -24,15 +25,19 @@ from app.utils.fraud_helpers import (
     calculate_duplicate_response_risk_score,
     calculate_velocity_risk_score
 )
-from app.models import Session, BehaviorData, SurveyResponse, FraudIndicator
+from app.models import Session, BehaviorData, SurveyResponse, SurveyQuestion, FraudIndicator
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 
 logger = setup_logger(__name__)
 
 
 # Fraud score given to sessions from a cloud provider's address range.
 DATACENTER_FRAUD_SCORE = 0.75
+# Duplicate answers: shortest open end compared, and how many recent answers in the
+# survey are compared for near copies (exact copies are found across the whole survey).
+MIN_DUPLICATE_CHARS = 20
+MAX_DUPLICATE_COMPARE = 2000
 
 
 class FraudDetectionService:
@@ -289,59 +294,60 @@ class FraudDetectionService:
                 "max_similarity": 0.0
             }
         
-        # Get responses for this session
-        responses_query = select(SurveyResponse).where(
-            SurveyResponse.session_id == session.id
-        ).where(
-            SurveyResponse.response_text.isnot(None)
+        # Open-ended answers only: grid rows and choices ("3", "Yes") repeat across honest
+        # respondents, and very short answers ("good") are the text check's job.
+        from app.utils.question_types import CLOSED_QUESTION_TYPES
+
+        open_ended = or_(SurveyQuestion.question_type.is_(None),
+                         func.lower(SurveyQuestion.question_type).notin_(CLOSED_QUESTION_TYPES))
+        own = await db.execute(
+            select(SurveyResponse.response_text)
+            .join(SurveyQuestion, SurveyResponse.question_id == SurveyQuestion.id)
+            .where(SurveyResponse.session_id == session.id, SurveyResponse.response_text.isnot(None), open_ended)
         )
-        responses_result = await db.execute(responses_query)
-        session_responses = responses_result.scalars().all()
-        
-        if not session_responses:
-            return {
-                "risk_score": 0.0,
-                "duplicate_count": 0,
-                "max_similarity": 0.0
-            }
-        
-        # Get responses from other sessions in same survey
-        other_responses_query = select(SurveyResponse).join(
-            Session, SurveyResponse.session_id == Session.id
-        ).where(
-            and_(
-                Session.survey_id == session.survey_id,
-                Session.id != session.id,
-                SurveyResponse.response_text.isnot(None)
-            )
+        session_texts = [text for (text,) in own.all() if text and len(text.strip()) >= MIN_DUPLICATE_CHARS]
+        if not session_texts:
+            return {"risk_score": 0.0, "duplicate_count": 0, "max_similarity": 0.0}
+
+        others = (
+            select(SurveyResponse.response_text)
+            .join(SurveyQuestion, SurveyResponse.question_id == SurveyQuestion.id)
+            .join(Session, SurveyResponse.session_id == Session.id)
+            .where(Session.survey_id == session.survey_id, Session.id != session.id,
+                   SurveyResponse.response_text.isnot(None), open_ended)
         )
-        other_responses_result = await db.execute(other_responses_query)
-        other_responses = other_responses_result.scalars().all()
-        
-        # Compare responses for similarity
         max_similarity = 0.0
         duplicate_count = 0
         similarity_threshold = 0.70  # Consider duplicate if >70% similar
-        
-        for session_response in session_responses:
-            if not session_response.response_text:
-                continue
-            
-            for other_response in other_responses:
-                if not other_response.response_text:
-                    continue
-                
-                similarity = calculate_text_similarity(
-                    session_response.response_text,
-                    other_response.response_text
-                )
-                
-                if similarity > max_similarity:
-                    max_similarity = similarity
-                
+
+        # Exact copies anywhere in the survey, found by the database.
+        exact = await db.execute(
+            others.with_only_columns(func.count()).where(
+                func.lower(func.trim(SurveyResponse.response_text)).in_([t.lower().strip() for t in session_texts]))
+        )
+        exact_count = exact.scalar() or 0
+        if exact_count:
+            max_similarity, duplicate_count = 1.0, exact_count
+
+        # Near copies among the most recent answers; the final check runs while the
+        # respondent waits, so it never reads the whole survey.
+        recent = await db.execute(others.order_by(SurveyResponse.created_at.desc()).limit(MAX_DUPLICATE_COMPARE))
+        other_texts = [text for (text,) in recent.all() if text and len(text.strip()) >= MIN_DUPLICATE_CHARS]
+        for mine in session_texts:
+            mine_norm = mine.lower().strip()
+            for other in other_texts:
+                other_norm = other.lower().strip()
+                if mine_norm == other_norm:
+                    continue  # counted by the exact query
+                matcher = difflib.SequenceMatcher(None, mine_norm, other_norm)
+                # Cheap upper bounds first; most pairs are nowhere near similar.
+                if matcher.real_quick_ratio() < similarity_threshold or matcher.quick_ratio() < similarity_threshold:
+                    continue  # cannot reach the threshold (below it the risk is 0 anyway)
+                similarity = matcher.ratio()
+                max_similarity = max(max_similarity, similarity)
                 if similarity >= similarity_threshold:
                     duplicate_count += 1
-        
+
         # Calculate risk score
         risk_score = calculate_duplicate_response_risk_score(max_similarity)
         

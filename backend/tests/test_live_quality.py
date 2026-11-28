@@ -286,9 +286,31 @@ def test_period_keeps_only_starts_inside_it_and_recounts():
     assert period["totals"]["sessions"] == 2 and period["totals"]["bots"] == 0
     assert period["totals"]["duplicates"] == 1 and period["fraud"]["high_risk"] == 1
     assert period["fraud"]["methods"] == {"ip": 1}
-    assert period["text"] == {"responses": 2, "avg_quality": 35.0, "flagged": 1, "flagged_pct": 50.0}
+    assert period["text"] == {"responses": 2, "avg_quality": 35.0, "flagged": 1, "flagged_pct": 50.0, "unchecked": 0}
     assert period["quality_distribution"] == {"30-40": 1}
     assert sum(item["count"] for item in period["flag_counts"]) >= 2
     assert period["period"]["from"].startswith("2026-11-15")
     # No period: the results as they are.
     assert live_quality.for_period(full)["totals"] == full["totals"]
+
+
+def test_straight_lining_follows_the_rule_not_the_stored_80_percent_check():
+    """Only every row the same counts, with at least the rule's minimum rows."""
+    stored_says_yes = _respondent(grid_straight_lining=True, grid_explanation="Straight-lined on 1 grid question(s); variance 0.21")
+    five_of_six = {"s": {"pages": [30000], "grids": [["3", "3", "4", "3", "3", "3"]]}}
+    row = _row(stored_says_yes, five_of_six)
+    assert not row["straight_lining"] and "Straight-lining" not in row["flags"] and row["grid_explanation"] is None
+    all_six = {"s": {"pages": [30000], "grids": [["3"] * 6]}}
+    row = _row(_respondent(), all_six)
+    assert row["straight_lining"] and row["grid_explanation"] == "Gave the same answer to all 6 rows of a grid."
+    assert not _row(_respondent(), all_six, straightline_min_rows=7)["straight_lining"]
+    # Without grid answers from the tracker, the stored check decides.
+    assert _row(stored_says_yes)["straight_lining"]
+
+
+def test_unchecked_open_ends_are_counted_and_exported():
+    result = live_quality.summarize("S", {}, {"respondents": [_respondent(text_unchecked=2)]}, None, rules=QualityRules())
+    assert result["respondents"][0]["text_unchecked"] == 2 and result["text"]["unchecked"] == 2
+    header, line = live_quality.results_csv(result).splitlines()[:2]
+    assert "text_unchecked" in header.split(",")
+    assert line.split(",")[header.split(",").index("text_unchecked")] == "2"

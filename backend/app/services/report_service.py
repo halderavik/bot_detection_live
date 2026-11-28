@@ -382,7 +382,7 @@ class ReportService:
         grid (rows) and timing (speeder / flatliner / anomaly counts).
         """
         bundle: Dict[str, Dict[str, Any]] = {
-            "events": {}, "detection": {}, "texts": {}, "fraud": {}, "grid": {}, "timing": {}
+            "events": {}, "detection": {}, "texts": {}, "fraud": {}, "grid": {}, "timing": {}, "unchecked": {}
         }
 
         rows = await db.execute(
@@ -411,6 +411,26 @@ class ReportService:
                 bundle["texts"].setdefault(response.session_id, []).append((response, question_text))
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"Text responses not loaded: {exc}")
+
+        try:
+            # Open-ended answers with no score are ones the AI check could not reach
+            # (closed questions are never scored, so they are left out).
+            from app.utils.question_types import CLOSED_QUESTION_TYPES
+
+            rows = await db.execute(
+                select(SurveyResponse.session_id, func.count(SurveyResponse.id))
+                .join(SurveyQuestion, SurveyResponse.question_id == SurveyQuestion.id)
+                .where(
+                    SurveyResponse.session_id.in_(session_ids),
+                    SurveyResponse.quality_score.is_(None),
+                    or_(SurveyQuestion.question_type.is_(None),
+                        func.lower(SurveyQuestion.question_type).notin_(CLOSED_QUESTION_TYPES)),
+                )
+                .group_by(SurveyResponse.session_id)
+            )
+            bundle["unchecked"] = {session_id: count for session_id, count in rows.all()}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Unchecked text responses not counted: {exc}")
 
         try:
             rows = await db.execute(
@@ -722,6 +742,7 @@ class ReportService:
             avg_text_quality_score=avg_text_quality_score,
             flagged_text_responses=flagged_text_responses,
             text_quality_percentage=text_quality_percentage,
+            text_unchecked=bundle.get("unchecked", {}).get(session.id, 0),
             fraud_score=fraud_score,
             is_duplicate=is_duplicate,
             fraud_risk_level=fraud_risk_level,

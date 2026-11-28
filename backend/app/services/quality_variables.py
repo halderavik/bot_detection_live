@@ -20,6 +20,7 @@ REASON_CODES = (
     (3, "no_input", "Pages answered with no mouse or keyboard use"),
     (4, "honeypot", "Hidden honeypot field filled in"),
     (5, "untyped_answers", "Open ends that appeared without typing"),
+    (7, "robotic_timing", "Typing or mouse movement with machine-exact timing"),
     (6, "behaviour", "Bot-like behaviour score"),
     (10, "datacenter_ip", "Data centre, VPN or proxy IP address"),
     (11, "device_reuse", "Same device seen on other sessions of this survey"),

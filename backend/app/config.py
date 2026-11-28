@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     OPENAI_TEMPERATURE: float = 0.3
     OPENAI_TIMEOUT: int = 30
     OPENAI_MAX_RETRIES: int = 3
+    # Open-end checks: OpenAI calls allowed per minute on one server, and how long an
+    # answer waits for a free slot before it is stored as not checked.
+    OPENAI_REQUESTS_PER_MINUTE: int = 300
+    OPENAI_RATE_WAIT_SECONDS: float = 20.0
     # Model for "Fix with AI" on survey XML; empty uses gpt-4o (services/decipher_ai_fix.py).
     OPENAI_FIX_MODEL: Optional[str] = None
 

@@ -32,16 +32,7 @@ class TestTextAnalysisService:
     async def test_analyze_response_high_quality(self, text_service, mock_openai_service):
         """Test analysis of a high-quality response."""
         # Mock OpenAI responses - note: relevance uses analyze_with_formatted_prompt
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Clear, coherent text"},
-            {"is_copypaste": False, "confidence": 0.2, "reason": "Appears to be original"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Detailed, thoughtful response"},
-            {"score": 85, "reasoning": "High quality response with good detail"}
-        ]
-        # Mock relevance check (uses analyze_with_formatted_prompt)
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.9, "reason": "Directly answers the question"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Clear, coherent text'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.2, 'reason': 'Appears to be original'}, 'relevance': {'is_relevant': True, 'confidence': 0.9, 'reason': 'Directly answers the question'}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Detailed, thoughtful response'}, 'quality': {'score': 85, 'reasoning': 'High quality response with good detail'}})
         
         # Replace the service's OpenAI client
         text_service.openai_service = mock_openai_service
@@ -66,16 +57,7 @@ class TestTextAnalysisService:
     @pytest.mark.asyncio
     async def test_analyze_response_gibberish(self, text_service, mock_openai_service):
         """Test analysis of gibberish response."""
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": True, "confidence": 0.9, "reason": "Random characters and words"},
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Not generic"},
-            {"score": 15, "reasoning": "Very low quality gibberish"}
-        ]
-        # Mock relevance check
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": False, "confidence": 0.8, "reason": "Doesn't make sense"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': True, 'confidence': 0.9, 'reason': 'Random characters and words'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.1, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': False, 'confidence': 0.8, 'reason': "Doesn't make sense"}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Not generic'}, 'quality': {'score': 15, 'reasoning': 'Very low quality gibberish'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -95,16 +77,7 @@ class TestTextAnalysisService:
     @pytest.mark.asyncio
     async def test_analyze_response_copy_paste(self, text_service, mock_openai_service):
         """Test analysis of copy-pasted response."""
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Not gibberish"},
-            {"is_copypaste": True, "confidence": 0.8, "reason": "Appears to be copied from source"},
-            {"is_generic": False, "confidence": 0.2, "reason": "Not generic"},
-            {"score": 45, "reasoning": "Moderate quality but appears copied"}
-        ]
-        # Mock relevance check
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.7, "reason": "Relevant to question"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': True, 'confidence': 0.8, 'reason': 'Appears to be copied from source'}, 'relevance': {'is_relevant': True, 'confidence': 0.7, 'reason': 'Relevant to question'}, 'generic': {'is_generic': False, 'confidence': 0.2, 'reason': 'Not generic'}, 'quality': {'score': 45, 'reasoning': 'Moderate quality but appears copied'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -121,15 +94,7 @@ class TestTextAnalysisService:
     @pytest.mark.asyncio
     async def test_analyze_response_generic(self, text_service, mock_openai_service):
         """Test analysis of generic response."""
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Not gibberish"},
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": True, "confidence": 0.9, "reason": "Very generic response"},
-            {"score": 25, "reasoning": "Low effort generic response"}
-        ]
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.6, "reason": "Somewhat relevant"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.1, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': True, 'confidence': 0.6, 'reason': 'Somewhat relevant'}, 'generic': {'is_generic': True, 'confidence': 0.9, 'reason': 'Very generic response'}, 'quality': {'score': 25, 'reasoning': 'Low effort generic response'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -147,15 +112,7 @@ class TestTextAnalysisService:
     @pytest.mark.asyncio
     async def test_analyze_response_irrelevant(self, text_service, mock_openai_service):
         """Test analysis of irrelevant response."""
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Not gibberish"},
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.2, "reason": "Not generic"},
-            {"score": 20, "reasoning": "Irrelevant to the question"}
-        ]
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": False, "confidence": 0.9, "reason": "Completely off-topic"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.1, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': False, 'confidence': 0.9, 'reason': 'Completely off-topic'}, 'generic': {'is_generic': False, 'confidence': 0.2, 'reason': 'Not generic'}, 'quality': {'score': 20, 'reasoning': 'Irrelevant to the question'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -189,53 +146,36 @@ class TestTextAnalysisService:
     
     @pytest.mark.asyncio
     async def test_analyze_response_openai_failure(self, text_service, mock_openai_service):
-        """Test handling of OpenAI API failures."""
-        mock_openai_service.analyze_text.side_effect = [
-            Exception("API timeout"),
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.2, "reason": "Not generic"},
-            {"score": 60, "reasoning": "Moderate quality"}
-        ]
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.6, "reason": "Relevant"}
-        )
-        
+        """A failed or incomplete AI check leaves the answer marked not checked, never passed with a score."""
         text_service.openai_service = mock_openai_service
-        
-        result = await text_service.analyze_response(
-            "What is your favorite color?",
-            "Blue is my favorite color"
-        )
-        
-        # Should still work with fallback values
-        assert result.quality_score == 60
-        assert result.gibberish_score == 0.0  # Fallback value
-        # Should handle errors gracefully with fallback values
-        assert result.gibberish_score == 0.0  # Fallback value
-    
+        for failure in (Exception("Rate limit exceeded. Please try again later."),
+                        {"gibberish": {"is_gibberish": False, "confidence": 0.1}}):  # parts missing
+            mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
+                side_effect=failure if isinstance(failure, Exception) else None,
+                return_value=None if isinstance(failure, Exception) else failure,
+            )
+            result = await text_service.analyze_response("What is your favorite color?", "nothing at all to say")
+            assert result.quality_score is None and not result.is_flagged
+            assert result.analysis_details["unchecked"] is True
+
+    @pytest.mark.asyncio
+    async def test_one_request_per_answer_with_the_question(self, text_service, mock_openai_service):
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={
+            "gibberish": {"is_gibberish": False, "confidence": 0.1}, "copy_paste": {"is_copypaste": False, "confidence": 0.1},
+            "relevance": {"is_relevant": True, "confidence": 0.9}, "generic": {"is_generic": False, "confidence": 0.1},
+            "quality": {"score": "72"}})
+        text_service.openai_service = mock_openai_service
+        result = await text_service.analyze_response("Why do you pick your brand?", "Smooth taste and fair price")
+        assert mock_openai_service.analyze_with_formatted_prompt.await_count == 1
+        prompt = mock_openai_service.analyze_with_formatted_prompt.await_args.args[0]
+        assert "Why do you pick your brand?" in prompt and "Smooth taste and fair price" in prompt
+        assert result.quality_score == 72 and not result.is_flagged
+
     @pytest.mark.asyncio
     async def test_batch_analyze_responses(self, text_service, mock_openai_service):
         """Test batch analysis of multiple responses."""
         # Mock responses for batch analysis
-        mock_openai_service.analyze_text.side_effect = [
-            # Response 1
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Not gibberish"},
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Not generic"},
-            {"score": 75, "reasoning": "Good response"},
-            # Response 2
-            {"is_gibberish": True, "confidence": 0.8, "reason": "Gibberish"},
-            {"is_copypaste": False, "confidence": 0.1, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Not generic"},
-            {"score": 20, "reasoning": "Poor response"}
-        ]
-        # Mock relevance checks (called twice for 2 responses)
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            side_effect=[
-                {"is_relevant": True, "confidence": 0.8, "reason": "Relevant"},
-                {"is_relevant": False, "confidence": 0.7, "reason": "Not relevant"}
-            ]
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(side_effect=[{'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.1, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': True, 'confidence': 0.8, 'reason': 'Relevant'}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Not generic'}, 'quality': {'score': 75, 'reasoning': 'Good response'}}, {'gibberish': {'is_gibberish': True, 'confidence': 0.8, 'reason': 'Gibberish'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.1, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': False, 'confidence': 0.7, 'reason': 'Not relevant'}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Not generic'}, 'quality': {'score': 20, 'reasoning': 'Poor response'}}])
         
         text_service.openai_service = mock_openai_service
         
@@ -320,15 +260,7 @@ class TestTextAnalysisService:
         """Test handling of very long response."""
         long_text = "This is a very long response. " * 100  # 3000+ characters
         
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.1, "reason": "Not gibberish"},
-            {"is_copypaste": True, "confidence": 0.7, "reason": "Very long, likely copied"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Not generic"},
-            {"score": 40, "reasoning": "Long response, possibly copied"}
-        ]
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.8, "reason": "Relevant but verbose"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.1, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': True, 'confidence': 0.7, 'reason': 'Very long, likely copied'}, 'relevance': {'is_relevant': True, 'confidence': 0.8, 'reason': 'Relevant but verbose'}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Not generic'}, 'quality': {'score': 40, 'reasoning': 'Long response, possibly copied'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -346,15 +278,7 @@ class TestTextAnalysisService:
     @pytest.mark.asyncio
     async def test_confidence_calculation(self, text_service, mock_openai_service):
         """Test overall confidence calculation."""
-        mock_openai_service.analyze_text.side_effect = [
-            {"is_gibberish": False, "confidence": 0.2, "reason": "Not gibberish"},
-            {"is_copypaste": False, "confidence": 0.3, "reason": "Not copy-pasted"},
-            {"is_generic": False, "confidence": 0.1, "reason": "Not generic"},
-            {"score": 70, "reasoning": "Good response"}
-        ]
-        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(
-            return_value={"is_relevant": True, "confidence": 0.4, "reason": "Relevant"}
-        )
+        mock_openai_service.analyze_with_formatted_prompt = AsyncMock(return_value={'gibberish': {'is_gibberish': False, 'confidence': 0.2, 'reason': 'Not gibberish'}, 'copy_paste': {'is_copypaste': False, 'confidence': 0.3, 'reason': 'Not copy-pasted'}, 'relevance': {'is_relevant': True, 'confidence': 0.4, 'reason': 'Relevant'}, 'generic': {'is_generic': False, 'confidence': 0.1, 'reason': 'Not generic'}, 'quality': {'score': 70, 'reasoning': 'Good response'}})
         
         text_service.openai_service = mock_openai_service
         
@@ -441,16 +365,9 @@ class TestOpenAIUnavailable:
         
         # Should return fallback result without crashing
         assert isinstance(result, TextAnalysisResult)
-        assert result.quality_score == 50.0  # Default fallback score
+        assert result.quality_score is None  # not checked, so not scored
         assert not result.is_flagged
-        assert result.gibberish_score == 0.0
-        assert result.copy_paste_score == 0.0
-        assert result.relevance_score == 0.5
-        assert result.generic_score == 0.0
-        # Confidence is calculated from fallback values, not 0.0
-        assert result.confidence >= 0.0  # Confidence may be calculated from fallback values
-        # When exceptions occur, analysis_details contains the fallback analysis results
-        assert len(result.analysis_details) > 0
+        assert result.analysis_details["unchecked"] is True
     
     @pytest.mark.asyncio
     async def test_batch_analyze_openai_unavailable(self, text_service_no_openai):
@@ -465,10 +382,8 @@ class TestOpenAIUnavailable:
         assert len(results) == 2
         for result in results:
             assert isinstance(result, TextAnalysisResult)
-            assert result.quality_score == 50.0  # Default fallback score
+            assert result.quality_score is None
             assert not result.is_flagged
-            # When exceptions occur, analysis_details contains the fallback analysis results
-            assert len(result.analysis_details) > 0
     
     def test_openai_service_initialization_without_key(self):
         """Test OpenAI service initialization without API key."""

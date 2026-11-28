@@ -281,7 +281,9 @@ def _row(
         flags.append("Data-centre IP")
     if item.get("timing_flatliner"):
         flags.append("Flatliner")
-    straight_lining = bool(item.get("grid_straight_lining")) or bool(straight)
+    # The survey's rule (every row the same, at least ``straightline_min_rows`` rows) decides
+    # whenever the tracker sent grid answers; the stored grid check is the fallback.
+    straight_lining = bool(straight) if grids else bool(item.get("grid_straight_lining"))
     if straight_lining:
         flags.append("Straight-lining")
     return {
@@ -301,6 +303,7 @@ def _row(
         "text_responses": item.get("text_response_count") or 0,
         "text_quality": item.get("avg_text_quality_score"),
         "text_flagged": item.get("flagged_text_responses") or 0,
+        "text_unchecked": item.get("text_unchecked") or 0,
         "low_quality_text": low_quality,
         "fraud_score": item.get("fraud_score"),
         "duplicate": bool(item.get("is_duplicate")),
@@ -331,8 +334,8 @@ def _row(
             for entry in entries
         ],
         "fraud_reasons": item.get("fraud_flag_reasons"),
-        "grid_explanation": item.get("grid_explanation")
-        or (f"Gave the same answer to all {len(straight[0])} rows of a grid." if straight else None),
+        "grid_explanation": (f"Gave the same answer to all {len(straight[0])} rows of a grid." if straight
+                             else item.get("grid_explanation") if straight_lining else None),
         "timing_explanation": item.get("timing_explanation"),
     }
 
@@ -393,6 +396,7 @@ def summarize(
             "avg_quality": text.get("avg_quality_score"),
             "flagged": text.get("flagged_count") or 0,
             "flagged_pct": text.get("flagged_percentage") or 0,
+            "unchecked": sum(int(row.get("text_unchecked") or 0) for row in rows),
         },
         "fraud": {
             "analyzed": fraud.get("total_sessions_analyzed") or 0,
@@ -531,6 +535,7 @@ _CSV_COLUMNS = (
     "text_responses",
     "text_quality",
     "text_flagged",
+    "text_unchecked",
     "fraud_score",
     "fraud_risk",
     "duplicate",
@@ -630,6 +635,7 @@ def for_period(
             "avg_quality": round(sum(scored) / len(scored), 1) if scored else None,
             "flagged": text_flagged,
             "flagged_pct": _pct(text_flagged, text_total),
+            "unchecked": sum(int(row.get("text_unchecked") or 0) for row in rows),
         },
         "fraud": {
             **(result.get("fraud") or {}),

@@ -76,6 +76,7 @@ BOT_SIGNALS = {
     "no_input": "Pages answered with no mouse or keyboard use",
     "honeypot": "Hidden honeypot field filled in",
     "untyped_answers": "Open ends that appeared without typing",
+    "robotic_timing": "Typing or mouse movement with machine-exact timing",
 }
 
 DEFAULT_PRIVACY_TEXT = (

@@ -12,6 +12,7 @@ const SIGNAL_DETAIL = {
   no_input: 'Pages were answered with no mouse, touch or keyboard activity at all.',
   honeypot: "A field hidden from people was filled in. A person can't see it; a form-filling bot does.",
   untyped_answers: 'Text appeared in an open end without any typing, as when a script fills the box.',
+  robotic_timing: 'Keys were pressed at exactly the same interval in several answers, or the mouse moved in ruler-straight lines at a constant speed. People vary; scripts on a timer do not.',
 };
 
 /** What each open-end reason means. Keys match the backend's TEXT_REASONS. */

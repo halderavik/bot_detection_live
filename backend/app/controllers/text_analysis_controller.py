@@ -25,7 +25,7 @@ logger = setup_logger(__name__)
 router = APIRouter(prefix="/text-analysis", tags=["text-analysis"])
 
 # Question types whose answers are not free text.
-CLOSED_QUESTION_TYPES = {"grid", "matrix", "single", "single_choice", "multi", "multiple_choice", "multi_choice", "rating", "scale", "choice"}
+from app.utils.question_types import CLOSED_QUESTION_TYPES  # noqa: E402
 
 # Pydantic models for API requests and responses
 

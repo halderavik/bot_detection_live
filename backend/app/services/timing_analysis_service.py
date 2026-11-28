@@ -267,14 +267,10 @@ class TimingAnalysisService:
                 }
                 
                 analysis_results.append(analysis_result)
-                
-                # Store in database
-                await self.store_timing_analysis(
-                    session_id,
-                    question_id,
-                    analysis_result,
-                    db
-                )
+
+            # One delete, one insert batch and one commit for the whole session: the final
+            # check runs while the respondent waits, and each round trip to the database adds up.
+            await self.store_session_timing(session, analysis_results, db)
             
             return {
                 "session_id": session_id,
@@ -293,6 +289,37 @@ class TimingAnalysisService:
             logger.error(f"Error analyzing timing for session {session_id}: {e}")
             raise
     
+    async def store_session_timing(self, session: Session, analysis_results: List[Dict[str, Any]], db: AsyncSession) -> None:
+        """Replace a session's timing rows: one per question (the last answer's result, as before)."""
+        latest: Dict[str, Dict[str, Any]] = {}
+        for result in analysis_results:
+            latest[result["question_id"]] = result
+        try:
+            await db.execute(delete(TimingAnalysis).where(TimingAnalysis.session_id == session.id))
+            now = datetime.utcnow()
+            db.add_all([
+                TimingAnalysis(
+                    session_id=session.id,
+                    question_id=question_id,
+                    survey_id=session.survey_id,
+                    platform_id=session.platform_id,
+                    respondent_id=session.respondent_id,
+                    question_time_ms=result["question_time_ms"],
+                    is_speeder=result.get("is_speeder", False),
+                    is_flatliner=result.get("is_flatliner", False),
+                    threshold_used=result.get("threshold_used"),
+                    anomaly_score=result.get("anomaly_score"),
+                    anomaly_type=result.get("anomaly_type"),
+                    analyzed_at=now,
+                )
+                for question_id, result in latest.items()
+            ])
+            await db.commit()
+        except Exception as e:
+            logger.error(f"Error storing timing analysis: {e}")
+            await db.rollback()
+            raise
+
     async def store_timing_analysis(
         self,
         session_id: str,

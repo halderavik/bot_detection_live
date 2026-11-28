@@ -236,3 +236,13 @@ class TestGridAnalysisService:
         mock_db.commit.assert_called_once()
         # Verify add was called (for GridResponse)
         assert mock_db.add.called
+
+
+def test_straight_lining_is_every_row_the_same_with_three_or_more_rows():
+    from app.services.grid_analysis_service import GridAnalysisService
+
+    check = GridAnalysisService().detect_straight_lining
+    rows = lambda *values: [{"response_value": v} for v in values]  # noqa: E731
+    assert check(rows("3", "3", "3"))["is_straight_lined"]
+    assert not check(rows("3", "3", "4", "3", "3", "3"))["is_straight_lined"]  # 5 of 6 is not all rows
+    assert not check(rows("2", "2"))["is_straight_lined"]  # too few rows to say
