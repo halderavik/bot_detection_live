@@ -94,7 +94,7 @@
 ## Discovered During Work
 
 ### Bot/fraud detection pressure test and review fixes (2026-11-27)
-Deployed: everything up to and including the grid-page fix (commit `7dd5d5a`, Cloud Run revision `bot-backend-00076-9q8`). Not deployed yet: the review fixes (in the working tree, not committed).
+All deployed. Live revision `bot-backend-00079-lpm` (commit `8f89c0f`); rollback target `bot-backend-00078-2hw`. Deploys on 2026-11-27: `00074-zcv` (`517bd3e`), `00075-9md` (`f19c2ee`), `00076-9q8` (`7dd5d5a`), `00077-ggz` (`64bb2b8`, review fixes and dashboard), `00078-2hw` (`8931fba`, indexes and pool), `00079-lpm` (`8f89c0f`, mouse step rule and Settings texts).
 
 Pressure tests (files in `test_results/respondent_pressure_2026-11-27`, simulator `simulate.py`):
 - [x] **Respondent pressure test on production**: 52 simulated respondents of 17 types (people on desktop, phone and keyboard, low-quality text, pasters, straight-liners, near straight-liners, speeders, bots of each signal type, a device farm, dropouts), 1,470 requests, no 429s or HTTP errors. First run: 45/52 as expected; 14 of 150 open ends were skipped or only partly checked by the AI; final check median 4.8 s. After the fixes (`after_fixes/`): 52/52 as expected, 150/150 open ends checked, final check median 1.7 s (p95 2.4 s)
@@ -107,7 +107,7 @@ Deployed (commits `f19c2ee`, `7dd5d5a`):
 - [x] **`robotic_timing` signal** (reason code 7): printable-key gaps varying by under 3 ms in at least 3 separate stretches of 8+ keys (holding Backspace never triggers it), or at least 3 ruler-straight runs of equal mouse steps covering 40%+ of 30+ mouse points
 - [x] **Grid page counting**: the tracker's copy of a page submit carrying grid answers (`qos-grid:...`) is no longer counted as a second page (affects `no_input` and the untyped-answers count)
 
-Review fixes (not deployed yet):
+Review fixes (deployed in `64bb2b8`, revision `bot-backend-00077-ggz`):
 - [x] **Merge choice**: when LQ_ columns are added, a uuid with several sessions uses the checked session first, then the latest (was the oldest, often abandoned); Live Quality `totals.respondents` counts people, `totals.sessions` counts sessions, each row has `other_sessions`
 - [x] **`timeline_mismatch` signal** (reason code 8): browser-reported page times of 60+ s that exceed the server-observed time (session creation to last event) by more than max(30 s, 25%)
 - [x] **Rules-following final check and data variables**: `is_bot` and `behavioral_details.is_bot` follow the survey's bot threshold and enabled bot signals (same verdict as Live Quality); `engine_is_bot` keeps the verdict under `DETECTION_THRESHOLD`; only behaviour decides `is_bot`; `composite_is_bot` keeps the combined-score verdict; a behavioural bot gets risk level at least HIGH. `survey_variables` use only enabled bot signals as reason codes, `datacenter_ip` only when `flag_datacenter` is on, and the low-quality open-end reason only for text reasons the rules count
@@ -122,16 +122,21 @@ Review fixes (not deployed yet):
 - [x] **Signed-upload protection**: a successful Upload to Decipher of a signed tracked file marks the survey as requiring signed sessions at once (before: only when its first signed respondent arrived)
 - [x] **Tests**: shared `backend/tests/conftest.py` switches the timeline check off unless a test is marked `timeline` and turns the connection pool off; 349 backend tests pass
 
-- [x] **Final check under heavy load** (production run with 60 respondents active at once: final check median 1.9 s but 95th percentile 7.9 s, over the tracker's 3 s wait; database CPU 9% -> 74%, server CPU idle). Causes: no index on the columns every final check filters by (behavior_data, survey_responses, survey_questions, detection_results by session; sessions by IP), so each check scanned whole tables; and a new database connection for every request (NullPool). Fixes: `app/db_indexes.py` creates the missing indexes at startup (CONCURRENTLY, logs created/existing); a connection pool per server (`DB_POOL_SIZE` 4, `DB_MAX_OVERFLOW` 4); an open-end answer hands its connection back while OpenAI is asked. Not deployed yet
+- [x] **Final check under heavy load** (production run with 60 respondents active at once: final check median 1.9 s but 95th percentile 7.9 s, over the tracker's 3 s wait; database CPU 9% -> 74%, server CPU idle). Causes: no index on the columns every final check filters by (behavior_data, survey_responses, survey_questions, detection_results by session; sessions by IP), so each check scanned whole tables; and a new database connection for every request (NullPool). Fixes: `app/db_indexes.py` creates the missing indexes at startup (CONCURRENTLY, logs created/existing); a connection pool per server (`DB_POOL_SIZE` 4, `DB_MAX_OVERFLOW` 4); an open-end answer hands its connection back while OpenAI is asked. Deployed in `8931fba` (revision `bot-backend-00078-2hw`): the startup log confirmed production had none of the 7 indexes; with 60 respondents active at once the final check fell to median 0.38 s, 95th percentile 1.2 s (`after_indexes/`)
 
-- [x] **Check against real data** (930 sessions re-scored from Botv13 and SURVEY_2025): the new behaviour score flagged nobody new; the machine-timing mouse rule wrongly flagged 5 mouse-only sessions from the older tracker (8 ms sampling, 2-5 px steps), fixed by judging only steps of 10 px or more (0 flagged after). Scores in the 0.5-0.7 band went from 2 to 54, mostly short old-tracker fragments that trip the events-per-second timing rule; none reach 0.7
+- [x] **Check against real data** (930 sessions re-scored from Botv13 and SURVEY_2025): the new behaviour score flagged nobody new; the machine-timing mouse rule wrongly flagged 5 mouse-only sessions from the older tracker (8 ms sampling, 2-5 px steps), fixed by judging only steps of 10 px or more (0 flagged after; deployed in `8f89c0f`, revision `bot-backend-00079-lpm`). Scores in the 0.5-0.7 band went from 2 to 54, mostly short old-tracker fragments that trip the events-per-second timing rule; none reach 0.7
 - [x] **Dashboard walkthrough** (production, all pages): no console errors; rules editor lists all seven signals. Corrected the Settings text for the OpenAI key (answers are stored as not checked without it) and for the signing secret (set it once: changing it refuses live signed surveys' respondents)
 
 Open items:
 - [x] Deploy the review fixes (commit `64bb2b8`, revision `bot-backend-00077-ggz`; production run 54/54)
 - [ ] Set `TRACKING_TOKEN_SECRET` on production (tracking there is unsigned today)
 - [ ] Add an IP-to-country lookup so the location check can count again
-- [ ] Validate the new behaviour score (noisy-OR) on real survey data
+- [x] Validate the new behaviour score (noisy-OR) on real survey data (930 sessions: none newly flagged)
+- [ ] One complete run through a real tracked Decipher survey (person and bot), checking Decipher's own data export and the LQ_ merge
+- [ ] Remove the test surveys (`PRESSURE_*`, `ProdAiTest`, `ProdManualTest`, `HONEYPOT_TEST` and older `QOS-*` checks) from production before others test
+- [x] Push the code to GitHub
+- [ ] Login for the dashboard and results API before clients use it (today anyone with a survey id can read its results)
+- [ ] Make `deploy-backend.ps1` keep the service's environment variables (it replaces them)
 
 ### Live Quality, Decipher XML tracking, real Settings, dashboard redesign and deployment (2026-11-26)
 Commits `cfc4499` and `6244608` on `main`. Deployed 2026-11-26.

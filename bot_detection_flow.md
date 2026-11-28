@@ -19,9 +19,9 @@
 - **Fraud Detection Hierarchical Endpoints**: All levels implemented ✅ **COMPLETED**
 - **Grid/Matrix Analysis**: Straight-lining, pattern detection, variance, satisficing ✅ **DEPLOYED**
 - **Per-Question Timing Analysis**: Speeder/flatliner detection, anomaly scoring ✅ **DEPLOYED**
-- **Configurable Bot Threshold**: `DETECTION_THRESHOLD` (Settings page, 0.3–0.99, default 0.7) decides the stored verdict and `composite_is_bot` **DEPLOYED**; the final check's `is_bot` follows the survey's quality rules (in the code, not yet deployed)
-- **Decisive Bot Signals**: seven signals (automation, scripted_input, no_input, honeypot, untyped_answers, robotic_timing, timeline_mismatch) lift the behaviour score; the score before the lift is kept as `base_score` and the signals as `decisive_codes` (timeline_mismatch is in the code, not yet deployed)
-- **Behaviour Score**: noisy-OR of the four checks (in the code, not yet deployed; production still uses the weighted average)
+- **Configurable Bot Threshold**: `DETECTION_THRESHOLD` (Settings page, 0.3–0.99, default 0.7) decides the stored verdict and `composite_is_bot`; the final check's `is_bot` follows the survey's quality rules **DEPLOYED**
+- **Decisive Bot Signals**: seven signals (automation, scripted_input, no_input, honeypot, untyped_answers, robotic_timing, timeline_mismatch) lift the behaviour score; the score before the lift is kept as `base_score` and the signals as `decisive_codes` **DEPLOYED**
+- **Behaviour Score**: noisy-OR of the four checks **DEPLOYED** (2026-11-27; checked against 930 real sessions: none newly flagged)
 - **Signed Tracking**: HMAC token of the survey id when `TRACKING_TOKEN_SECRET` is set; production has no secret, so tracking there is unsigned
 - **Decipher XML Tracking**: Add tracking page adds the tracker, the hidden `QOS_` results page, an optional privacy notice and an optional early end on a clear bot signal **DEPLOYED**
 - **Live Quality**: per-survey quality rules that re-judge results on every read without changing stored results; `LQ_` variables added to uploaded data files **DEPLOYED**
@@ -61,7 +61,7 @@
 - **Production Testing**: Automated test suite with 100% passing rate ✅ **DEPLOYED**
 
 ### Not Yet Deployed
-- **In the code, not yet in production (November 2026)**: rules-following final check, `timeline_mismatch` signal, noisy-OR behaviour score, fraud reweighting (location left out), data-file merge fix, signed-upload protection
+- **IP-to-country lookup**: the location check stays out of the fraud score until one exists ⏳ **PLANNED**
 - **Authentication & Authorization**: JWT tokens, API keys, role-based access control ⏳ **PLANNED**
 - **Quota Management**: per-IP rate limits per server instance are in place (new sessions 30/min, other writes 600/min, Fix with AI 20/hour); quotas are ⏳ **PLANNED**
 - **WebSocket Support**: Real-time bidirectional communication ⏳ **PLANNED**

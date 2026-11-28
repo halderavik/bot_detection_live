@@ -1,0 +1,154 @@
+{
+ "survey_id": "PRESSURE_RESP_20261127_2132",
+ "base": "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1",
+ "respondents": 52,
+ "passed": 52,
+ "failed": [],
+ "by_type": {
+  "human_desktop": "12/12",
+  "human_mobile": "4/4",
+  "human_keyboard": "1/1",
+  "low_quality_text": "4/4",
+  "paster": "3/3",
+  "straight_liner": "3/3",
+  "speeder": "3/3",
+  "near_straight": "2/2",
+  "bot_webdriver": "2/2",
+  "bot_headless": "2/2",
+  "bot_honeypot": "2/2",
+  "bot_scripted": "2/2",
+  "bot_no_input": "2/2",
+  "bot_untyped": "2/2",
+  "bot_rhythm": "1/1",
+  "device_farm": "5/5",
+  "dropout": "2/2"
+ },
+ "requests": 1470,
+ "rate_limited_429": 0,
+ "http_errors": [],
+ "play_seconds": 201.9,
+ "results_seconds": 0.85,
+ "export_seconds": 0.1,
+ "latency_p50_p95": {
+  "sessions": [
+   0.387,
+   0.603,
+   52
+  ],
+  "events": [
+   0.381,
+   0.609,
+   354
+  ],
+  "questions": [
+   0.36,
+   0.528,
+   252
+  ],
+  "responses": [
+   0.392,
+   3.663,
+   762
+  ],
+  "composite-analyze": [
+   1.679,
+   2.396,
+   50
+  ]
+ },
+ "totals": {
+  "sessions": 52,
+  "in_progress": 2,
+  "checked": 50,
+  "dropped": 0,
+  "bots": 13,
+  "flagged": 29,
+  "duplicates": 3,
+  "speeders": 3,
+  "straight_liners": 3,
+  "low_quality_text": 10
+ },
+ "flag_counts": [
+  {
+   "flag": "Bot-like behaviour",
+   "count": 13
+  },
+  {
+   "flag": "Low-quality open ends",
+   "count": 10
+  },
+  {
+   "flag": "Pasted answers",
+   "count": 7
+  },
+  {
+   "flag": "Straight-lining",
+   "count": 3
+  },
+  {
+   "flag": "Speeder",
+   "count": 3
+  },
+  {
+   "flag": "Flatliner",
+   "count": 0
+  },
+  {
+   "flag": "Duplicate",
+   "count": 3
+  },
+  {
+   "flag": "High fraud risk",
+   "count": 3
+  },
+  {
+   "flag": "Data-centre IP",
+   "count": 0
+  }
+ ],
+ "text": {
+  "responses": 150,
+  "avg_quality": 73.16666666666667,
+  "flagged": 42,
+  "flagged_pct": 28.000000000000004,
+  "unchecked": 0
+ },
+ "csv_rows": 52,
+ "csv_columns": [
+  "respondent_id",
+  "session_id",
+  "started",
+  "status",
+  "verdict",
+  "risk",
+  "confidence",
+  "seconds",
+  "pages",
+  "text_responses",
+  "text_quality",
+  "text_flagged",
+  "text_unchecked",
+  "fraud_score",
+  "fraud_risk",
+  "duplicate",
+  "straight_lining",
+  "speeder",
+  "flags",
+  "flagged_answers"
+ ],
+ "open_ends": {
+  "ai_checked": {
+   "short": 1,
+   "yes": 149
+  },
+  "sent": 150,
+  "scored": 150,
+  "flagged": 42
+ },
+ "burst": {
+  "sent": 35,
+  "ok": 26,
+  "limited_429": 9,
+  "other": []
+ }
+}

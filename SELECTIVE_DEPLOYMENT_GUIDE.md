@@ -442,9 +442,9 @@ gcloud storage objects update "gs://bot-detection-frontend-20251208/assets/**" -
 
 ### Rollback
 
-The live revision is `bot-backend-00069-28j` (image tag `cfc4499`). The rollback target is `bot-backend-00068-2rf`:
+The live revision is `bot-backend-00079-lpm` (image tag `8f89c0f`). The rollback target is `bot-backend-00078-2hw`:
 ```powershell
-gcloud run services update-traffic bot-backend --to-revisions bot-backend-00068-2rf=100 --region northamerica-northeast2 --project survey-bot-detection
+gcloud run services update-traffic bot-backend --to-revisions bot-backend-00078-2hw=100 --region northamerica-northeast2 --project survey-bot-detection
 ```
 See `rollback-procedures.md` for the full steps.
 

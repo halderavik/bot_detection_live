@@ -7,9 +7,9 @@ This folder is self-contained: it has no dependency on Quant OS (Quant_Sys). It 
 **Production**
 - Dashboard: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html (pages use addresses like `index.html#/quality`)
 - Backend API: https://bot-backend-119522247395.northamerica-northeast2.run.app (docs at `/docs`, health at `/health`)
-- Deployed 2026-11-26 from commits `cfc4499` (backend image) and `6244608` (dashboard); see [Deployment](#-deployment).
-- Not yet deployed: the latest changes (final check following each survey's rules, `timeline_mismatch`, the combined behaviour score, fraud reweighting, the data-file merge fix, protection on signed upload) are in the code but not in production.
-- Pressure test (production, 52 simulated respondents, 2026-11-27): 52/52 got the expected result and 150/150 open ends were checked. Files: `test_results/respondent_pressure_2026-11-27`.
+- Live backend: revision `bot-backend-00079-lpm` (commit `8f89c0f`, 2026-11-27); dashboard from commit `64bb2b8`. Everything described here is deployed; see [Deployment](#-deployment).
+- Production tests (2026-11-27, files in `test_results/respondent_pressure_2026-11-27`): 54 simulated respondents with up to 60 active at once, in real time: 54/54 got the expected result, every open end was checked, final check median 0.38 s and 95th percentile 1.2 s (the tracker waits up to 3 s). 930 real sessions from Botv13 and SURVEY_2025 re-scored with the current rules: none newly flagged.
+- Signing is off in production until `TRACKING_TOKEN_SECRET` is set on the Settings page (set it once; see Security).
 
 ## 🚀 Features
 
@@ -589,11 +589,23 @@ Don't delete unmatched files in the bucket: `tracking-client.js` there may be us
 
 **After a fresh deploy**: read the admin token with `gcloud secrets versions access latest --secret ADMIN_TOKEN --project survey-bot-detection`, open the deployed Settings page (`index.html#/settings`), unlock, and enter the Decipher API key to turn on Upload to Decipher.
 
-**Rollback**: the previous backend revision is `bot-backend-00068-2rf`:
+**Rollback**: the live revision is `bot-backend-00079-lpm`; the previous one is `bot-backend-00078-2hw`:
 
 ```bash
-gcloud run services update-traffic bot-backend --to-revisions bot-backend-00068-2rf=100 --region northamerica-northeast2 --project survey-bot-detection
+gcloud run services update-traffic bot-backend --to-revisions bot-backend-00078-2hw=100 --region northamerica-northeast2 --project survey-bot-detection
 ```
+
+Deploy history:
+
+| Date | Revision | Commit | What |
+|---|---|---|---|
+| 2026-11-27 | `bot-backend-00079-lpm` | `8f89c0f` | Machine-timing mouse rule judges only 10 px+ steps (real-data check); Settings texts for the OpenAI key and signing secret |
+| 2026-11-27 | `bot-backend-00078-2hw` | `8931fba` | Missing database indexes built at startup; connection pool; connection freed during OpenAI calls |
+| 2026-11-27 | `bot-backend-00077-ggz` | `64bb2b8` | Detection review fixes (rules-following final check, `timeline_mismatch`, noisy-OR score, fraud reweighting, merge choice, signed-upload protection); dashboard updated |
+| 2026-11-27 | `bot-backend-00076-9q8` | `7dd5d5a` | A grid page counts once in the bot checks |
+| 2026-11-27 | `bot-backend-00075-9md` | `f19c2ee` | One AI call per open end, faster final check, straight-lining on every row, `robotic_timing`; dashboard updated |
+| 2026-11-27 | `bot-backend-00074-zcv` | `517bd3e` | Empty Python blocks filled before Decipher upload |
+| 2026-11-26 | `bot-backend-00069-28j` | `cfc4499` | Live Quality, Decipher XML tracking, Settings, dashboard redesign |
 
 More in [SELECTIVE_DEPLOYMENT_GUIDE.md](SELECTIVE_DEPLOYMENT_GUIDE.md) and [rollback-procedures.md](rollback-procedures.md).
 

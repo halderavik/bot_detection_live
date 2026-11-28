@@ -3,18 +3,25 @@
 ## Backend Rollback (Cloud Run)
 
 ### Current State
-- **Active Revision**: `bot-backend-00069-28j` (100% traffic, image tag `cfc4499`)
-- **Previous Revision**: `bot-backend-00068-2rf` (rollback target)
+- **Active Revision**: `bot-backend-00079-lpm` (100% traffic, image tag `8f89c0f`)
+- **Previous Revision**: `bot-backend-00078-2hw` (rollback target, image tag `8931fba`)
 - **Service**: `bot-backend`
 - **Region**: `northamerica-northeast2`
 - **Project**: `survey-bot-detection`
 - **Resources**: 1 CPU, 1 GiB memory, min 1 / max 10 instances
 - **Cloud SQL**: `bot-db` and `bot-db-v2`; VPC connector `serverless-connector`
 
-Switching traffic back to an older revision does not change the database. The
-tables added in this release (`tracked_surveys`, `survey_quality_rules`,
-`app_settings`) stay in place and the older revision ignores them. Existing
-tables were not changed, so no database rollback is needed.
+Switching traffic back to an older revision does not change the database. Tables
+added by later releases (`tracked_surveys`, `survey_quality_rules`, `app_settings`,
+`protected_surveys`) and the indexes built at startup (`app/db_indexes.py`) stay in
+place; older revisions ignore them and the indexes only speed queries up, so no
+database rollback is needed. Rolling back to before `bot-backend-00078-2hw` brings
+back a new database connection per request (slower under bursts).
+
+Revisions deployed on 2026-11-27, newest first: `bot-backend-00079-lpm` (`8f89c0f`),
+`bot-backend-00078-2hw` (`8931fba`), `bot-backend-00077-ggz` (`64bb2b8`),
+`bot-backend-00076-9q8` (`7dd5d5a`), `bot-backend-00075-9md` (`f19c2ee`),
+`bot-backend-00074-zcv` (`517bd3e`).
 
 ### Rollback Commands
 
@@ -22,7 +29,7 @@ tables were not changed, so no database rollback is needed.
 ```bash
 # Switch 100% traffic to previous revision
 gcloud run services update-traffic bot-backend \
-  --to-revisions=bot-backend-00068-2rf=100 \
+  --to-revisions=bot-backend-00078-2hw=100 \
   --region=northamerica-northeast2 \
   --project=survey-bot-detection
 ```
@@ -31,7 +38,7 @@ gcloud run services update-traffic bot-backend \
 ```bash
 # Split traffic 50/50 between current and previous
 gcloud run services update-traffic bot-backend \
-  --to-revisions=bot-backend-00069-28j=50,bot-backend-00068-2rf=50 \
+  --to-revisions=bot-backend-00079-lpm=50,bot-backend-00078-2hw=50 \
   --region=northamerica-northeast2 \
   --project=survey-bot-detection
 ```
@@ -163,7 +170,7 @@ curl https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 
 ### Backend Rollback (1 command)
 ```bash
-gcloud run services update-traffic bot-backend --to-revisions bot-backend-00068-2rf=100 --region northamerica-northeast2 --project survey-bot-detection
+gcloud run services update-traffic bot-backend --to-revisions bot-backend-00078-2hw=100 --region northamerica-northeast2 --project survey-bot-detection
 ```
 
 ### Frontend Rollback
@@ -180,5 +187,5 @@ gcloud storage objects update "gs://bot-detection-frontend-20251208/assets/**" -
 - **Frontend**: https://storage.googleapis.com/bot-detection-frontend-20251208/index.html
 
 ---
-**Last Updated**: 2026-11-26
-**Current Deployment**: Revision `bot-backend-00069-28j` (image tag `cfc4499`)
+**Last Updated**: 2026-11-27
+**Current Deployment**: Revision `bot-backend-00079-lpm` (image tag `8f89c0f`)

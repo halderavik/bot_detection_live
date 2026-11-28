@@ -1,0 +1,156 @@
+{
+ "survey_id": "PRESSURE_RESP_20261127_2238",
+ "base": "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1",
+ "respondents": 54,
+ "passed": 54,
+ "failed": [],
+ "by_type": {
+  "human_desktop": "12/12",
+  "human_mobile": "4/4",
+  "human_keyboard": "1/1",
+  "low_quality_text": "4/4",
+  "paster": "3/3",
+  "straight_liner": "3/3",
+  "speeder": "3/3",
+  "near_straight": "2/2",
+  "bot_webdriver": "2/2",
+  "bot_headless": "2/2",
+  "bot_honeypot": "2/2",
+  "bot_scripted": "2/2",
+  "bot_no_input": "2/2",
+  "bot_untyped": "2/2",
+  "bot_rhythm": "1/1",
+  "device_farm": "5/5",
+  "dropout": "2/2",
+  "bot_faketime": "2/2"
+ },
+ "requests": 1553,
+ "rate_limited_429": 25,
+ "http_errors": [],
+ "play_seconds": 219.7,
+ "results_seconds": 0.74,
+ "export_seconds": 0.09,
+ "latency_p50_p95": {
+  "sessions": [
+   0.304,
+   1.074,
+   65
+  ],
+  "events": [
+   0.49,
+   2.467,
+   374
+  ],
+  "questions": [
+   0.437,
+   2.234,
+   265
+  ],
+  "responses": [
+   0.656,
+   3.743,
+   796
+  ],
+  "composite-analyze": [
+   1.876,
+   7.949,
+   53
+  ]
+ },
+ "totals": {
+  "sessions": 54,
+  "respondents": 54,
+  "in_progress": 2,
+  "checked": 52,
+  "dropped": 0,
+  "bots": 15,
+  "flagged": 32,
+  "duplicates": 4,
+  "speeders": 3,
+  "straight_liners": 3,
+  "low_quality_text": 10
+ },
+ "flag_counts": [
+  {
+   "flag": "Bot-like behaviour",
+   "count": 15
+  },
+  {
+   "flag": "Low-quality open ends",
+   "count": 10
+  },
+  {
+   "flag": "Pasted answers",
+   "count": 7
+  },
+  {
+   "flag": "Straight-lining",
+   "count": 3
+  },
+  {
+   "flag": "Speeder",
+   "count": 3
+  },
+  {
+   "flag": "Flatliner",
+   "count": 0
+  },
+  {
+   "flag": "Duplicate",
+   "count": 4
+  },
+  {
+   "flag": "High fraud risk",
+   "count": 4
+  },
+  {
+   "flag": "Data-centre IP",
+   "count": 0
+  }
+ ],
+ "text": {
+  "responses": 156,
+  "avg_quality": 73.9423076923077,
+  "flagged": 42,
+  "flagged_pct": 26.923076923076923,
+  "unchecked": 0
+ },
+ "csv_rows": 54,
+ "csv_columns": [
+  "respondent_id",
+  "session_id",
+  "started",
+  "status",
+  "verdict",
+  "risk",
+  "confidence",
+  "seconds",
+  "pages",
+  "text_responses",
+  "text_quality",
+  "text_flagged",
+  "text_unchecked",
+  "fraud_score",
+  "fraud_risk",
+  "duplicate",
+  "straight_lining",
+  "speeder",
+  "flags",
+  "flagged_answers"
+ ],
+ "open_ends": {
+  "ai_checked": {
+   "short": 1,
+   "yes": 155
+  },
+  "sent": 156,
+  "scored": 156,
+  "flagged": 42
+ },
+ "burst": {
+  "sent": 35,
+  "ok": 30,
+  "limited_429": 5,
+  "other": []
+ }
+}

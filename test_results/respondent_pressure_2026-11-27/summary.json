@@ -1,0 +1,162 @@
+{
+ "survey_id": "PRESSURE_RESP_20261127_1755",
+ "base": "https://bot-backend-119522247395.northamerica-northeast2.run.app/api/v1",
+ "respondents": 52,
+ "passed": 45,
+ "failed": [
+  "human_desktop 30c5021e-0f2a-4d8a-9fa8-cdee0f2bf78f: missing [] extra [Low-quality open ends] verdict human/human",
+  "human_mobile 542e109e-9342-47e9-a05f-134b160b3d33: missing [] extra [Low-quality open ends] verdict human/human",
+  "near_straight 60b01350-0b1c-4f95-8b02-4a7aae7a85bb: missing [] extra [Straight-lining] verdict human/human",
+  "near_straight 596bbac6-7be4-4b64-84e1-9516b18ef5df: missing [] extra [Straight-lining] verdict human/human",
+  "bot_webdriver aeeca63b-6161-42ef-8991-c03e0556fa5e: missing [] extra [Straight-lining] verdict bot/bot",
+  "bot_headless 739d7ff1-2910-40a1-b431-39b29bd2c91d: missing [] extra [Low-quality open ends] verdict bot/bot",
+  "bot_rhythm e6614c8d-7230-40bb-baab-ad27900a1194: missing [Bot-like behaviour] extra [] verdict human/bot"
+ ],
+ "by_type": {
+  "human_desktop": "11/12",
+  "human_mobile": "3/4",
+  "human_keyboard": "1/1",
+  "low_quality_text": "4/4",
+  "paster": "3/3",
+  "straight_liner": "3/3",
+  "speeder": "3/3",
+  "near_straight": "0/2",
+  "bot_webdriver": "1/2",
+  "bot_headless": "1/2",
+  "bot_honeypot": "2/2",
+  "bot_scripted": "2/2",
+  "bot_no_input": "2/2",
+  "bot_untyped": "2/2",
+  "bot_rhythm": "0/1",
+  "device_farm": "5/5",
+  "dropout": "2/2"
+ },
+ "requests": 1470,
+ "rate_limited_429": 0,
+ "http_errors": [],
+ "play_seconds": 224.9,
+ "results_seconds": 0.82,
+ "export_seconds": 0.1,
+ "latency_p50_p95": {
+  "sessions": [
+   0.469,
+   0.705,
+   52
+  ],
+  "events": [
+   0.453,
+   0.73,
+   354
+  ],
+  "questions": [
+   0.388,
+   0.634,
+   252
+  ],
+  "responses": [
+   0.471,
+   2.27,
+   762
+  ],
+  "composite-analyze": [
+   4.813,
+   7.644,
+   50
+  ]
+ },
+ "totals": {
+  "sessions": 52,
+  "in_progress": 2,
+  "checked": 50,
+  "dropped": 0,
+  "bots": 12,
+  "flagged": 32,
+  "duplicates": 3,
+  "speeders": 3,
+  "straight_liners": 6,
+  "low_quality_text": 13
+ },
+ "flag_counts": [
+  {
+   "flag": "Bot-like behaviour",
+   "count": 12
+  },
+  {
+   "flag": "Low-quality open ends",
+   "count": 13
+  },
+  {
+   "flag": "Pasted answers",
+   "count": 7
+  },
+  {
+   "flag": "Straight-lining",
+   "count": 6
+  },
+  {
+   "flag": "Speeder",
+   "count": 3
+  },
+  {
+   "flag": "Flatliner",
+   "count": 0
+  },
+  {
+   "flag": "Duplicate",
+   "count": 3
+  },
+  {
+   "flag": "High fraud risk",
+   "count": 3
+  },
+  {
+   "flag": "Data-centre IP",
+   "count": 0
+  }
+ ],
+ "text": {
+  "responses": 150,
+  "avg_quality": 53.5,
+  "flagged": 47,
+  "flagged_pct": 31.333333333333336
+ },
+ "csv_rows": 52,
+ "csv_columns": [
+  "respondent_id",
+  "session_id",
+  "started",
+  "status",
+  "verdict",
+  "risk",
+  "confidence",
+  "seconds",
+  "pages",
+  "text_responses",
+  "text_quality",
+  "text_flagged",
+  "fraud_score",
+  "fraud_risk",
+  "duplicate",
+  "straight_lining",
+  "speeder",
+  "flags",
+  "flagged_answers"
+ ],
+ "open_ends": {
+  "ai_checked": {
+   "partly (copy_paste,relevance,generic,quality skipped)": 2,
+   "short": 1,
+   "skipped": 12,
+   "yes": 135
+  },
+  "sent": 150,
+  "scored": 150,
+  "flagged": 47
+ },
+ "burst": {
+  "sent": 35,
+  "ok": 27,
+  "limited_429": 8,
+  "other": []
+ }
+}
