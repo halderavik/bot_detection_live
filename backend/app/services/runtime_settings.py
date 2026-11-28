@@ -75,7 +75,8 @@ SPECS: List[Spec] = [
     ),
     Spec(
         "OPENAI_API_KEY", "OpenAI API key", "Open-end scoring", "secret",
-        "Scores open-ended answers. Without it, a simpler built-in check is used.",
+        "Scores open-ended answers. Without it, open-ended answers are stored as not checked "
+        "(no quality score, never counted as acceptable).",
     ),
     Spec(
         "OPENAI_MODEL", "OpenAI model", "Open-end scoring", "text",
@@ -95,8 +96,10 @@ SPECS: List[Spec] = [
     ),
     Spec(
         "TRACKING_TOKEN_SECRET", "Tracking signing secret", "Survey tracking", "secret",
-        "Signs trackers so nobody can send fake sessions under a survey's name. "
-        "Changing it makes trackers already in surveys unsigned until they are tracked again.",
+        "Signs trackers so outsiders who have never seen a survey cannot send fake sessions under its name "
+        "(anyone who opens the survey page can read its token). Set it once: changing it later makes the "
+        "tokens in surveys already live invalid, and their respondents are refused until each survey is "
+        "tracked and uploaded again.",
     ),
     Spec(
         "DETECTION_THRESHOLD", "Bot threshold", "Detection", "number",

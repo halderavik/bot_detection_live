@@ -156,3 +156,17 @@ async def test_two_reasons_for_one_signal_lift_like_one():
     events = [_ev("page_load", 0, webdriver=True), _ev("mouse_move", 100, x=1, y=1)]
     one = await BotDetectionEngine().analyze_session(events, "Mozilla/5.0 HeadlessChrome/130.0")
     assert one.flagged_patterns["decisive_codes"] == ["automation"] and one.confidence_score == 0.85
+
+
+def test_finely_sampled_hand_movement_is_not_called_robotic():
+    """Older trackers sampled every ~8 ms: a smooth hand path in 3-4 px steps (seen in real surveys)."""
+    rnd, events, t = random.Random(3), [], 0
+    for stroke in range(4):
+        x, y = 900 + 30 * stroke, 360
+        for i in range(20):
+            t += 8
+            x += 1 if i % 3 else 2
+            y += 3 + (i % 2)
+            events.append(_ev("mouse_move", t, x=x, y=y))
+        t += 2000
+    assert _signals(events) is None

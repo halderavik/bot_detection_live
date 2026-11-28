@@ -489,7 +489,7 @@ Some patterns are things people do not produce. When one is found, it raises the
 
 **`robotic_timing`** fires on either of these:
 - **Typing**: at least 3 separate stretches of 8 or more printable keys, where the gaps between keys vary by under 3 ms (standard deviation), and every stretch of 8 or more keys looks like this. A stretch ends at a change of field or a pause of 2 seconds or more. Only printable keys count, so holding Backspace or an arrow key never triggers it.
-- **Mouse**: with 30 or more mouse points, at least 3 ruler-straight runs of equal steps (4 or more points each, steps and line within 1.5 px), covering at least 40% of the points.
+- **Mouse**: with 30 or more mouse points, at least 3 ruler-straight runs of equal steps (4 or more points each, steps of at least 10 px, steps and line within 1.5 px; shorter steps from trackers that sample every few milliseconds are not judged), covering at least 40% of the points.
 
 **`timeline_mismatch`**: the page times the browser reports (`qos-page:`) add up to 60 seconds or more and exceed the time the server observed by more than the larger of 30 seconds and 25% of the reported time. The server's time runs from session creation to the last event received. Page times are measured in the browser and could be made up; the server's own arrival times cannot.
 

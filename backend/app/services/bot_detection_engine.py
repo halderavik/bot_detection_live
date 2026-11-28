@@ -416,6 +416,9 @@ class BotDetectionEngine:
     ROBOTIC_MIN_MOVES = 30
     ROBOTIC_RUN = 4                # points in a ruler-straight run of equal steps
     ROBOTIC_RUN_SHARE = 0.4        # share of mouse points in such runs
+    # Shortest step judged. Trackers that sample every few milliseconds record 2-5 px
+    # steps, and any smooth hand movement looks straight and even at that size.
+    ROBOTIC_MIN_STEP_PX = 10
 
     # Page times are measured in the browser, so a script can report any it likes. The
     # server stamps each batch of events when it arrives; claimed page times that add up
@@ -490,7 +493,8 @@ class BotDetectionEngine:
             cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
             # Equal steps, and the next point no more than 1.5 px off the line (screen
             # coordinates are whole pixels, so a perfect line wobbles by up to a pixel).
-            straight = ab >= 3 and bc >= 3 and abs(ab - bc) <= 1.5 and abs(cross) / max(ab, bc) <= 1.5
+            straight = (ab >= self.ROBOTIC_MIN_STEP_PX and bc >= self.ROBOTIC_MIN_STEP_PX
+                        and abs(ab - bc) <= 1.5 and abs(cross) / max(ab, bc) <= 1.5)
             if straight:
                 run += 1
                 continue

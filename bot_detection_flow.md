@@ -459,7 +459,7 @@ graph TB
 - Fraud: the geolocation weight is left out (no IP-to-country lookup yet) and the other weights are renormalised over IP 0.25, device 0.25, duplicate answers 0.20 and velocity 0.15.
 - Grid and per-question timing results are reported next to the composite score (and in the `QOS_` variables), but they do not change the composite number.
 
-**robotic_timing** (reason code 7): printable-key typing whose gaps vary by under 3 ms in at least 3 separate stretches of 8 or more keys, with every such stretch like this (a stretch ends at a field change or a 2 s pause; holding Backspace never triggers it); or, with 30 or more mouse points, at least 3 ruler-straight runs of equal steps (4 or more points, within 1.5 px) covering at least 40% of the points.
+**robotic_timing** (reason code 7): printable-key typing whose gaps vary by under 3 ms in at least 3 separate stretches of 8 or more keys, with every such stretch like this (a stretch ends at a field change or a 2 s pause; holding Backspace never triggers it); or, with 30 or more mouse points, at least 3 ruler-straight runs of equal steps (4 or more points, steps of 10 px or more, within 1.5 px) covering at least 40% of the points.
 
 **timeline_mismatch** (reason code 8): the page times the browser reports add up to 60 seconds or more and exceed the time the server observed (from session creation to the last event received) by more than the larger of 30 seconds and 25%. Page times are measured in the browser and could be made up; the server's own arrival times cannot.
 

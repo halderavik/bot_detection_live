@@ -60,7 +60,7 @@ The values follow the survey's quality rules on Live Quality (the bot threshold,
 **Location check:** reason 15 needs an IP-to-country lookup the service doesn't have yet, so it is left out of the fraud score for now.
 
 ### Signed tracking
-If an admin has set up signing (`TRACKING_TOKEN_SECRET`), the Add tracking page says the file is signed, and the tracker carries a token for your survey. Once you upload a signed file with **Upload to Decipher** (or the first signed respondent arrives), the survey only accepts signed sessions, so fake sessions sent from outside are refused. Just downloading the file doesn't switch this on, because the live survey may still be running an older tracker. Anyone who opens the survey page can see the token, so it keeps out outsiders, not people taking the survey.
+If an admin has set up signing (`TRACKING_TOKEN_SECRET`), the Add tracking page says the file is signed, and the tracker carries a token for your survey. Once you upload a signed file with **Upload to Decipher** (or the first signed respondent arrives), the survey only accepts signed sessions, so fake sessions sent from outside are refused. Just downloading the file doesn't switch this on, because the live survey may still be running an older tracker. Anyone who opens the survey page can see the token, so it keeps out outsiders, not people taking the survey. **The secret should be set once:** if it's changed later, live signed surveys refuse all their respondents until they're tracked and uploaded again.
 
 ### If Decipher refuses the file
 The dashboard checks for the common problems first. You'll see a warning starting with "Decipher will refuse this file:", and Upload to Decipher stops with "nothing was sent to Decipher", so no empty survey is created.

@@ -905,7 +905,7 @@ GET /tracking/decipher/options
 }
 ```
 
-- `signed`: whether `TRACKING_TOKEN_SECRET` is set (in the environment or on the Settings page), so trackers carry a signed survey token (an HMAC of the survey id). Signing is optional. A survey that requires tokens refuses `POST /detection/sessions` without a valid one (403). A survey starts requiring them when its signed tracker is uploaded to Decipher with `POST /tracking/decipher/upload`, or, for files imported by hand, when its first signed respondent arrives. Making the tracked file alone does not, since the live survey may still run an older, unsigned tracker. The token keeps out anyone who has never seen the survey; it is visible to anyone who opens the survey page.
+- `signed`: whether `TRACKING_TOKEN_SECRET` is set (in the environment or on the Settings page), so trackers carry a signed survey token (an HMAC of the survey id). Signing is optional. A survey that requires tokens refuses `POST /detection/sessions` without a valid one (403). A survey starts requiring them when its signed tracker is uploaded to Decipher with `POST /tracking/decipher/upload`, or, for files imported by hand, when its first signed respondent arrives. Making the tracked file alone does not, since the live survey may still run an older, unsigned tracker. The token keeps out anyone who has never seen the survey; it is visible to anyone who opens the survey page. Changing `TRACKING_TOKEN_SECRET` later invalidates the tokens in live surveys: their sessions are refused (403) until each survey is tracked and uploaded again.
 - `decipher_upload`: whether a Decipher API key is configured, so `POST /tracking/decipher/upload` can be used.
 
 ### 2. Add Tracking to a Decipher Survey

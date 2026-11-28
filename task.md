@@ -124,6 +124,9 @@ Review fixes (not deployed yet):
 
 - [x] **Final check under heavy load** (production run with 60 respondents active at once: final check median 1.9 s but 95th percentile 7.9 s, over the tracker's 3 s wait; database CPU 9% -> 74%, server CPU idle). Causes: no index on the columns every final check filters by (behavior_data, survey_responses, survey_questions, detection_results by session; sessions by IP), so each check scanned whole tables; and a new database connection for every request (NullPool). Fixes: `app/db_indexes.py` creates the missing indexes at startup (CONCURRENTLY, logs created/existing); a connection pool per server (`DB_POOL_SIZE` 4, `DB_MAX_OVERFLOW` 4); an open-end answer hands its connection back while OpenAI is asked. Not deployed yet
 
+- [x] **Check against real data** (930 sessions re-scored from Botv13 and SURVEY_2025): the new behaviour score flagged nobody new; the machine-timing mouse rule wrongly flagged 5 mouse-only sessions from the older tracker (8 ms sampling, 2-5 px steps), fixed by judging only steps of 10 px or more (0 flagged after). Scores in the 0.5-0.7 band went from 2 to 54, mostly short old-tracker fragments that trip the events-per-second timing rule; none reach 0.7
+- [x] **Dashboard walkthrough** (production, all pages): no console errors; rules editor lists all seven signals. Corrected the Settings text for the OpenAI key (answers are stored as not checked without it) and for the signing secret (set it once: changing it refuses live signed surveys' respondents)
+
 Open items:
 - [x] Deploy the review fixes (commit `64bb2b8`, revision `bot-backend-00077-ggz`; production run 54/54)
 - [ ] Set `TRACKING_TOKEN_SECRET` on production (tracking there is unsigned today)
